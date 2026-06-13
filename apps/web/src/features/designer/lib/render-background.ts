@@ -1,4 +1,16 @@
-import type { BackgroundSettings } from "@/features/designer/model/types"
+import type {
+  BackgroundSettings,
+  CanvasSettings,
+} from "@/features/designer/model/types"
+import { getExportDimensions } from "@/features/designer/lib/dimensions"
+
+export function shouldShowBleedPreview(settings: CanvasSettings): boolean {
+  if (!settings.guides.showBleed) {
+    return false
+  }
+
+  return getExportDimensions(settings).bleedPx > 0
+}
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -121,4 +133,56 @@ export async function renderBackground(
 
 export function getBackgroundFallbackColor(background: BackgroundSettings) {
   return background.color
+}
+
+export async function renderPreviewCanvasBackground(
+  context: CanvasRenderingContext2D,
+  settings: CanvasSettings
+): Promise<void> {
+  const { exportWidthPx, exportHeightPx } = getExportDimensions(settings)
+
+  await renderBackground(
+    context,
+    exportWidthPx,
+    exportHeightPx,
+    settings.background
+  )
+}
+
+export async function renderTrimPreviewBackground(
+  context: CanvasRenderingContext2D,
+  settings: CanvasSettings
+): Promise<void> {
+  const { trimWidthPx, trimHeightPx } = getExportDimensions(settings)
+
+  await renderBackground(
+    context,
+    trimWidthPx,
+    trimHeightPx,
+    settings.background
+  )
+}
+
+export async function renderExportBackground(
+  context: CanvasRenderingContext2D,
+  settings: CanvasSettings
+): Promise<void> {
+  const { exportWidthPx, exportHeightPx } = getExportDimensions(settings)
+
+  await renderBackground(
+    context,
+    exportWidthPx,
+    exportHeightPx,
+    settings.background
+  )
+}
+
+function paintPreviewCanvasBackgroundFallback(
+  context: CanvasRenderingContext2D,
+  settings: CanvasSettings
+) {
+  const { exportWidthPx, exportHeightPx } = getExportDimensions(settings)
+
+  context.fillStyle = getBackgroundFallbackColor(settings.background)
+  context.fillRect(0, 0, exportWidthPx, exportHeightPx)
 }

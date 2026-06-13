@@ -175,6 +175,9 @@ export function designerReducer(
       return {
         ...settings,
         print: { ...settings.print, bleedEnabled: action.value },
+        guides: action.value
+          ? settings.guides
+          : { ...settings.guides, showBleed: false },
       }
     case "set-bleed":
       if (settings.unit === "px") {

@@ -26,7 +26,7 @@ export function GuidesSettingsSection({
             <LabeledIconToggle
               label="Bleed guide"
               icon={Scan}
-              checked={guides.showBleed && print.bleedEnabled}
+              checked={guides.showBleed}
               disabled={!print.bleedEnabled}
               onCheckedChange={(value) =>
                 dispatch({ type: "set-guide", key: "showBleed", value })

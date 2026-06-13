@@ -6,7 +6,9 @@ import { getExportDimensions } from "@/features/designer/lib/dimensions"
 import { getPreviewGuideGeometry } from "@/features/designer/lib/print-zones"
 import {
   getBackgroundFallbackColor,
-  renderBackground,
+  renderPreviewCanvasBackground,
+  renderTrimPreviewBackground,
+  shouldShowBleedPreview,
 } from "@/features/designer/lib/render-background"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -28,12 +30,18 @@ export function CanvasStage({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const exportDimensions = getExportDimensions(settings)
   const previewGeometry = getPreviewGuideGeometry(settings)
-  const { exportWidthPx, exportHeightPx } = exportDimensions
-  const exportDisplayWidth = exportWidthPx * displayScale
-  const exportDisplayHeight = exportHeightPx * displayScale
-  const bleedDisplay = previewGeometry.bleedPx * displayScale
-  const trimDisplayWidth = previewGeometry.trim.width * displayScale
-  const trimDisplayHeight = previewGeometry.trim.height * displayScale
+  const showBleedPreview = shouldShowBleedPreview(settings)
+  const { exportWidthPx, exportHeightPx, trimWidthPx, trimHeightPx } =
+    exportDimensions
+  const canvasWidthPx = showBleedPreview ? exportWidthPx : trimWidthPx
+  const canvasHeightPx = showBleedPreview ? exportHeightPx : trimHeightPx
+  const bleedDisplay = showBleedPreview
+    ? previewGeometry.bleedPx * displayScale
+    : 0
+  const trimDisplayWidth = trimWidthPx * displayScale
+  const trimDisplayHeight = trimHeightPx * displayScale
+  const canvasDisplayWidth = canvasWidthPx * displayScale
+  const canvasDisplayHeight = canvasHeightPx * displayScale
 
   const setCanvasRef = useCallback(
     (node: HTMLCanvasElement | null) => {
@@ -51,36 +59,52 @@ export function CanvasStage({
 
     let cancelled = false
 
-    canvas.width = exportWidthPx
-    canvas.height = exportHeightPx
+    canvas.width = canvasWidthPx
+    canvas.height = canvasHeightPx
 
     const context = canvas.getContext("2d")
     if (!context) {
       return
     }
 
-    void renderBackground(
-      context,
-      exportWidthPx,
-      exportHeightPx,
-      settings.background
-    ).catch(() => {
+    context.clearRect(0, 0, canvasWidthPx, canvasHeightPx)
+
+    const paintFallback = () => {
       if (!cancelled) {
         context.fillStyle = getBackgroundFallbackColor(settings.background)
-        context.fillRect(0, 0, exportWidthPx, exportHeightPx)
+        context.fillRect(0, 0, canvasWidthPx, canvasHeightPx)
       }
-    })
+    }
+
+    if (showBleedPreview) {
+      void renderPreviewCanvasBackground(context, settings).catch(paintFallback)
+    } else {
+      void renderTrimPreviewBackground(context, settings).catch(paintFallback)
+    }
 
     return () => {
       cancelled = true
     }
-  }, [exportHeightPx, exportWidthPx, settings.background])
+  }, [
+    canvasHeightPx,
+    canvasWidthPx,
+    settings.background,
+    settings.guides.showBleed,
+    settings.print.bleedEnabled,
+    settings.print.bleed,
+    showBleedPreview,
+    trimHeightPx,
+    trimWidthPx,
+  ])
 
   return (
     <div
       role="button"
       tabIndex={0}
-      className="group/frame-chrome cursor-inherit relative block shrink-0 overflow-visible outline-none"
+      className={cn(
+        "group/frame-chrome cursor-inherit relative block shrink-0 outline-none",
+        showBleedPreview ? "overflow-visible" : "overflow-hidden"
+      )}
       style={{ width: trimDisplayWidth, height: trimDisplayHeight }}
       onClick={onSelectPage}
       onKeyDown={(event) => {
@@ -93,13 +117,20 @@ export function CanvasStage({
     >
       <canvas
         ref={setCanvasRef}
-        className="absolute block bg-white"
-        style={{
-          left: -bleedDisplay,
-          top: -bleedDisplay,
-          width: exportDisplayWidth,
-          height: exportDisplayHeight,
-        }}
+        className={cn(
+          "absolute block bg-transparent",
+          !showBleedPreview && "inset-0 h-full w-full"
+        )}
+        style={
+          showBleedPreview
+            ? {
+                left: -bleedDisplay,
+                top: -bleedDisplay,
+                width: canvasDisplayWidth,
+                height: canvasDisplayHeight,
+              }
+            : undefined
+        }
       />
       <div
         aria-hidden

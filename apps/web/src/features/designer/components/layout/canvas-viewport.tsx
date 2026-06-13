@@ -5,6 +5,7 @@ import { FrameNameField } from "@/features/designer/components/layout/page-contr
 import { useStageFit } from "@/features/designer/hooks/use-stage-fit"
 import { useStagePan } from "@/features/designer/hooks/use-stage-pan"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
+import { shouldShowBleedPreview } from "@/features/designer/lib/render-background"
 import type { DesignerFrame } from "@/features/designer/model/frames"
 import {
   ZOOM_WHEEL_SENSITIVITY,
@@ -40,12 +41,17 @@ export function CanvasViewport({
   bottomChromeRef,
 }: CanvasViewportProps) {
   const displayScaleRef = useRef(displayScale)
-  const { exportWidthPx, exportHeightPx } = getExportDimensions(
-    activeFrame.settings
-  )
+  const exportDimensions = getExportDimensions(activeFrame.settings)
+  const showBleedPreview = shouldShowBleedPreview(activeFrame.settings)
+  const contentWidthPx = showBleedPreview
+    ? exportDimensions.exportWidthPx
+    : exportDimensions.trimWidthPx
+  const contentHeightPx = showBleedPreview
+    ? exportDimensions.exportHeightPx
+    : exportDimensions.trimHeightPx
   const { viewportRef, stageRef, safeAreaInset } = useStageFit({
-    contentWidthPx: exportWidthPx,
-    contentHeightPx: exportHeightPx,
+    contentWidthPx,
+    contentHeightPx,
     onFitScaleChange,
     toolbarChromeRef,
     bottomChromeRef,

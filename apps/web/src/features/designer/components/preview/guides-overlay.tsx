@@ -1,5 +1,6 @@
 import { isPrintDocument } from "@/features/designer/lib/document-intent"
 import { getPreviewGuideGeometry } from "@/features/designer/lib/print-zones"
+import { shouldShowBleedPreview } from "@/features/designer/lib/render-background"
 import type { CanvasSettings } from "@/features/designer/model/types"
 
 type GuidesOverlayProps = {
@@ -10,10 +11,11 @@ type GuidesOverlayProps = {
 export function GuidesOverlay({ settings, displayScale }: GuidesOverlayProps) {
   const { guides, print } = settings
   const showPrintGuides = isPrintDocument(settings)
+  const showBleedPreview = shouldShowBleedPreview(settings)
   const geometry = getPreviewGuideGeometry(settings)
   const { trim, safe, bleedPx } = geometry
 
-  const bleedDisplay = bleedPx * displayScale
+  const bleedDisplay = showBleedPreview ? bleedPx * displayScale : 0
   const trimDisplay = {
     x: trim.x * displayScale,
     y: trim.y * displayScale,
@@ -60,10 +62,7 @@ export function GuidesOverlay({ settings, displayScale }: GuidesOverlayProps) {
       viewBox={`0 0 ${overlayWidth} ${overlayHeight}`}
       aria-hidden
     >
-      {guides.showBleed &&
-      print.bleedEnabled &&
-      showPrintGuides &&
-      bleedPx > 0 ? (
+      {showBleedPreview ? (
         <rect
           x={0.5}
           y={0.5}
