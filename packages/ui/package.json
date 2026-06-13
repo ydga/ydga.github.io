@@ -69,6 +69,7 @@
     "./globals.css": "./src/styles/globals.css",
     "./lib/*": "./src/lib/*.ts",
     "./components/*": "./src/components/*.tsx",
+    "./components/settings/*": "./src/components/settings/*.tsx",
     "./hooks/*": "./src/hooks/*.ts"
   },
   "msw": {

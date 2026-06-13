@@ -3,7 +3,7 @@ import { initialize, mswLoader } from "msw-storybook-addon"
 import { ThemeProvider, useTheme } from "next-themes"
 import { useEffect } from "react"
 
-import { TooltipProvider } from "../src/components/tooltip"
+import { ProTooltipProvider } from "../src/components/tooltip"
 import "../src/styles/globals.css"
 import { mswHandlers } from "./msw-handlers"
 
@@ -45,11 +45,11 @@ const preview: Preview = {
     (Story, { globals }) => (
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
         <ThemeWrapper theme={globals.theme}>
-          <TooltipProvider>
+          <ProTooltipProvider>
             <div className="bg-background font-sans text-foreground">
               <Story />
             </div>
-          </TooltipProvider>
+          </ProTooltipProvider>
         </ThemeWrapper>
       </ThemeProvider>
     ),

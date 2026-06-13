@@ -1,12 +1,16 @@
+export type DocumentIntent = "screen" | "print"
+
 export type DimensionUnit = "px" | "cm"
 export type PixelScale = 1 | 2
 export type PrintDpi = 300 | 260 | 220 | 172
-export type BackgroundType = "color" | "image"
+export type BackgroundType = "color" | "gradient" | "image"
 export type BackgroundFit = "cover" | "contain" | "fit" | "tile"
 
 export type BackgroundSettings = {
   type: BackgroundType
   color: string
+  gradientEnd: string
+  gradientAngle: number
   imageSrc: string | null
   fit: BackgroundFit
 }
@@ -26,6 +30,21 @@ export type GuideSettings = {
   showThirds: boolean
 }
 
+export type ScreenExportFormat = "png" | "jpg"
+
+export type ExportBurnInSettings = {
+  trim: boolean
+  bleed: boolean
+  safe: boolean
+  center: boolean
+  thirds: boolean
+}
+
+export type ExportSettings = {
+  screenFormat: ScreenExportFormat
+  burnIn: ExportBurnInSettings
+}
+
 export type CanvasSettings = {
   width: number
   height: number
@@ -35,6 +54,7 @@ export type CanvasSettings = {
   background: BackgroundSettings
   print: PrintZoneSettings
   guides: GuideSettings
+  export: ExportSettings
 }
 
 export type ExportDimensions = {

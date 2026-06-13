@@ -14,6 +14,8 @@ export const DEFAULT_CANVAS_SETTINGS: CanvasSettings = {
   background: {
     type: "color",
     color: "#ffffff",
+    gradientEnd: "#000000",
+    gradientAngle: 180,
     imageSrc: null,
     fit: "cover",
   },
@@ -24,10 +26,20 @@ export const DEFAULT_CANVAS_SETTINGS: CanvasSettings = {
     safeInset: 0.3,
   },
   guides: {
-    showTrim: true,
-    showBleed: true,
-    showSafe: true,
+    showTrim: false,
+    showBleed: false,
+    showSafe: false,
     showCenter: true,
     showThirds: false,
+  },
+  export: {
+    screenFormat: "png",
+    burnIn: {
+      trim: false,
+      bleed: false,
+      safe: false,
+      center: false,
+      thirds: false,
+    },
   },
 }

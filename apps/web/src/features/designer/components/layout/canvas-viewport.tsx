@@ -7,7 +7,11 @@ import {
 import { GuidesOverlay } from "@/features/designer/components/preview/guides-overlay"
 import type { CanvasSettings } from "@/features/designer/model/types"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
-import { renderBackground } from "@/features/designer/lib/render-background"
+import { getPreviewGuideGeometry } from "@/features/designer/lib/print-zones"
+import {
+  getBackgroundFallbackColor,
+  renderBackground,
+} from "@/features/designer/lib/render-background"
 import { cn } from "@workspace/ui/lib/utils"
 
 type CanvasStageProps = {
@@ -26,9 +30,13 @@ export function CanvasStage({
   onSelectPage,
 }: CanvasStageProps) {
   const exportDimensions = getExportDimensions(settings)
+  const previewGeometry = getPreviewGuideGeometry(settings)
   const { exportWidthPx, exportHeightPx } = exportDimensions
-  const displayWidth = exportWidthPx * displayScale
-  const displayHeight = exportHeightPx * displayScale
+  const exportDisplayWidth = exportWidthPx * displayScale
+  const exportDisplayHeight = exportHeightPx * displayScale
+  const bleedDisplay = previewGeometry.bleedPx * displayScale
+  const trimDisplayWidth = previewGeometry.trim.width * displayScale
+  const trimDisplayHeight = previewGeometry.trim.height * displayScale
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -53,7 +61,7 @@ export function CanvasStage({
       settings.background
     ).catch(() => {
       if (!cancelled) {
-        context.fillStyle = settings.background.color
+        context.fillStyle = getBackgroundFallbackColor(settings.background)
         context.fillRect(0, 0, exportWidthPx, exportHeightPx)
       }
     })
@@ -68,12 +76,12 @@ export function CanvasStage({
       role="button"
       tabIndex={0}
       className={cn(
-        "relative block shrink-0 cursor-default shadow-lg ring-1 transition-shadow outline-none",
+        "relative block shrink-0 cursor-default overflow-visible shadow-lg ring-1 transition-shadow outline-none",
         isPageSelected
           ? "ring-2 ring-primary/40"
           : "ring-foreground/10 hover:ring-foreground/20"
       )}
-      style={{ width: displayWidth, height: displayHeight }}
+      style={{ width: trimDisplayWidth, height: trimDisplayHeight }}
       onClick={onSelectPage}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -85,14 +93,15 @@ export function CanvasStage({
     >
       <canvas
         ref={canvasRef}
-        className="block bg-white"
-        style={{ width: displayWidth, height: displayHeight }}
+        className="absolute block bg-white"
+        style={{
+          left: -bleedDisplay,
+          top: -bleedDisplay,
+          width: exportDisplayWidth,
+          height: exportDisplayHeight,
+        }}
       />
-      <GuidesOverlay
-        settings={settings}
-        displayWidth={displayWidth}
-        displayHeight={displayHeight}
-      />
+      <GuidesOverlay settings={settings} displayScale={displayScale} />
     </div>
   )
 }

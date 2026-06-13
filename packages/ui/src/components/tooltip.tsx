@@ -5,6 +5,9 @@ import { Tooltip as TooltipPrimitive } from "radix-ui"
 
 import { cn } from "@workspace/ui/lib/utils"
 
+const PRO_TOOLTIP_DELAY_MS = 700
+const PRO_TOOLTIP_SKIP_DELAY_MS = 300
+
 function TooltipProvider({
   delayDuration = 0,
   ...props
@@ -13,6 +16,21 @@ function TooltipProvider({
     <TooltipPrimitive.Provider
       data-slot="tooltip-provider"
       delayDuration={delayDuration}
+      {...props}
+    />
+  )
+}
+
+function ProTooltipProvider({
+  delayDuration = PRO_TOOLTIP_DELAY_MS,
+  skipDelayDuration = PRO_TOOLTIP_SKIP_DELAY_MS,
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
+  return (
+    <TooltipPrimitive.Provider
+      data-slot="pro-tooltip-provider"
+      delayDuration={delayDuration}
+      skipDelayDuration={skipDelayDuration}
       {...props}
     />
   )
@@ -54,4 +72,10 @@ function TooltipContent({
   )
 }
 
-export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger }
+export {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  ProTooltipProvider,
+  TooltipTrigger,
+}

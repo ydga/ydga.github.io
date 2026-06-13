@@ -5,6 +5,7 @@ import type {
   PixelScale,
   PrintDpi,
 } from "@/features/designer/model/types"
+import { isPrintDocument } from "@/features/designer/lib/document-intent"
 import {
   DEFAULT_DPI,
   MAX_CM_DIMENSION,
@@ -83,13 +84,15 @@ export function getExportDimensions(
     exportOptions
   )
 
+  const printDoc = isPrintDocument(settings)
+
   const bleedPx =
-    settings.print.bleedEnabled && settings.print.bleed > 0
+    printDoc && settings.print.bleedEnabled && settings.print.bleed > 0
       ? edgeToPixels(settings.print.bleed, settings.unit, exportOptions)
       : 0
 
   const safeInsetPx =
-    settings.print.safeEnabled && settings.print.safeInset > 0
+    printDoc && settings.print.safeEnabled && settings.print.safeInset > 0
       ? edgeToPixels(settings.print.safeInset, settings.unit, exportOptions)
       : 0
 
@@ -105,31 +108,36 @@ export function getExportDimensions(
 
 export function isExportOverLimit(
   settings: CanvasSettings,
-  exportDimensions: ExportDimensions
+  _exportDimensions: ExportDimensions
 ): boolean {
   const exportOptions = {
     dpi: settings.dpi,
     pixelScale: settings.pixelScale,
   }
-  const trim = toTrimPixelDimensions(
-    settings.width,
-    settings.height,
-    settings.unit,
-    exportOptions
-  )
+  const dpi = exportOptions.dpi ?? DEFAULT_DPI
+  const pixelScale = exportOptions.pixelScale ?? 1
+
+  const rawTrimWidth =
+    settings.unit === "px"
+      ? Math.round(settings.width * pixelScale)
+      : cmToPixels(settings.width, dpi)
+  const rawTrimHeight =
+    settings.unit === "px"
+      ? Math.round(settings.height * pixelScale)
+      : cmToPixels(settings.height, dpi)
+
+  const printDoc = isPrintDocument(settings)
   const bleedPx =
-    settings.print.bleedEnabled && settings.print.bleed > 0
+    printDoc && settings.print.bleedEnabled && settings.print.bleed > 0
       ? edgeToPixels(settings.print.bleed, settings.unit, exportOptions)
       : 0
 
-  const rawWidth = trim.widthPx + bleedPx * 2
-  const rawHeight = trim.heightPx + bleedPx * 2
+  const rawExportWidth = rawTrimWidth + bleedPx * 2
+  const rawExportHeight = rawTrimHeight + bleedPx * 2
 
   return (
-    rawWidth > MAX_PIXEL_DIMENSION ||
-    rawHeight > MAX_PIXEL_DIMENSION ||
-    exportDimensions.exportWidthPx >= MAX_PIXEL_DIMENSION ||
-    exportDimensions.exportHeightPx >= MAX_PIXEL_DIMENSION
+    rawExportWidth > MAX_PIXEL_DIMENSION ||
+    rawExportHeight > MAX_PIXEL_DIMENSION
   )
 }
 

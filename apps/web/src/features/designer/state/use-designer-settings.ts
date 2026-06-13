@@ -7,24 +7,31 @@ import type {
   BackgroundType,
   CanvasSettings,
   DimensionUnit,
+  DocumentIntent,
+  ExportBurnInSettings,
   PixelScale,
   PrintDpi,
+  ScreenExportFormat,
 } from "@/features/designer/model/types"
 import {
   clampDimension,
   convertDimension,
 } from "@/features/designer/lib/dimensions"
+import { intentToUnit } from "@/features/designer/lib/document-intent"
 
 type DesignerAction =
   | { type: "set-width"; value: number }
   | { type: "set-height"; value: number }
   | { type: "set-unit"; value: DimensionUnit }
+  | { type: "set-intent"; value: DocumentIntent }
   | { type: "set-dpi"; value: PrintDpi }
   | { type: "set-pixel-scale"; value: PixelScale }
   | { type: "rotate-orientation" }
   | { type: "apply-preset"; preset: CanvasPreset }
   | { type: "set-background-type"; value: BackgroundType }
   | { type: "set-background-color"; value: string }
+  | { type: "set-background-gradient-end"; value: string }
+  | { type: "set-background-gradient-angle"; value: number }
   | { type: "set-background-image"; value: string | null }
   | { type: "set-background-fit"; value: BackgroundFit }
   | { type: "set-bleed-enabled"; value: boolean }
@@ -32,6 +39,12 @@ type DesignerAction =
   | { type: "set-safe-enabled"; value: boolean }
   | { type: "set-safe-inset"; value: number }
   | { type: "set-guide"; key: keyof CanvasSettings["guides"]; value: boolean }
+  | { type: "set-screen-export-format"; value: ScreenExportFormat }
+  | {
+      type: "set-export-burn-in"
+      key: keyof ExportBurnInSettings
+      value: boolean
+    }
 
 function applyUnitChange(
   settings: CanvasSettings,
@@ -60,6 +73,15 @@ function applyUnitChange(
             safeEnabled: false,
           }
         : settings.print,
+    guides:
+      nextUnit === "px"
+        ? {
+            ...settings.guides,
+            showTrim: false,
+            showBleed: false,
+            showSafe: false,
+          }
+        : settings.guides,
   }
 }
 
@@ -80,6 +102,8 @@ function designerReducer(
       }
     case "set-unit":
       return applyUnitChange(settings, action.value)
+    case "set-intent":
+      return applyUnitChange(settings, intentToUnit(action.value))
     case "set-dpi":
       return { ...settings, dpi: action.value }
     case "set-pixel-scale":
@@ -117,6 +141,19 @@ function designerReducer(
         ...settings,
         background: { ...settings.background, color: action.value },
       }
+    case "set-background-gradient-end":
+      return {
+        ...settings,
+        background: { ...settings.background, gradientEnd: action.value },
+      }
+    case "set-background-gradient-angle":
+      return {
+        ...settings,
+        background: {
+          ...settings.background,
+          gradientAngle: normalizeGradientAngle(action.value),
+        },
+      }
     case "set-background-image":
       return {
         ...settings,
@@ -132,11 +169,17 @@ function designerReducer(
         background: { ...settings.background, fit: action.value },
       }
     case "set-bleed-enabled":
+      if (settings.unit === "px") {
+        return settings
+      }
       return {
         ...settings,
         print: { ...settings.print, bleedEnabled: action.value },
       }
     case "set-bleed":
+      if (settings.unit === "px") {
+        return settings
+      }
       return {
         ...settings,
         print: {
@@ -145,11 +188,17 @@ function designerReducer(
         },
       }
     case "set-safe-enabled":
+      if (settings.unit === "px") {
+        return settings
+      }
       return {
         ...settings,
         print: { ...settings.print, safeEnabled: action.value },
       }
     case "set-safe-inset":
+      if (settings.unit === "px") {
+        return settings
+      }
       return {
         ...settings,
         print: {
@@ -158,13 +207,47 @@ function designerReducer(
         },
       }
     case "set-guide":
+      if (
+        settings.unit === "px" &&
+        (action.key === "showTrim" ||
+          action.key === "showBleed" ||
+          action.key === "showSafe") &&
+        action.value
+      ) {
+        return settings
+      }
       return {
         ...settings,
         guides: { ...settings.guides, [action.key]: action.value },
       }
+    case "set-screen-export-format":
+      return {
+        ...settings,
+        export: { ...settings.export, screenFormat: action.value },
+      }
+    case "set-export-burn-in":
+      return {
+        ...settings,
+        export: {
+          ...settings.export,
+          burnIn: {
+            ...settings.export.burnIn,
+            [action.key]: action.value,
+          },
+        },
+      }
     default:
       return settings
   }
+}
+
+function normalizeGradientAngle(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+
+  const wrapped = value % 360
+  return wrapped < 0 ? wrapped + 360 : wrapped
 }
 
 export function useDesignerSettings() {

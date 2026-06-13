@@ -1,13 +1,11 @@
+import { Columns3, Crosshair, Scan, Shield, Square } from "lucide-react"
+
+import { isPrintDocument } from "@/features/designer/lib/document-intent"
 import { SettingsSection } from "@/features/designer/components/settings/settings-section"
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@workspace/ui/components/field"
-import { Switch } from "@workspace/ui/components/switch"
+import { SettingControl } from "@workspace/ui/components/settings/setting-control"
+import { cn } from "@workspace/ui/lib/utils"
 
 type GuidesSettingsSectionProps = {
   settings: CanvasSettings
@@ -18,28 +16,25 @@ export function GuidesSettingsSection({
   settings,
   dispatch,
 }: GuidesSettingsSectionProps) {
-  const { guides, print, unit } = settings
-  const showPrintGuides = unit === "cm"
+  const { guides, print } = settings
+  const showPrintGuides = isPrintDocument(settings)
 
   return (
-    <SettingsSection
-      title="Guides"
-      description="Preview overlays only — not included in download."
-    >
-      <FieldGroup>
+    <SettingsSection title="Preview guides">
+      <div className="flex flex-wrap gap-2">
         {showPrintGuides ? (
           <>
             <GuideToggle
-              id="guide-trim"
-              label="Trim"
+              label="Crop marks"
+              icon={Square}
               checked={guides.showTrim}
               onCheckedChange={(value) =>
                 dispatch({ type: "set-guide", key: "showTrim", value })
               }
             />
             <GuideToggle
-              id="guide-bleed"
-              label="Bleed"
+              label="Bleed guide"
+              icon={Scan}
               checked={guides.showBleed && print.bleedEnabled}
               disabled={!print.bleedEnabled}
               onCheckedChange={(value) =>
@@ -47,8 +42,8 @@ export function GuidesSettingsSection({
               }
             />
             <GuideToggle
-              id="guide-safe"
-              label="Safe area"
+              label="Safe area guide"
+              icon={Shield}
               checked={guides.showSafe && print.safeEnabled}
               disabled={!print.safeEnabled}
               onCheckedChange={(value) =>
@@ -59,52 +54,55 @@ export function GuidesSettingsSection({
         ) : null}
 
         <GuideToggle
-          id="guide-center"
           label="Center lines"
+          icon={Crosshair}
           checked={guides.showCenter}
           onCheckedChange={(value) =>
             dispatch({ type: "set-guide", key: "showCenter", value })
           }
         />
         <GuideToggle
-          id="guide-thirds"
-          label="Thirds"
+          label="Rule of thirds"
+          icon={Columns3}
           checked={guides.showThirds}
           onCheckedChange={(value) =>
             dispatch({ type: "set-guide", key: "showThirds", value })
           }
         />
-
-        <FieldDescription>
-          Snap alignment will apply when element tools are added.
-        </FieldDescription>
-      </FieldGroup>
+      </div>
     </SettingsSection>
   )
 }
 
 function GuideToggle({
-  id,
   label,
+  icon: Icon,
   checked,
   disabled,
   onCheckedChange,
 }: {
-  id: string
   label: string
+  icon: React.ComponentType<{ className?: string }>
   checked: boolean
   disabled?: boolean
   onCheckedChange: (value: boolean) => void
 }) {
   return (
-    <Field orientation="horizontal">
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Switch
-        id={id}
-        checked={checked}
+    <SettingControl label={label}>
+      <button
+        type="button"
+        aria-pressed={checked}
+        aria-label={label}
         disabled={disabled}
-        onCheckedChange={onCheckedChange}
-      />
-    </Field>
+        onClick={() => onCheckedChange(!checked)}
+        className={cn(
+          "inline-flex size-7 items-center justify-center rounded-4xl border border-input transition-colors hover:bg-muted",
+          checked && "border-ring bg-muted ring-1 ring-ring",
+          disabled && "cursor-not-allowed opacity-50"
+        )}
+      >
+        <Icon className="size-3.5" />
+      </button>
+    </SettingControl>
   )
 }

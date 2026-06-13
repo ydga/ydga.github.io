@@ -19,8 +19,9 @@ export function PageNameField({
     <Input
       value={pageName}
       aria-label="Page name"
+      placeholder="Untitled"
       className={cn(
-        "h-8 w-auto min-w-32 border-transparent bg-transparent px-2 text-center text-sm font-medium shadow-none hover:bg-muted/50 focus-visible:border-input focus-visible:bg-background",
+        "h-7 w-auto min-w-28 border-transparent bg-transparent px-2 text-center text-xs font-medium shadow-none hover:bg-muted/50 focus-visible:border-input focus-visible:bg-background",
         className
       )}
       onChange={(event) => onPageNameChange(event.target.value)}

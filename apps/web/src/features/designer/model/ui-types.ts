@@ -12,6 +12,7 @@ export type ElementSelection = {
 export type Selection = PageSelection | ElementSelection
 
 export type ZoomMode = "fit" | "manual"
+export type PanelMode = "document" | "export"
 
 export const DEFAULT_PAGE_ID = "page-1"
 export const MIN_VIEWPORT_ZOOM = 0.05

@@ -1,12 +1,23 @@
+import {
+  Blend,
+  Image,
+  Maximize2,
+  Minimize2,
+  Move,
+  Palette,
+  Square,
+} from "lucide-react"
+
 import { SettingsSection } from "@/features/designer/components/settings/settings-section"
 import type {
   BackgroundFit,
+  BackgroundType,
   CanvasSettings,
 } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
 import { Button } from "@workspace/ui/components/button"
-import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
+import { SettingControl } from "@workspace/ui/components/settings/setting-control"
 import {
   ToggleGroup,
   ToggleGroupItem,
@@ -26,122 +37,184 @@ export function BackgroundSettingsSection({
   const { background } = settings
 
   return (
-    <SettingsSection
-      title="Background"
-      description="Solid color or image fill for the full export area."
-    >
-      <FieldGroup>
-        <Field>
-          <FieldLabel htmlFor="background-type">Type</FieldLabel>
+    <SettingsSection title="Background">
+      <div className="flex flex-col gap-3">
+        <SettingControl label="Background type">
           <ToggleGroup
-            id="background-type"
             type="single"
             variant="outline"
+            size="sm"
             spacing={0}
             value={background.type}
             onValueChange={(value) => {
-              if (value === "color" || value === "image") {
+              if (isBackgroundType(value)) {
                 dispatch({ type: "set-background-type", value })
               }
             }}
           >
-            <ToggleGroupItem value="color" className="min-w-16">
-              Color
+            <ToggleGroupItem value="color" size="icon" aria-label="Solid color">
+              <Palette className="size-3.5" />
             </ToggleGroupItem>
-            <ToggleGroupItem value="image" className="min-w-16">
-              Image
+            <ToggleGroupItem value="gradient" size="icon" aria-label="Gradient">
+              <Blend className="size-3.5" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="image" size="icon" aria-label="Image">
+              <Image className="size-3.5" />
             </ToggleGroupItem>
           </ToggleGroup>
-        </Field>
+        </SettingControl>
 
         {background.type === "color" ? (
-          <Field>
-            <FieldLabel htmlFor="background-color">Color</FieldLabel>
-            <div className="flex items-center gap-2">
-              <Input
-                id="background-color"
-                type="color"
-                value={background.color}
-                className="h-9 w-14 shrink-0 cursor-pointer p-1"
-                onChange={(event) =>
-                  dispatch({
-                    type: "set-background-color",
-                    value: event.target.value,
-                  })
-                }
-              />
-              <Input
-                type="text"
-                value={background.color}
-                className="font-mono text-xs"
-                onChange={(event) =>
-                  dispatch({
-                    type: "set-background-color",
-                    value: event.target.value,
-                  })
-                }
-              />
-            </div>
-          </Field>
-        ) : (
-          <Field>
-            <FieldLabel htmlFor="background-image">Image</FieldLabel>
-            <Input
-              id="background-image"
-              type="file"
-              accept="image/*"
-              onChange={(event) => {
-                const file = event.target.files?.[0] ?? null
-                onImageUpload(file)
-              }}
+          <ColorField
+            label="Background color"
+            value={background.color}
+            onChange={(value) =>
+              dispatch({ type: "set-background-color", value })
+            }
+          />
+        ) : null}
+
+        {background.type === "gradient" ? (
+          <div className="flex flex-col gap-2">
+            <ColorField
+              label="Gradient start"
+              value={background.color}
+              onChange={(value) =>
+                dispatch({ type: "set-background-color", value })
+              }
             />
-            {background.imageSrc ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-fit"
-                onClick={() => onImageUpload(null)}
-              >
-                Remove image
-              </Button>
-            ) : null}
-          </Field>
-        )}
+            <ColorField
+              label="Gradient end"
+              value={background.gradientEnd}
+              onChange={(value) =>
+                dispatch({ type: "set-background-gradient-end", value })
+              }
+            />
+            <SettingControl label="Gradient angle">
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="number"
+                  min={0}
+                  max={359}
+                  step={1}
+                  value={background.gradientAngle}
+                  aria-label="Gradient angle"
+                  className="h-7 w-16 font-mono tabular-nums"
+                  onChange={(event) => {
+                    const parsed = Number.parseFloat(event.target.value)
+                    if (!Number.isNaN(parsed)) {
+                      dispatch({
+                        type: "set-background-gradient-angle",
+                        value: parsed,
+                      })
+                    }
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">°</span>
+              </div>
+            </SettingControl>
+          </div>
+        ) : null}
 
         {background.type === "image" ? (
-          <Field>
-            <FieldLabel htmlFor="background-fit">Fit</FieldLabel>
-            <ToggleGroup
-              id="background-fit"
-              type="single"
-              variant="outline"
-              spacing={0}
-              value={background.fit}
-              onValueChange={(value) => {
-                if (isBackgroundFit(value)) {
-                  dispatch({ type: "set-background-fit", value })
-                }
-              }}
-            >
-              <ToggleGroupItem value="cover" className="min-w-12">
-                Cover
-              </ToggleGroupItem>
-              <ToggleGroupItem value="contain" className="min-w-12">
-                Contain
-              </ToggleGroupItem>
-              <ToggleGroupItem value="fit" className="min-w-12">
-                Fit
-              </ToggleGroupItem>
-              <ToggleGroupItem value="tile" className="min-w-12">
-                Tile
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </Field>
+          <>
+            <div className="flex flex-col gap-2">
+              <SettingControl label="Upload image">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  aria-label="Upload image"
+                  className="h-7 max-w-full text-[10px] file:text-xs"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null
+                    onImageUpload(file)
+                  }}
+                />
+              </SettingControl>
+              {background.imageSrc ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-fit text-xs"
+                  onClick={() => onImageUpload(null)}
+                >
+                  Remove image
+                </Button>
+              ) : null}
+            </div>
+
+            <SettingControl label="Image fit">
+              <ToggleGroup
+                type="single"
+                variant="outline"
+                size="sm"
+                spacing={0}
+                value={background.fit}
+                onValueChange={(value) => {
+                  if (isBackgroundFit(value)) {
+                    dispatch({ type: "set-background-fit", value })
+                  }
+                }}
+              >
+                <ToggleGroupItem value="cover" size="icon" aria-label="Cover">
+                  <Maximize2 className="size-3.5" />
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="contain"
+                  size="icon"
+                  aria-label="Contain"
+                >
+                  <Minimize2 className="size-3.5" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="fit" size="icon" aria-label="Fit">
+                  <Move className="size-3.5" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="tile" size="icon" aria-label="Tile">
+                  <Square className="size-3.5" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </SettingControl>
+          </>
         ) : null}
-      </FieldGroup>
+      </div>
     </SettingsSection>
   )
+}
+
+function ColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <SettingControl label={label}>
+        <Input
+          type="color"
+          value={value}
+          aria-label={label}
+          className="h-7 w-10 shrink-0 cursor-pointer p-0.5"
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </SettingControl>
+      <Input
+        type="text"
+        value={value}
+        aria-label={`${label} hex`}
+        className="h-7 font-mono tabular-nums"
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  )
+}
+
+function isBackgroundType(value: string): value is BackgroundType {
+  return value === "color" || value === "gradient" || value === "image"
 }
 
 function isBackgroundFit(value: string): value is BackgroundFit {

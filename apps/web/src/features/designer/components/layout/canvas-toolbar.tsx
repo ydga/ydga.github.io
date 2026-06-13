@@ -3,10 +3,6 @@ import { Download, FileCog } from "lucide-react"
 
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerUi } from "@/features/designer/state/use-designer-ui"
-import {
-  getExportDimensions,
-  isExportOverLimit,
-} from "@/features/designer/lib/dimensions"
 import { Button } from "@workspace/ui/components/button"
 import {
   Tooltip,
@@ -17,34 +13,29 @@ import { cn } from "@workspace/ui/lib/utils"
 
 type CanvasToolbarProps = {
   ui: DesignerUi
-  settings: CanvasSettings
-  canvasRef: React.RefObject<HTMLCanvasElement | null>
 }
 
-export function CanvasToolbar({ ui, settings, canvasRef }: CanvasToolbarProps) {
-  const exportDimensions = getExportDimensions(settings)
-  const overLimit = isExportOverLimit(settings, exportDimensions)
-  const settingsActive = ui.panelOpen && ui.selection.kind === "page"
-
-  function handleDownload() {
-    const canvas = canvasRef.current
-    if (!canvas || overLimit) {
-      return
-    }
-
-    const link = document.createElement("a")
-    link.download = `image-${exportDimensions.exportWidthPx}x${exportDimensions.exportHeightPx}.png`
-    link.href = canvas.toDataURL("image/png")
-    link.click()
-  }
+export function CanvasToolbar({ ui }: CanvasToolbarProps) {
+  const documentActive =
+    ui.panelOpen && ui.panelMode === "document" && ui.selection.kind === "page"
+  const exportActive = ui.panelOpen && ui.panelMode === "export"
 
   function handleDocumentSettings() {
-    if (settingsActive) {
-      ui.setPanelOpen(false)
+    if (documentActive) {
+      ui.closePanel()
       return
     }
 
-    ui.selectPageAndOpen()
+    ui.openDocumentPanel()
+  }
+
+  function handleExport() {
+    if (exportActive) {
+      ui.closePanel()
+      return
+    }
+
+    ui.openExportPanel()
   }
 
   return (
@@ -56,16 +47,16 @@ export function CanvasToolbar({ ui, settings, canvasRef }: CanvasToolbarProps) {
       >
         <ToolbarIconButton
           label="Document settings"
-          active={settingsActive}
+          active={documentActive}
           onClick={handleDocumentSettings}
         >
           <FileCog />
         </ToolbarIconButton>
 
         <ToolbarIconButton
-          label="Download PNG"
-          disabled={overLimit}
-          onClick={handleDownload}
+          label="Export"
+          active={exportActive}
+          onClick={handleExport}
         >
           <Download />
         </ToolbarIconButton>

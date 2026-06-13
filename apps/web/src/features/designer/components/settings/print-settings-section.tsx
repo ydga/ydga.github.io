@@ -1,13 +1,9 @@
 import { SettingsSection } from "@/features/designer/components/settings/settings-section"
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@workspace/ui/components/field"
+import { isPrintDocument } from "@/features/designer/lib/document-intent"
 import { Input } from "@workspace/ui/components/input"
+import { SettingControl } from "@workspace/ui/components/settings/setting-control"
 import { Switch } from "@workspace/ui/components/switch"
 
 type PrintSettingsSectionProps = {
@@ -19,86 +15,77 @@ export function PrintSettingsSection({
   settings,
   dispatch,
 }: PrintSettingsSectionProps) {
-  if (settings.unit !== "cm") {
+  if (!isPrintDocument(settings)) {
     return null
   }
 
-  const unitLabel = "cm"
-
   return (
-    <SettingsSection
-      title="Print"
-      description="Bleed extends past trim. Safe area keeps important content inset."
-    >
-      <FieldGroup>
-        <Field orientation="horizontal">
-          <FieldLabel htmlFor="bleed-enabled">Bleed</FieldLabel>
-          <Switch
-            id="bleed-enabled"
-            checked={settings.print.bleedEnabled}
-            onCheckedChange={(value) =>
-              dispatch({ type: "set-bleed-enabled", value })
-            }
-          />
-        </Field>
-
-        {settings.print.bleedEnabled ? (
-          <Field>
-            <FieldLabel htmlFor="bleed-size">
-              Bleed per edge ({unitLabel})
-            </FieldLabel>
-            <Input
-              id="bleed-size"
-              type="number"
-              min={0.1}
-              step={0.01}
-              value={settings.print.bleed}
-              onChange={(event) => {
-                const parsed = Number.parseFloat(event.target.value)
-                if (!Number.isNaN(parsed)) {
-                  dispatch({ type: "set-bleed", value: parsed })
-                }
-              }}
+    <SettingsSection title="Bleed & safe">
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <SettingControl label="Bleed">
+            <Switch
+              checked={settings.print.bleedEnabled}
+              aria-label="Bleed"
+              onCheckedChange={(value) =>
+                dispatch({ type: "set-bleed-enabled", value })
+              }
             />
-          </Field>
-        ) : null}
+          </SettingControl>
 
-        <Field orientation="horizontal">
-          <FieldLabel htmlFor="safe-enabled">Safe area</FieldLabel>
-          <Switch
-            id="safe-enabled"
-            checked={settings.print.safeEnabled}
-            onCheckedChange={(value) =>
-              dispatch({ type: "set-safe-enabled", value })
-            }
-          />
-        </Field>
+          {settings.print.bleedEnabled ? (
+            <SettingControl label="Bleed per edge">
+              <Input
+                type="number"
+                min={0.1}
+                step={0.01}
+                value={settings.print.bleed}
+                aria-label="Bleed per edge"
+                placeholder="0.3"
+                className="h-7 w-20 font-mono tabular-nums"
+                onChange={(event) => {
+                  const parsed = Number.parseFloat(event.target.value)
+                  if (!Number.isNaN(parsed)) {
+                    dispatch({ type: "set-bleed", value: parsed })
+                  }
+                }}
+              />
+            </SettingControl>
+          ) : null}
+        </div>
 
-        {settings.print.safeEnabled ? (
-          <Field>
-            <FieldLabel htmlFor="safe-inset">
-              Safe inset from trim ({unitLabel})
-            </FieldLabel>
-            <Input
-              id="safe-inset"
-              type="number"
-              min={0.1}
-              step={0.01}
-              value={settings.print.safeInset}
-              onChange={(event) => {
-                const parsed = Number.parseFloat(event.target.value)
-                if (!Number.isNaN(parsed)) {
-                  dispatch({ type: "set-safe-inset", value: parsed })
-                }
-              }}
+        <div className="flex flex-wrap items-center gap-3">
+          <SettingControl label="Safe area">
+            <Switch
+              checked={settings.print.safeEnabled}
+              aria-label="Safe area"
+              onCheckedChange={(value) =>
+                dispatch({ type: "set-safe-enabled", value })
+              }
             />
-          </Field>
-        ) : null}
+          </SettingControl>
 
-        <FieldDescription>
-          Export includes bleed when enabled. Safe area is a guide only.
-        </FieldDescription>
-      </FieldGroup>
+          {settings.print.safeEnabled ? (
+            <SettingControl label="Safe inset from trim">
+              <Input
+                type="number"
+                min={0.1}
+                step={0.01}
+                value={settings.print.safeInset}
+                aria-label="Safe inset from trim"
+                placeholder="0.3"
+                className="h-7 w-20 font-mono tabular-nums"
+                onChange={(event) => {
+                  const parsed = Number.parseFloat(event.target.value)
+                  if (!Number.isNaN(parsed)) {
+                    dispatch({ type: "set-safe-inset", value: parsed })
+                  }
+                }}
+              />
+            </SettingControl>
+          ) : null}
+        </div>
+      </div>
     </SettingsSection>
   )
 }
