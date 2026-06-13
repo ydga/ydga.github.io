@@ -15,7 +15,7 @@ type Story = StoryObj<typeof meta>
 export const Primary: Story = {
   render: () => (
     <Alert className="w-[420px]">
-      <AlertCircleIcon />
+      <AlertCircleIcon aria-hidden="true" />
       <AlertTitle>Heads up</AlertTitle>
       <AlertDescription>
         You can add components to your app using the CLI.
@@ -30,7 +30,7 @@ export const Primary: Story = {
 export const Destructive: Story = {
   render: () => (
     <Alert variant="destructive" className="w-[420px]">
-      <AlertCircleIcon />
+      <AlertCircleIcon aria-hidden="true" />
       <AlertTitle>Error</AlertTitle>
       <AlertDescription>
         Something went wrong. Please try again.
