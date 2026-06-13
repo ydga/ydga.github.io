@@ -106,10 +106,7 @@ export function getExportDimensions(
   }
 }
 
-export function isExportOverLimit(
-  settings: CanvasSettings,
-  _exportDimensions: ExportDimensions
-): boolean {
+export function isExportOverLimit(settings: CanvasSettings): boolean {
   const exportOptions = {
     dpi: settings.dpi,
     pixelScale: settings.pixelScale,

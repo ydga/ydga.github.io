@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { DEFAULT_CANVAS_SETTINGS } from "@/features/designer/model/defaults"
 import type { CanvasPreset } from "@/features/designer/model/presets"
@@ -38,9 +38,12 @@ export function useDesignerUi() {
   const fitScaleRef = useRef(fitScale)
   const zoomModeRef = useRef(zoomMode)
   const manualZoomRef = useRef(manualZoom)
-  fitScaleRef.current = fitScale
-  zoomModeRef.current = zoomMode
-  manualZoomRef.current = manualZoom
+
+  useEffect(() => {
+    fitScaleRef.current = fitScale
+    zoomModeRef.current = zoomMode
+    manualZoomRef.current = manualZoom
+  }, [fitScale, zoomMode, manualZoom])
 
   const selectPage = useCallback((pageId: string = DEFAULT_PAGE_ID) => {
     setSelection({ kind: "page", pageId })

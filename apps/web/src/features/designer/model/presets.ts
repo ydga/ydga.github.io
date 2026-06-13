@@ -2,10 +2,7 @@ import type {
   CanvasSettings,
   DocumentIntent,
 } from "@/features/designer/model/types"
-import {
-  intentToUnit,
-  unitToIntent,
-} from "@/features/designer/lib/document-intent"
+import { unitToIntent } from "@/features/designer/lib/document-intent"
 
 export type PresetCategory = DocumentIntent
 

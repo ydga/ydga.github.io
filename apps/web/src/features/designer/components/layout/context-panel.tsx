@@ -1,10 +1,10 @@
 import { ArrowLeft, X } from "lucide-react"
 
 import {
-  getPanelTitle,
   ObjectSettingsPanel,
   PageSettingsPanel,
 } from "@/features/designer/components/layout/page-settings-panel"
+import { getPanelTitle } from "@/features/designer/components/layout/panel-title"
 import { ExportSettingsPanel } from "@/features/designer/components/settings/export-settings-panel"
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerUi } from "@/features/designer/state/use-designer-ui"

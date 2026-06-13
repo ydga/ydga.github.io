@@ -1,7 +1,6 @@
 import type { ReactNode } from "react"
 import { Download, FileCog } from "lucide-react"
 
-import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerUi } from "@/features/designer/state/use-designer-ui"
 import { IconTileToggle } from "@workspace/ui/components/settings/icon-tile-toggle"
 import {

@@ -1,8 +1,6 @@
 import { ExportBurnInSection } from "@/features/designer/components/settings/export-burn-in-section"
-import {
-  ExportSummarySection,
-  useExportOverLimit,
-} from "@/features/designer/components/settings/export-summary-section"
+import { ExportSummarySection } from "@/features/designer/components/settings/export-summary-section"
+import { useExportOverLimit } from "@/features/designer/components/settings/use-export-over-limit"
 import { PrintSettingsSection } from "@/features/designer/components/settings/print-settings-section"
 import { SettingsSection } from "@/features/designer/components/settings/settings-section"
 import {

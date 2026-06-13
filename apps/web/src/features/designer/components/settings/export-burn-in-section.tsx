@@ -1,10 +1,7 @@
 import { Columns3, Crosshair, Scan, Shield, Square } from "lucide-react"
 
 import { SettingsSection } from "@/features/designer/components/settings/settings-section"
-import type {
-  CanvasSettings,
-  ExportBurnInSettings,
-} from "@/features/designer/model/types"
+import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
 import { isPrintDocument } from "@/features/designer/lib/document-intent"
 import { SettingControl } from "@workspace/ui/components/settings/setting-control"

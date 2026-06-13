@@ -5,7 +5,6 @@ import {
 } from "@/features/designer/components/settings/canvas-settings-section"
 import { GuidesSettingsSection } from "@/features/designer/components/settings/guides-settings-section"
 import type { CanvasSettings } from "@/features/designer/model/types"
-import type { Selection } from "@/features/designer/model/ui-types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
 import { Separator } from "@workspace/ui/components/separator"
 
@@ -46,8 +45,4 @@ export function ObjectSettingsPanel() {
       </p>
     </div>
   )
-}
-
-export function getPanelTitle(selection: Selection) {
-  return selection.kind === "page" ? "Page" : "Object"
 }

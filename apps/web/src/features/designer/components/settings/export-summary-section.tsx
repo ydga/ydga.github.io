@@ -16,7 +16,7 @@ type ExportSummarySectionProps = {
 
 export function ExportSummarySection({ settings }: ExportSummarySectionProps) {
   const exportDimensions = getExportDimensions(settings)
-  const overLimit = isExportOverLimit(settings, exportDimensions)
+  const overLimit = isExportOverLimit(settings)
   const category = getDocumentIntentLabel(settings)
 
   return (
@@ -77,8 +77,4 @@ function SummaryLine({ value, muted }: { value: string; muted?: boolean }) {
       </span>
     </div>
   )
-}
-
-export function useExportOverLimit(settings: CanvasSettings) {
-  return isExportOverLimit(settings, getExportDimensions(settings))
 }
