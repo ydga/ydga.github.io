@@ -1,5 +1,5 @@
-import { ImageEditor } from "@/components/image-editor/image-editor"
+import { DesignerShell } from "@/features/designer/components/designer-shell"
 
 export function App() {
-  return <ImageEditor />
+  return <DesignerShell />
 }

@@ -1,4 +1,4 @@
-import type { DimensionUnit } from "@/lib/canvas-units"
+import type { CanvasSettings } from "@/features/designer/model/types"
 
 export type CanvasPreset = {
   id: string
@@ -6,7 +6,13 @@ export type CanvasPreset = {
   description: string
   width: number
   height: number
-  unit: DimensionUnit
+  unit: CanvasSettings["unit"]
+  print?: {
+    bleedEnabled: boolean
+    bleed: number
+    safeEnabled: boolean
+    safeInset: number
+  }
 }
 
 export const PX_PRESETS: CanvasPreset[] = [
@@ -44,6 +50,20 @@ export const PX_PRESETS: CanvasPreset[] = [
   },
 ]
 
+const PRINT_DEFAULTS = {
+  bleedEnabled: true,
+  bleed: 0.3,
+  safeEnabled: true,
+  safeInset: 0.3,
+}
+
+const US_PRINT_DEFAULTS = {
+  bleedEnabled: true,
+  bleed: 0.3175,
+  safeEnabled: true,
+  safeInset: 0.3175,
+}
+
 export const CM_PRESETS: CanvasPreset[] = [
   {
     id: "us-letter",
@@ -52,6 +72,7 @@ export const CM_PRESETS: CanvasPreset[] = [
     width: 21.59,
     height: 27.94,
     unit: "cm",
+    print: US_PRINT_DEFAULTS,
   },
   {
     id: "us-legal",
@@ -60,6 +81,7 @@ export const CM_PRESETS: CanvasPreset[] = [
     width: 21.59,
     height: 35.56,
     unit: "cm",
+    print: US_PRINT_DEFAULTS,
   },
   {
     id: "a4",
@@ -68,6 +90,7 @@ export const CM_PRESETS: CanvasPreset[] = [
     width: 21,
     height: 29.7,
     unit: "cm",
+    print: PRINT_DEFAULTS,
   },
   {
     id: "a5",
@@ -76,6 +99,7 @@ export const CM_PRESETS: CanvasPreset[] = [
     width: 14.8,
     height: 21,
     unit: "cm",
+    print: PRINT_DEFAULTS,
   },
   {
     id: "photo-4x6",
@@ -84,6 +108,7 @@ export const CM_PRESETS: CanvasPreset[] = [
     width: 10.16,
     height: 15.24,
     unit: "cm",
+    print: PRINT_DEFAULTS,
   },
   {
     id: "photo-5x7",
@@ -92,10 +117,13 @@ export const CM_PRESETS: CanvasPreset[] = [
     width: 12.7,
     height: 17.78,
     unit: "cm",
+    print: PRINT_DEFAULTS,
   },
 ]
 
-export function getPresetsForUnit(unit: DimensionUnit): CanvasPreset[] {
+export function getPresetsForUnit(
+  unit: CanvasSettings["unit"]
+): CanvasPreset[] {
   return unit === "px" ? PX_PRESETS : CM_PRESETS
 }
 
@@ -103,7 +131,7 @@ export function isPresetActive(
   preset: CanvasPreset,
   width: number,
   height: number,
-  unit: DimensionUnit
+  unit: CanvasSettings["unit"]
 ): boolean {
   if (preset.unit !== unit) {
     return false
