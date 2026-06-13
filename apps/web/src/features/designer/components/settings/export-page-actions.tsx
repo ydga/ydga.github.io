@@ -65,7 +65,7 @@ export function ExportPageActions({
           <TooltipTrigger asChild>
             <PanelIconTileToggle
               pressed={syncSettings}
-              aria-label="Lock settings for all pages"
+              aria-label="Lock settings for pages of the same type"
               onPressedChange={onSyncSettingsChange}
             >
               {syncSettings ? (
@@ -75,7 +75,9 @@ export function ExportPageActions({
               )}
             </PanelIconTileToggle>
           </TooltipTrigger>
-          <TooltipContent side="top">Lock settings for all</TooltipContent>
+          <TooltipContent side="top">
+            Lock settings for pages of the same type
+          </TooltipContent>
         </Tooltip>
       ) : null}
     </div>

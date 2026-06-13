@@ -1,4 +1,8 @@
+import { Info } from "lucide-react"
+
 import {
+  hasExportSyncGroup,
+  hasMixedExportIntents,
   isPrintDocument,
   isScreenDocument,
 } from "@/features/designer/lib/document-intent"
@@ -13,6 +17,7 @@ import type { PageExportEntry } from "@/features/designer/state/use-export-selec
 import { ExportPageActions } from "@/features/designer/components/settings/export-page-actions"
 import { FrameNameField } from "@/features/designer/components/layout/page-controls"
 import { Checkbox } from "@workspace/ui/components/checkbox"
+import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import { SettingsSelect } from "@workspace/ui/components/settings/settings-select"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -50,7 +55,8 @@ export function ExportPageList({
   const selectedCount = entries.filter((entry) => entry.selected).length
   const canSelectAll = selectedCount < entries.length
   const canClearSelection = selectedCount > 0
-  const showSyncSettings = frames.length > 1
+  const showSyncSettings = hasExportSyncGroup(frames)
+  const showMixedTypesAlert = syncSettings && hasMixedExportIntents(frames)
 
   return (
     <div className="flex flex-col gap-4">
@@ -63,6 +69,16 @@ export function ExportPageList({
         canClearSelection={canClearSelection}
         showSyncSettings={showSyncSettings}
       />
+
+      {showMixedTypesAlert ? (
+        <Alert className="rounded-xl border-border bg-muted/30 px-3 py-2.5">
+          <Info className="size-3.5 text-muted-foreground" aria-hidden />
+          <AlertDescription className="text-xs leading-relaxed">
+            Screen and print pages use different export settings. Lock only
+            syncs pages of the same type.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <ul className="flex flex-col gap-2">
         {entries.map((entry) => {
@@ -139,10 +155,8 @@ export function ExportPageList({
                     {isPrint ? (
                       <>
                         <SettingsSelect
-                          label="Res"
-                          labelTooltip="Resolution (DPI)"
                           wrapperClassName="min-w-0 w-full flex-1 basis-0"
-                          className="text-left"
+                          aria-label="DPI"
                           value={String(entry.overrides.dpi)}
                           onChange={(event) => {
                             const value = Number(event.target.value)
@@ -153,7 +167,7 @@ export function ExportPageList({
                         >
                           {PRINT_DPI_OPTIONS.map((option) => (
                             <option key={option} value={option}>
-                              {option}
+                              {option} dpi
                             </option>
                           ))}
                         </SettingsSelect>

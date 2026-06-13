@@ -31,7 +31,7 @@ function FloatingChrome({
     variant === "frosted" ? (
       <div
         className={cn(
-          "rounded-squircle pointer-events-auto bg-background/90 p-2 shadow-lg backdrop-blur-md",
+          "rounded-squircle pointer-events-auto bg-background/90 p-1.5 shadow-lg backdrop-blur-md",
           innerClassName
         )}
       >

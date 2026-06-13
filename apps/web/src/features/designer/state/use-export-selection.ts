@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 
+import { getDocumentIntent } from "@/features/designer/lib/document-intent"
 import {
   createPageExportOverrides,
   type PageExportOverrides,
@@ -23,6 +24,70 @@ function createEntry(frame: DesignerFrame, selected: boolean): PageExportEntry {
     selected,
     overrides: createPageExportOverrides(frame.settings),
   }
+}
+
+function syncOverridesForIntent(
+  current: Record<string, PageExportEntry>,
+  frames: DesignerFrame[],
+  intent: ReturnType<typeof getDocumentIntent>,
+  template: PageExportOverrides
+): Record<string, PageExportEntry> {
+  const next: Record<string, PageExportEntry> = { ...current }
+
+  for (const frame of frames) {
+    if (getDocumentIntent(frame.settings) !== intent) {
+      continue
+    }
+
+    const row = next[frame.id]
+    if (!row) {
+      continue
+    }
+
+    next[frame.id] = {
+      ...row,
+      overrides: { ...template },
+    }
+  }
+
+  return next
+}
+
+function applySyncTemplates(
+  current: Record<string, PageExportEntry>,
+  frames: DesignerFrame[]
+): Record<string, PageExportEntry> {
+  let next = { ...current }
+
+  for (const intent of ["screen", "print"] as const) {
+    const framesForIntent = frames.filter(
+      (frame) => getDocumentIntent(frame.settings) === intent
+    )
+
+    if (framesForIntent.length < 2) {
+      continue
+    }
+
+    let template: PageExportOverrides | undefined
+
+    for (const frame of framesForIntent) {
+      const entry = current[frame.id]
+      if (entry?.selected) {
+        template = entry.overrides
+        break
+      }
+    }
+
+    template ??= current[framesForIntent[0]?.id]?.overrides
+
+    if (!template) {
+      continue
+    }
+
+    next = syncOverridesForIntent(next, frames, intent, template)
+  }
+
+  return next
 }
 
 export function useExportSelection(
@@ -71,39 +136,29 @@ export function useExportSelection(
   const updateOverride = useCallback(
     (frameId: string, patch: Partial<PageExportOverrides>) => {
       setEntries((current) => {
+        const sourceFrame = frames.find((frame) => frame.id === frameId)
         const entry = current[frameId]
-        if (!entry) {
+        if (!sourceFrame || !entry) {
           return current
         }
 
+        const intent = getDocumentIntent(sourceFrame.settings)
+        const nextOverrides = { ...entry.overrides, ...patch }
+
         if (syncSettings) {
-          const next: Record<string, PageExportEntry> = { ...current }
-
-          for (const id of Object.keys(next)) {
-            const row = next[id]
-            if (!row) {
-              continue
-            }
-
-            next[id] = {
-              ...row,
-              overrides: { ...row.overrides, ...patch },
-            }
-          }
-
-          return next
+          return syncOverridesForIntent(current, frames, intent, nextOverrides)
         }
 
         return {
           ...current,
           [frameId]: {
             ...entry,
-            overrides: { ...entry.overrides, ...patch },
+            overrides: nextOverrides,
           },
         }
       })
     },
-    [syncSettings]
+    [frames, syncSettings]
   )
 
   const setSyncSettingsEnabled = useCallback(
@@ -114,40 +169,7 @@ export function useExportSelection(
         return
       }
 
-      setEntries((current) => {
-        let sourceEntry: PageExportEntry | undefined
-
-        for (const frame of frames) {
-          const entry = current[frame.id]
-          if (entry?.selected) {
-            sourceEntry = entry
-            break
-          }
-        }
-
-        sourceEntry ??= current[frames[0]?.id]
-
-        if (!sourceEntry) {
-          return current
-        }
-
-        const template = sourceEntry.overrides
-        const next: Record<string, PageExportEntry> = { ...current }
-
-        for (const id of Object.keys(next)) {
-          const row = next[id]
-          if (!row) {
-            continue
-          }
-
-          next[id] = {
-            ...row,
-            overrides: { ...template },
-          }
-        }
-
-        return next
-      })
+      setEntries((current) => applySyncTemplates(current, frames))
     },
     [frames]
   )

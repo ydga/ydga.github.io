@@ -3,6 +3,7 @@ import type {
   DimensionUnit,
   DocumentIntent,
 } from "@/features/designer/model/types"
+import type { DesignerFrame } from "@/features/designer/model/frames"
 
 export type { DocumentIntent }
 
@@ -36,4 +37,42 @@ export function getDimensionStep(intent: DocumentIntent) {
 
 export function getDimensionMin(intent: DocumentIntent) {
   return intent === "screen" ? 1 : 0.1
+}
+
+export function hasMixedExportIntents(frames: DesignerFrame[]): boolean {
+  if (frames.length < 2) {
+    return false
+  }
+
+  let hasScreen = false
+  let hasPrint = false
+
+  for (const frame of frames) {
+    if (isScreenDocument(frame.settings)) {
+      hasScreen = true
+    } else {
+      hasPrint = true
+    }
+
+    if (hasScreen && hasPrint) {
+      return true
+    }
+  }
+
+  return false
+}
+
+export function hasExportSyncGroup(frames: DesignerFrame[]): boolean {
+  let screenCount = 0
+  let printCount = 0
+
+  for (const frame of frames) {
+    if (isScreenDocument(frame.settings)) {
+      screenCount += 1
+    } else {
+      printCount += 1
+    }
+  }
+
+  return screenCount > 1 || printCount > 1
 }

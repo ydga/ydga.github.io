@@ -5,16 +5,20 @@ import {
   ObjectSettingsPanel,
   PageSettingsPanel,
 } from "@/features/designer/components/layout/page-settings-panel"
-import { getPanelTitle } from "@/features/designer/components/layout/panel-title"
+import {
+  getFramePanelTitle,
+  getPanelTitle,
+} from "@/features/designer/components/layout/panel-title"
 import { ExportSettingsPanel } from "@/features/designer/components/settings/export-settings-panel"
 import type { Layer } from "@/features/designer/model/layers"
 import type { DesignerFrames } from "@/features/designer/state/use-designer-frames"
 import type { DesignerUi } from "@/features/designer/state/use-designer-ui"
 import { PanelIconTileButton } from "@workspace/ui/components/settings/panel-icon-tile-button"
 import {
+  panelHeaderClassName,
   panelIconClassName,
   panelPaddingClassName,
-  panelPaddingXClassName,
+  panelTitleClassName,
 } from "@workspace/ui/components/settings/settings-field-styles"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -45,7 +49,7 @@ export function ContextPanel({
       : panelMode === "layers"
         ? "Layers"
         : selection.kind === "page"
-          ? frames.frameName || "Untitled"
+          ? getFramePanelTitle(frames.frameName)
           : getPanelTitle(selection)
 
   return (
@@ -59,15 +63,8 @@ export function ContextPanel({
       aria-hidden={!ui.panelOpen}
     >
       <div className="flex h-full w-[var(--panel-width)] flex-col">
-        <div
-          className={cn(
-            "flex shrink-0 items-center justify-between gap-3 border-b border-border py-3",
-            panelPaddingXClassName
-          )}
-        >
-          <h2 className="min-w-0 truncate font-heading text-xs font-medium">
-            {title}
-          </h2>
+        <div className={panelHeaderClassName}>
+          <h2 className={panelTitleClassName}>{title}</h2>
           <PanelIconTileButton
             type="button"
             aria-label="Close sidebar"

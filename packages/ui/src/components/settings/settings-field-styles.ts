@@ -33,6 +33,14 @@ export const panelPaddingClassName = "p-[var(--panel-padding)]"
 
 export const panelPaddingXClassName = "px-[var(--panel-padding)]"
 
+export const panelTitleClassName =
+  "flex h-7 min-w-0 items-center truncate font-heading text-base font-medium leading-none text-foreground"
+
+export const panelHeaderClassName = cn(
+  "flex shrink-0 items-center justify-between gap-3 border-b border-border py-5",
+  panelPaddingXClassName
+)
+
 export const panelScrollContentClassName = cn(
   panelPaddingXClassName,
   "pt-[var(--panel-padding)]"
