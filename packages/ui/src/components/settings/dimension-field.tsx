@@ -5,8 +5,10 @@ import {
 } from "@workspace/ui/components/input-group"
 import {
   settingsControlHeightClassName,
+  settingsInlineLabelAddonClassName,
+  settingsInlineLabelClassName,
   settingsInputGroupClasses,
-  settingsLabelClassName,
+  settingsControlLineHeightClassName,
   settingsNumberFieldClassName,
   settingsNumericTextClassName,
 } from "./settings-field-styles"
@@ -67,13 +69,13 @@ function DimensionInput({
     >
       <InputGroupAddon
         align="inline-start"
-        className="cursor-ew-resize py-0 pr-0 pl-1.5"
+        className={cn(settingsInlineLabelAddonClassName, "cursor-ew-resize")}
       >
         <Tooltip>
           <TooltipTrigger asChild>
             <span
               className={cn(
-                settingsLabelClassName,
+                settingsInlineLabelClassName,
                 "cursor-ew-resize select-none"
               )}
             >
@@ -92,8 +94,9 @@ function DimensionInput({
         className={cn(
           settingsNumberFieldClassName,
           settingsControlHeightClassName,
+          settingsControlLineHeightClassName,
           settingsNumericTextClassName,
-          "min-w-0 pr-2 pl-0 text-right"
+          "min-w-0 py-0 pr-2 pl-0 text-right"
         )}
         onChange={(event) => {
           const parsed = Number.parseFloat(event.target.value)
@@ -116,7 +119,7 @@ export function DimensionField({
   onHeightChange,
   className,
 }: DimensionFieldProps) {
-  const unitLabel = unit === "cm" ? "CM" : unit === "px" ? "PX" : null
+  const unitLabel = unit ?? null
 
   return (
     <div className={cn("flex min-w-0 flex-1 items-center gap-1.5", className)}>

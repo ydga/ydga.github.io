@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react"
+import type { ComponentProps, ReactNode } from "react"
 import { ChevronDown } from "lucide-react"
 
 import {
@@ -13,14 +13,15 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import {
   settingsControlHeightClassName,
-  settingsFieldClasses,
+  settingsInlineLabelAddonClassName,
+  settingsInlineLabelClassName,
   settingsInputGroupClasses,
-  settingsLabelClassName,
+  settingsControlLineHeightClassName,
   settingsNumericTextClassName,
 } from "./settings-field-styles"
 
 type SettingsSelectProps = ComponentProps<"select"> & {
-  label?: string
+  label?: ReactNode
   labelTooltip?: string
   wrapperClassName?: string
 }
@@ -33,18 +34,22 @@ function SettingsSelect({
   children,
   ...props
 }: SettingsSelectProps) {
-  const labelNode = label ? (
+  const hasLabel = label != null
+
+  const labelNode = hasLabel ? (
     labelTooltip ? (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className={cn(settingsLabelClassName, "select-none")}>
+          <span className={cn(settingsInlineLabelClassName, "select-none")}>
             {label}
           </span>
         </TooltipTrigger>
         <TooltipContent side="top">{labelTooltip}</TooltipContent>
       </Tooltip>
     ) : (
-      <span className={cn(settingsLabelClassName, "select-none")}>{label}</span>
+      <span className={cn(settingsInlineLabelClassName, "select-none")}>
+        {label}
+      </span>
     )
   ) : null
 
@@ -59,21 +64,21 @@ function SettingsSelect({
       )}
     >
       {labelNode ? (
-        <InputGroupAddon align="inline-start" className="py-0 pr-0 pl-1.5">
+        <InputGroupAddon
+          align="inline-start"
+          className={settingsInlineLabelAddonClassName}
+        >
           {labelNode}
         </InputGroupAddon>
       ) : null}
       <select
         data-slot="input-group-control"
         className={cn(
-          settingsFieldClasses(
-            cn(
-              settingsControlHeightClassName,
-              settingsNumericTextClassName,
-              "min-w-0 flex-1 cursor-pointer appearance-none rounded-none border-0 bg-transparent py-0 pr-7 text-right shadow-none focus-visible:border-0 focus-visible:ring-0",
-              label ? "pl-0" : "pl-2"
-            )
-          ),
+          settingsControlHeightClassName,
+          settingsNumericTextClassName,
+          "min-w-0 flex-1 cursor-pointer appearance-none rounded-none border-0 bg-transparent py-0 pr-7 shadow-none outline-none focus:outline-none focus-visible:border-0 focus-visible:ring-0 focus-visible:outline-none",
+          hasLabel ? "pl-0 text-right" : "pl-2 text-left",
+          settingsControlLineHeightClassName,
           className
         )}
         {...props}

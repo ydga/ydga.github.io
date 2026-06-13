@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 import {
   createFrameFromSource,
@@ -6,6 +6,7 @@ import {
   DEFAULT_FRAME_ID,
   moveFrame as moveFrameList,
   getDuplicateFrameName,
+  resolveActiveFrameId,
   type DesignerFrame,
   type FrameNameSource,
 } from "@/features/designer/model/frames"
@@ -24,53 +25,74 @@ export function useDesignerFrames() {
   const [activeFrameId, setActiveFrameId] = useState(DEFAULT_FRAME_ID)
   const imageUrlRefs = useRef<Map<string, string>>(new Map())
 
+  const resolvedActiveFrameId = useMemo(
+    () => resolveActiveFrameId(frames, activeFrameId),
+    [frames, activeFrameId]
+  )
+
+  useLayoutEffect(() => {
+    if (resolvedActiveFrameId !== activeFrameId) {
+      setActiveFrameId(resolvedActiveFrameId)
+    }
+  }, [resolvedActiveFrameId, activeFrameId])
+
   const activeFrame =
-    frames.find((frame) => frame.id === activeFrameId) ?? frames[0]!
+    frames.find((frame) => frame.id === resolvedActiveFrameId) ?? frames[0]!
 
   const dispatch = useCallback(
     (action: DesignerAction) => {
       setFrames((current) =>
         current.map((frame) =>
-          frame.id === activeFrameId
+          frame.id === resolvedActiveFrameId
             ? { ...frame, settings: designerReducer(frame.settings, action) }
             : frame
         )
       )
     },
-    [activeFrameId]
+    [resolvedActiveFrameId]
   )
 
   const setFrameName = useCallback(
     (name: string) => {
       setFrames((current) =>
         current.map((frame) =>
-          frame.id === activeFrameId
+          frame.id === resolvedActiveFrameId
             ? { ...frame, name, nameSource: "manual" as FrameNameSource }
             : frame
         )
       )
     },
-    [activeFrameId]
+    [resolvedActiveFrameId]
   )
+
+  const setFrameNameForFrame = useCallback((frameId: string, name: string) => {
+    setFrames((current) =>
+      current.map((frame) =>
+        frame.id === frameId
+          ? { ...frame, name, nameSource: "manual" as FrameNameSource }
+          : frame
+      )
+    )
+  }, [])
 
   const setFrameNameFromPreset = useCallback(
     (preset: CanvasPreset) => {
       setFrames((current) =>
         current.map((frame) =>
-          frame.id === activeFrameId
+          frame.id === resolvedActiveFrameId
             ? { ...frame, name: preset.label, nameSource: "auto" }
             : frame
         )
       )
     },
-    [activeFrameId]
+    [resolvedActiveFrameId]
   )
 
   const syncFrameNameFromSettings = useCallback(
     (settings: CanvasSettings) => {
       setFrames((current) =>
         current.map((frame) =>
-          frame.id === activeFrameId
+          frame.id === resolvedActiveFrameId
             ? {
                 ...frame,
                 name: getSuggestedPageName(settings),
@@ -80,30 +102,30 @@ export function useDesignerFrames() {
         )
       )
     },
-    [activeFrameId]
+    [resolvedActiveFrameId]
   )
 
-  const selectFrame = useCallback((frameId: string) => {
-    setActiveFrameId(frameId)
-  }, [])
+  const selectFrame = useCallback(
+    (frameId: string) => {
+      setActiveFrameId(resolveActiveFrameId(frames, frameId))
+    },
+    [frames]
+  )
 
   const addFrame = useCallback(() => {
     const newFrameId = crypto.randomUUID()
     setFrames((current) => {
       const source =
-        current.find((frame) => frame.id === activeFrameId) ?? current[0]!
+        current.find((frame) => frame.id === resolvedActiveFrameId) ??
+        current[0]!
       return [
         ...current,
-        createFrameFromSource(
-          source,
-          newFrameId,
-          `Frame ${current.length + 1}`
-        ),
+        createFrameFromSource(source, newFrameId, `Page ${current.length + 1}`),
       ]
     })
     setActiveFrameId(newFrameId)
     return newFrameId
-  }, [activeFrameId])
+  }, [resolvedActiveFrameId])
 
   const removeFrame = useCallback(
     (frameId: string) => {
@@ -113,7 +135,7 @@ export function useDesignerFrames() {
         imageUrlRefs.current.delete(frameId)
       }
 
-      let nextActiveId = activeFrameId
+      let nextActiveId = resolvedActiveFrameId
 
       setFrames((current) => {
         if (current.length <= 1) {
@@ -127,20 +149,20 @@ export function useDesignerFrames() {
 
         const next = current.filter((frame) => frame.id !== frameId)
 
-        if (activeFrameId === frameId) {
-          nextActiveId = next[Math.min(index, next.length - 1)]!.id
+        if (resolvedActiveFrameId === frameId) {
+          nextActiveId = next[Math.max(0, index - 1)]!.id
         }
 
         return next
       })
 
-      if (nextActiveId !== activeFrameId) {
+      if (nextActiveId !== resolvedActiveFrameId) {
         setActiveFrameId(nextActiveId)
       }
 
       return nextActiveId
     },
-    [activeFrameId]
+    [resolvedActiveFrameId]
   )
 
   const moveFrame = useCallback((frameId: string, direction: "up" | "down") => {
@@ -183,10 +205,10 @@ export function useDesignerFrames() {
 
   const setBackgroundImage = useCallback(
     (file: File | null) => {
-      const existingUrl = imageUrlRefs.current.get(activeFrameId)
+      const existingUrl = imageUrlRefs.current.get(resolvedActiveFrameId)
       if (existingUrl) {
         URL.revokeObjectURL(existingUrl)
-        imageUrlRefs.current.delete(activeFrameId)
+        imageUrlRefs.current.delete(resolvedActiveFrameId)
       }
 
       if (!file) {
@@ -195,18 +217,18 @@ export function useDesignerFrames() {
       }
 
       const objectUrl = URL.createObjectURL(file)
-      imageUrlRefs.current.set(activeFrameId, objectUrl)
+      imageUrlRefs.current.set(resolvedActiveFrameId, objectUrl)
       dispatch({
         type: "set-background-image",
         value: objectUrl,
       })
     },
-    [activeFrameId, dispatch]
+    [resolvedActiveFrameId, dispatch]
   )
 
   return {
     frames,
-    activeFrameId,
+    activeFrameId: resolvedActiveFrameId,
     activeFrame,
     settings: activeFrame.settings,
     frameName: activeFrame.name,
@@ -218,6 +240,7 @@ export function useDesignerFrames() {
     moveFrame,
     duplicateFrame,
     setFrameName,
+    setFrameNameForFrame,
     setFrameNameFromPreset,
     syncFrameNameFromSettings,
     setBackgroundImage,

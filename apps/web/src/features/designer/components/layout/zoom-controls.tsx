@@ -1,16 +1,11 @@
 "use client"
 
-import { Maximize2 } from "lucide-react"
+import { Maximize2, Search } from "lucide-react"
 
-import {
-  MAX_VIEWPORT_ZOOM,
-  MIN_VIEWPORT_ZOOM,
-  type ZoomMode,
-} from "@/features/designer/model/ui-types"
+import { type ZoomMode } from "@/features/designer/model/ui-types"
 import { IconTileToggle } from "@workspace/ui/components/settings/icon-tile-toggle"
 import { SettingControl } from "@workspace/ui/components/settings/setting-control"
 import { SettingsSelect } from "@workspace/ui/components/settings/settings-select"
-import { Slider } from "@workspace/ui/components/slider"
 import { cn } from "@workspace/ui/lib/utils"
 
 const ZOOM_PRESETS = [50, 100, 200] as const
@@ -39,21 +34,8 @@ export function ZoomControls({
     <div
       className={cn("pointer-events-auto flex items-center gap-3", className)}
     >
-      <Slider
-        min={MIN_VIEWPORT_ZOOM}
-        max={MAX_VIEWPORT_ZOOM}
-        step={0.01}
-        value={[effectiveScale]}
-        aria-label="Zoom level"
-        className="w-28 [&_[data-slot=slider-range]]:bg-foreground/35 [&_[data-slot=slider-thumb]]:size-3 [&_[data-slot=slider-thumb]]:border-foreground/20 [&_[data-slot=slider-thumb]]:bg-background [&_[data-slot=slider-track]]:h-1 [&_[data-slot=slider-track]]:bg-foreground/10"
-        onValueChange={([value]) => {
-          if (value !== undefined) {
-            onZoomScaleChange(value)
-          }
-        }}
-      />
       <SettingsSelect
-        label="Z"
+        label={<Search className="size-3.5" aria-hidden />}
         labelTooltip="Zoom"
         value={isPreset ? String(percent) : "custom"}
         aria-label="Zoom percentage"

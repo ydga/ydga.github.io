@@ -6,10 +6,21 @@ import {
   isScreenDocument,
 } from "@/features/designer/lib/document-intent"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
+import {
+  mergeExportOverrides,
+  type PageExportOverrides,
+} from "@/features/designer/lib/export-settings"
 import { renderBackground } from "@/features/designer/lib/render-background"
 import type { CanvasSettings } from "@/features/designer/model/types"
 
 const JPEG_QUALITY = 0.92
+
+export type ExportJob = {
+  pageName: string
+  settings: CanvasSettings
+  overrides: PageExportOverrides
+  sourceCanvas: HTMLCanvasElement | null
+}
 
 function sanitizeFilename(name: string) {
   const trimmed = name.trim() || "Untitled"
@@ -57,37 +68,55 @@ export async function downloadExport(
   sourceCanvas: HTMLCanvasElement | null,
   pageName: string
 ) {
-  const exportCanvas = await renderExportCanvas(settings, sourceCanvas)
-  const exportDimensions = getExportDimensions(settings)
-  const baseName = sanitizeFilename(pageName)
-  const sizeLabel = `${exportDimensions.exportWidthPx}x${exportDimensions.exportHeightPx}`
+  await downloadExports([
+    {
+      pageName,
+      settings,
+      overrides: {
+        pixelScale: settings.pixelScale,
+        screenFormat: settings.export.screenFormat,
+        dpi: settings.dpi,
+      },
+      sourceCanvas,
+    },
+  ])
+}
 
-  if (isScreenDocument(settings)) {
-    const format = settings.export.screenFormat
-    const mimeType = format === "jpg" ? "image/jpeg" : "image/png"
-    const dataUrl =
-      format === "jpg"
-        ? exportCanvas.toDataURL(mimeType, JPEG_QUALITY)
-        : exportCanvas.toDataURL(mimeType)
+export async function downloadExports(jobs: ExportJob[]) {
+  for (const job of jobs) {
+    const settings = mergeExportOverrides(job.settings, job.overrides)
+    const exportCanvas = await renderExportCanvas(settings, job.sourceCanvas)
+    const exportDimensions = getExportDimensions(settings)
+    const baseName = sanitizeFilename(job.pageName)
+    const sizeLabel = `${exportDimensions.exportWidthPx}x${exportDimensions.exportHeightPx}`
 
-    triggerDownload(dataUrl, `${baseName}-${sizeLabel}.${format}`)
-    return
-  }
+    if (isScreenDocument(settings)) {
+      const format = settings.export.screenFormat
+      const mimeType = format === "jpg" ? "image/jpeg" : "image/png"
+      const dataUrl =
+        format === "jpg"
+          ? exportCanvas.toDataURL(mimeType, JPEG_QUALITY)
+          : exportCanvas.toDataURL(mimeType)
 
-  if (isPrintDocument(settings)) {
-    const pngData = exportCanvas.toDataURL("image/png")
-    const widthMm = (exportDimensions.exportWidthPx / settings.dpi) * 25.4
-    const heightMm = (exportDimensions.exportHeightPx / settings.dpi) * 25.4
-    const orientation = widthMm >= heightMm ? "landscape" : "portrait"
+      triggerDownload(dataUrl, `${baseName}-${sizeLabel}.${format}`)
+      continue
+    }
 
-    const pdf = new jsPDF({
-      orientation,
-      unit: "mm",
-      format: [widthMm, heightMm],
-    })
+    if (isPrintDocument(settings)) {
+      const pngData = exportCanvas.toDataURL("image/png")
+      const widthMm = (exportDimensions.exportWidthPx / settings.dpi) * 25.4
+      const heightMm = (exportDimensions.exportHeightPx / settings.dpi) * 25.4
+      const orientation = widthMm >= heightMm ? "landscape" : "portrait"
 
-    pdf.addImage(pngData, "PNG", 0, 0, widthMm, heightMm, undefined, "FAST")
-    pdf.save(`${baseName}-${sizeLabel}.pdf`)
+      const pdf = new jsPDF({
+        orientation,
+        unit: "mm",
+        format: [widthMm, heightMm],
+      })
+
+      pdf.addImage(pngData, "PNG", 0, 0, widthMm, heightMm, undefined, "FAST")
+      pdf.save(`${baseName}-${sizeLabel}.pdf`)
+    }
   }
 }
 

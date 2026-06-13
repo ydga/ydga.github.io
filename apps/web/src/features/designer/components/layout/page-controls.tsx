@@ -27,6 +27,7 @@ type FrameNameFieldProps = {
   onPageNameChange: (name: string) => void
   onFocus?: () => void
   className?: string
+  showIcon?: boolean
 }
 
 export function FrameNameField({
@@ -34,20 +35,26 @@ export function FrameNameField({
   onPageNameChange,
   onFocus,
   className,
+  showIcon = true,
 }: FrameNameFieldProps) {
   return (
     <InputGroup
       className={cn(frameNameFieldClasses, className)}
       onClick={(event) => event.stopPropagation()}
     >
-      <InputGroupAddon align="inline-start" className="py-0 pr-1 pl-2">
-        <Frame className="size-3.5 text-muted-foreground" aria-hidden />
-      </InputGroupAddon>
+      {showIcon ? (
+        <InputGroupAddon align="inline-start" className="py-0 pr-1 pl-2">
+          <Frame className="size-3.5 text-muted-foreground" aria-hidden />
+        </InputGroupAddon>
+      ) : null}
       <InputGroupInput
         value={pageName}
         aria-label="Frame name"
         placeholder="Untitled"
-        className="h-7 min-w-0 flex-1 px-1 text-left text-xs font-medium"
+        className={cn(
+          "h-7 min-w-0 flex-1 text-left text-xs font-medium",
+          showIcon ? "px-1" : "px-2"
+        )}
         onChange={(event) => onPageNameChange(event.target.value)}
         onFocus={onFocus}
         onKeyDown={(event) => event.stopPropagation()}
@@ -213,7 +220,7 @@ export function RemoveFrameButton({
         variant="ghost"
         size="icon-sm"
         className={cn(frameRowActionClassName, className)}
-        aria-label={`Remove ${frameName || "frame"}`}
+        aria-label={`Remove ${frameName || "page"}`}
         onClick={handleClick}
       >
         <Trash2 className="size-3.5" />
@@ -223,16 +230,16 @@ export function RemoveFrameButton({
         <AlertDialogContent size="sm">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {frameName.trim() || "frame"}?
+              Delete {frameName.trim() || "page"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This frame has elements on it. This action cannot be undone.
+              This page has elements on it. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={handleConfirm}>
-              Delete frame
+              Delete page
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

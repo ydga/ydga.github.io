@@ -2,28 +2,31 @@ import { useLayoutEffect, useRef, useState } from "react"
 
 import {
   computeFitScale,
+  getStageEdgeInsets,
   getStageSafeAreaInset,
   VIEWPORT_FIT_MARGIN,
 } from "@/features/designer/lib/fit-viewport"
 
 type UseStageFitOptions = {
-  exportWidthPx: number
+  contentWidthPx: number
+  contentHeightPx: number
   onFitScaleChange: (scale: number) => void
   toolbarChromeRef: React.RefObject<HTMLElement | null>
-  zoomChromeRef: React.RefObject<HTMLElement | null>
+  bottomChromeRef: React.RefObject<HTMLElement | null>
 }
 
 const FIT_SCALE_EPSILON = 0.0001
 const INSET_EPSILON = 0.5
 
 export function useStageFit({
-  exportWidthPx,
+  contentWidthPx,
+  contentHeightPx,
   onFitScaleChange,
   toolbarChromeRef,
-  zoomChromeRef,
+  bottomChromeRef,
 }: UseStageFitOptions) {
   const viewportRef = useRef<HTMLDivElement>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
   const [safeAreaInset, setSafeAreaInset] = useState(VIEWPORT_FIT_MARGIN)
   const lastFitRef = useRef({ inset: VIEWPORT_FIT_MARGIN, scale: 1 })
 
@@ -41,12 +44,20 @@ export function useStageFit({
         return
       }
 
-      const inset = getStageSafeAreaInset(
+      const toolbarRect = toolbarChromeRef.current?.getBoundingClientRect()
+      const bottomChromeRect = bottomChromeRef.current?.getBoundingClientRect()
+      const edgeInsets = getStageEdgeInsets(
         bounds,
-        toolbarChromeRef.current?.getBoundingClientRect(),
-        zoomChromeRef.current?.getBoundingClientRect()
+        toolbarRect,
+        bottomChromeRect
       )
-      const scale = computeFitScale(exportWidthPx, bounds.width, inset)
+      const inset = getStageSafeAreaInset(bounds, toolbarRect, bottomChromeRect)
+      const scale = computeFitScale(
+        contentWidthPx,
+        contentHeightPx,
+        bounds,
+        edgeInsets
+      )
 
       if (Math.abs(lastFitRef.current.inset - inset) > INSET_EPSILON) {
         lastFitRef.current.inset = inset
@@ -65,14 +76,14 @@ export function useStageFit({
     observer.observe(viewport)
 
     const toolbar = toolbarChromeRef.current
-    const zoom = zoomChromeRef.current
+    const bottomChrome = bottomChromeRef.current
 
     if (toolbar) {
       observer.observe(toolbar)
     }
 
-    if (zoom) {
-      observer.observe(zoom)
+    if (bottomChrome) {
+      observer.observe(bottomChrome)
     }
 
     window.addEventListener("resize", updateFit)
@@ -81,7 +92,13 @@ export function useStageFit({
       observer.disconnect()
       window.removeEventListener("resize", updateFit)
     }
-  }, [exportWidthPx, onFitScaleChange, toolbarChromeRef, zoomChromeRef])
+  }, [
+    contentWidthPx,
+    contentHeightPx,
+    onFitScaleChange,
+    toolbarChromeRef,
+    bottomChromeRef,
+  ])
 
-  return { viewportRef, scrollRef, safeAreaInset }
+  return { viewportRef, stageRef, safeAreaInset }
 }

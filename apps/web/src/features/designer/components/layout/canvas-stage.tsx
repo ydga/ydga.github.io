@@ -80,12 +80,7 @@ export function CanvasStage({
     <div
       role="button"
       tabIndex={0}
-      className={cn(
-        "relative block shrink-0 cursor-default overflow-visible shadow-lg ring-1 transition-shadow outline-none",
-        isPageSelected
-          ? "ring-2 ring-primary/40"
-          : "ring-foreground/10 hover:ring-foreground/20"
-      )}
+      className="group/frame-chrome cursor-inherit relative block shrink-0 overflow-visible outline-none"
       style={{ width: trimDisplayWidth, height: trimDisplayHeight }}
       onClick={onSelectPage}
       onKeyDown={(event) => {
@@ -105,6 +100,15 @@ export function CanvasStage({
           width: exportDisplayWidth,
           height: exportDisplayHeight,
         }}
+      />
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-0 shadow-lg ring-1 transition-shadow",
+          isPageSelected
+            ? "ring-2 ring-primary/40"
+            : "ring-foreground/10 group-hover/frame-chrome:ring-foreground/20"
+        )}
       />
       <GuidesOverlay settings={settings} displayScale={displayScale} />
     </div>

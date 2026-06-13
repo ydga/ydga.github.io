@@ -1,6 +1,9 @@
 export const VIEWPORT_FIT_MARGIN = 8
 
-type EdgeInsets = {
+/** Name row (h-7) + gap above the canvas (gap-3). */
+export const FRAME_NAME_CHROME_HEIGHT = 40
+
+export type StageEdgeInsets = {
   top: number
   right: number
   bottom: number
@@ -10,8 +13,8 @@ type EdgeInsets = {
 function getRequiredEdgeInsets(
   viewport: DOMRect,
   toolbar?: DOMRect | null,
-  zoom?: DOMRect | null
-): EdgeInsets {
+  bottomChrome?: DOMRect | null
+): StageEdgeInsets {
   let top = VIEWPORT_FIT_MARGIN
   let right = VIEWPORT_FIT_MARGIN
   let bottom = VIEWPORT_FIT_MARGIN
@@ -22,30 +25,56 @@ function getRequiredEdgeInsets(
     top = Math.max(top, toolbar.bottom - viewport.top + VIEWPORT_FIT_MARGIN)
   }
 
-  if (zoom) {
-    bottom = Math.max(bottom, viewport.bottom - zoom.top + VIEWPORT_FIT_MARGIN)
+  if (bottomChrome) {
+    bottom = Math.max(
+      bottom,
+      viewport.bottom - bottomChrome.top + VIEWPORT_FIT_MARGIN
+    )
   }
 
   return { top, right, bottom, left }
 }
 
-/** Uniform inset on all sides — keeps the frame stack centered while clearing stage chrome. */
+export function getStageEdgeInsets(
+  viewport: DOMRect,
+  toolbar?: DOMRect | null,
+  bottomChrome?: DOMRect | null
+): StageEdgeInsets {
+  return getRequiredEdgeInsets(viewport, toolbar, bottomChrome)
+}
+
+/** Uniform inset on all sides — keeps the page centered while clearing stage chrome. */
 export function getStageSafeAreaInset(
   viewport: DOMRect,
   toolbar?: DOMRect | null,
-  zoom?: DOMRect | null
+  bottomChrome?: DOMRect | null
 ) {
-  const edges = getRequiredEdgeInsets(viewport, toolbar, zoom)
+  const edges = getRequiredEdgeInsets(viewport, toolbar, bottomChrome)
   return Math.max(edges.top, edges.right, edges.bottom, edges.left)
 }
 
-/** Fit scales to the available width using the widest frame; tall stacks scroll vertically. */
+/** Fit scale so the full frame (export size + name chrome) fits in the viewport. */
 export function computeFitScale(
-  exportWidthPx: number,
-  viewportWidth: number,
-  safeAreaInset: number
+  contentWidthPx: number,
+  contentHeightPx: number,
+  viewport: DOMRect,
+  edgeInsets: StageEdgeInsets
 ) {
-  const availableWidth = Math.max(viewportWidth - safeAreaInset * 2, 1)
+  const availableWidth = Math.max(
+    viewport.width - edgeInsets.left - edgeInsets.right,
+    1
+  )
+  const availableHeight = Math.max(
+    viewport.height - edgeInsets.top - edgeInsets.bottom,
+    1
+  )
+  const canvasHeightBudget = Math.max(
+    availableHeight - FRAME_NAME_CHROME_HEIGHT,
+    1
+  )
 
-  return availableWidth / exportWidthPx
+  const scaleByWidth = availableWidth / contentWidthPx
+  const scaleByHeight = canvasHeightBudget / contentHeightPx
+
+  return Math.min(scaleByWidth, scaleByHeight)
 }

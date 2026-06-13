@@ -9,19 +9,31 @@ const toggleVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-transparent",
-        tile: "border-0 bg-input/10 hover:bg-muted aria-pressed:border-0 data-[state=on]:border-0",
+        default: "bg-transparent [corner-shape:round]",
+        tile: "rounded-squircle border-0 bg-input/10 [corner-shape:squircle] hover:bg-muted aria-pressed:border-0 data-[state=on]:border-0",
         outline:
-          "border border-input bg-input/10 hover:bg-muted aria-pressed:border-active-foreground/35 data-[state=on]:border-active-foreground/35",
+          "border border-input bg-input/10 [corner-shape:round] hover:bg-muted aria-pressed:border-active-foreground/35 data-[state=on]:border-active-foreground/35",
       },
       size: {
         default:
-          "h-7 min-w-7 rounded-full px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        sm: "h-7 min-w-7 rounded-full px-2 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5",
-        lg: "h-8 min-w-8 rounded-full px-3 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5",
-        icon: "size-7 rounded-full p-0",
+          "h-7 min-w-7 rounded-md px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        sm: "h-7 min-w-7 rounded-md px-2 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5",
+        lg: "h-8 min-w-8 rounded-md px-3 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5",
+        icon: "size-7 p-0",
       },
     },
+    compoundVariants: [
+      {
+        variant: "tile",
+        size: "icon",
+        class: "rounded-squircle",
+      },
+      {
+        variant: ["default", "outline"],
+        size: "icon",
+        class: "rounded-md",
+      },
+    ],
     defaultVariants: {
       variant: "default",
       size: "default",
@@ -39,6 +51,7 @@ function Toggle({
   return (
     <TogglePrimitive.Root
       data-slot="toggle"
+      data-variant={variant}
       className={cn(toggleVariants({ variant, size, className }))}
       {...props}
     />

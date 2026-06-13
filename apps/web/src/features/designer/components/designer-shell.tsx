@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 
 import { ContextPanel } from "@/features/designer/components/layout/context-panel"
 import { MainStage } from "@/features/designer/components/layout/main-stage"
@@ -25,9 +25,9 @@ export function DesignerShell() {
     []
   )
 
-  const getActiveCanvas = useCallback(() => {
-    return canvasRefs.current.get(frames.activeFrameId) ?? null
-  }, [frames.activeFrameId])
+  const getCanvasForFrame = useCallback((frameId: string) => {
+    return canvasRefs.current.get(frameId) ?? null
+  }, [])
 
   useFrameNameSync({
     settings: frames.settings,
@@ -36,23 +36,14 @@ export function DesignerShell() {
     syncFrameNameFromSettings: frames.syncFrameNameFromSettings,
   })
 
-  const handleRemoveFrame = useCallback(
-    (frameId: string) => {
-      layers.removeLayersForFrame(frameId)
-      const nextActiveId = frames.removeFrame(frameId)
-      ui.selectPage(nextActiveId)
-    },
-    [frames, layers, ui]
-  )
-
-  const handleDuplicateFrame = useCallback(
-    (frameId: string) => {
-      const newFrameId = frames.duplicateFrame(frameId)
-      ui.selectPage(newFrameId)
-      return newFrameId
-    },
-    [frames, ui]
-  )
+  useEffect(() => {
+    if (
+      ui.selection.kind === "page" &&
+      ui.selection.pageId !== frames.activeFrameId
+    ) {
+      ui.selectPage(frames.activeFrameId)
+    }
+  }, [frames.activeFrameId, ui.selection, ui.selectPage])
 
   return (
     <div className="relative h-svh overflow-hidden bg-background">
@@ -60,7 +51,7 @@ export function DesignerShell() {
         <MainStage
           ui={ui}
           frames={frames}
-          layers={layers}
+          layers={layers.layers}
           getCanvasRef={getCanvasRef}
           onSelectFrame={(frameId) => {
             frames.selectFrame(frameId)
@@ -71,15 +62,21 @@ export function DesignerShell() {
             ui.selectPage(frameId)
             return frameId
           }}
-          onRemoveFrame={handleRemoveFrame}
-          onDuplicateFrame={handleDuplicateFrame}
-          onMoveFrame={frames.moveFrame}
+          onDuplicateFrame={() => {
+            const frameId = frames.duplicateFrame(frames.activeFrameId)
+            ui.selectPage(frameId)
+          }}
+          onRemoveFrame={(frameId) => {
+            layers.removeLayersForFrame(frameId)
+            const nextActiveId = frames.removeFrame(frameId)
+            ui.selectPage(nextActiveId)
+          }}
         />
 
         <ContextPanel
           ui={ui}
           frames={frames}
-          getActiveCanvas={getActiveCanvas}
+          getCanvasForFrame={getCanvasForFrame}
           onImageUpload={frames.setBackgroundImage}
           layers={layers.layers}
           activeFrameId={frames.activeFrameId}

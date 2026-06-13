@@ -1,7 +1,8 @@
 import type { ComponentProps } from "react"
 
 import { SettingControl } from "./setting-control"
-import { IconTileToggle } from "./icon-tile-toggle"
+import { PanelIconTileToggle } from "./panel-icon-tile-toggle"
+import { panelIconClassName } from "./settings-field-styles"
 
 type LabeledIconToggleProps = {
   label: string
@@ -11,7 +12,7 @@ type LabeledIconToggleProps = {
   onCheckedChange: (value: boolean) => void
   iconClassName?: string
   toggleProps?: Omit<
-    ComponentProps<typeof IconTileToggle>,
+    ComponentProps<typeof PanelIconTileToggle>,
     "pressed" | "disabled" | "aria-label" | "onPressedChange" | "children"
   >
 }
@@ -22,12 +23,12 @@ function LabeledIconToggle({
   checked,
   disabled,
   onCheckedChange,
-  iconClassName = "size-3.5",
+  iconClassName = panelIconClassName,
   toggleProps,
 }: LabeledIconToggleProps) {
   return (
     <SettingControl label={label}>
-      <IconTileToggle
+      <PanelIconTileToggle
         pressed={checked}
         disabled={disabled}
         aria-label={label}
@@ -35,7 +36,7 @@ function LabeledIconToggle({
         {...toggleProps}
       >
         <Icon className={iconClassName} />
-      </IconTileToggle>
+      </PanelIconTileToggle>
     </SettingControl>
   )
 }

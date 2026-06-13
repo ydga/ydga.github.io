@@ -10,13 +10,18 @@ import { ExportSettingsPanel } from "@/features/designer/components/settings/exp
 import type { Layer } from "@/features/designer/model/layers"
 import type { DesignerFrames } from "@/features/designer/state/use-designer-frames"
 import type { DesignerUi } from "@/features/designer/state/use-designer-ui"
-import { Button } from "@workspace/ui/components/button"
+import { PanelIconTileButton } from "@workspace/ui/components/settings/panel-icon-tile-button"
+import {
+  panelIconClassName,
+  panelPaddingClassName,
+  panelPaddingXClassName,
+} from "@workspace/ui/components/settings/settings-field-styles"
 import { cn } from "@workspace/ui/lib/utils"
 
 type ContextPanelProps = {
   ui: DesignerUi
   frames: DesignerFrames
-  getActiveCanvas: () => HTMLCanvasElement | null
+  getCanvasForFrame: (frameId: string) => HTMLCanvasElement | null
   onImageUpload: (file: File | null) => void
   layers: Layer[]
   activeFrameId: string
@@ -26,7 +31,7 @@ type ContextPanelProps = {
 export function ContextPanel({
   ui,
   frames,
-  getActiveCanvas,
+  getCanvasForFrame,
   onImageUpload,
   layers,
   activeFrameId,
@@ -54,44 +59,56 @@ export function ContextPanel({
       aria-hidden={!ui.panelOpen}
     >
       <div className="flex h-full w-[var(--panel-width)] flex-col">
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
+        <div
+          className={cn(
+            "flex shrink-0 items-center justify-between gap-3 border-b border-border py-3",
+            panelPaddingXClassName
+          )}
+        >
           <h2 className="min-w-0 truncate font-heading text-xs font-medium">
             {title}
           </h2>
-          <Button
+          <PanelIconTileButton
             type="button"
-            variant="ghost"
-            size="icon-sm"
             aria-label="Close sidebar"
             onClick={() => ui.closePanel()}
           >
-            <PanelLeft />
-          </Button>
+            <PanelLeft className={panelIconClassName} />
+          </PanelIconTileButton>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
+        <div className="flex min-h-0 flex-1 flex-col">
           {panelMode === "export" ? (
             <ExportSettingsPanel
-              frameName={frames.frameName}
-              settings={frames.settings}
-              dispatch={frames.dispatch}
-              getActiveCanvas={getActiveCanvas}
-            />
-          ) : panelMode === "layers" ? (
-            <LayersPanel
-              ui={ui}
-              frameId={activeFrameId}
-              layers={layers}
-              onReorder={onReorderLayers}
-            />
-          ) : selection.kind === "page" ? (
-            <PageSettingsPanel
-              settings={frames.settings}
-              dispatch={frames.dispatch}
-              onImageUpload={onImageUpload}
+              frames={frames.frames}
+              activeFrameId={frames.activeFrameId}
+              getCanvasForFrame={getCanvasForFrame}
+              onFrameNameChange={frames.setFrameNameForFrame}
             />
           ) : (
-            <ObjectSettingsPanel />
+            <div
+              className={cn(
+                "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+                panelPaddingClassName
+              )}
+            >
+              {panelMode === "layers" ? (
+                <LayersPanel
+                  ui={ui}
+                  frameId={activeFrameId}
+                  layers={layers}
+                  onReorder={onReorderLayers}
+                />
+              ) : selection.kind === "page" ? (
+                <PageSettingsPanel
+                  settings={frames.settings}
+                  dispatch={frames.dispatch}
+                  onImageUpload={onImageUpload}
+                />
+              ) : (
+                <ObjectSettingsPanel />
+              )}
+            </div>
           )}
         </div>
       </div>

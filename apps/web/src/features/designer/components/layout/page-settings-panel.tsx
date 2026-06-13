@@ -7,6 +7,7 @@ import { GuidesSettingsSection } from "@/features/designer/components/settings/g
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
 import { Separator } from "@workspace/ui/components/separator"
+import { panelSectionClassName } from "@workspace/ui/components/settings/settings-field-styles"
 
 type PageSettingsPanelProps = {
   settings: CanvasSettings
@@ -20,7 +21,7 @@ export function PageSettingsPanel({
   onImageUpload,
 }: PageSettingsPanelProps) {
   return (
-    <div className="flex flex-col gap-6">
+    <div className={panelSectionClassName}>
       <CanvasSettingsSection settings={settings} dispatch={dispatch} />
       <Separator />
       <PresetsSection settings={settings} dispatch={dispatch} />

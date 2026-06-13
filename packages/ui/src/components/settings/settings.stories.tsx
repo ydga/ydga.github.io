@@ -10,7 +10,7 @@ import {
 } from "lucide-react"
 
 import { SettingsInput } from "@workspace/ui/components/settings/settings-input"
-import { Button } from "../button"
+import { cn } from "@workspace/ui/lib/utils"
 import { ProTooltipProvider } from "../tooltip"
 import { ToggleGroup, ToggleGroupItem } from "../toggle-group"
 import { DimensionField } from "./dimension-field"
@@ -19,6 +19,11 @@ import { PresetCategoryTabs, type PresetCategory } from "./preset-category-tabs"
 import { SettingControl } from "./setting-control"
 import { SettingSection } from "./setting-section"
 import { NavIconButton } from "./nav-icon-button"
+import { PanelIconTileButton } from "./panel-icon-tile-button"
+import {
+  panelIconClassName,
+  panelPaddingClassName,
+} from "./settings-field-styles"
 import { SlidingNavIndicator, SlidingNavItem } from "./sliding-nav-indicator"
 
 const meta = {
@@ -27,7 +32,12 @@ const meta = {
   decorators: [
     (Story) => (
       <ProTooltipProvider>
-        <div className="w-[var(--panel-width)] rounded-2xl border border-border bg-background p-4">
+        <div
+          className={cn(
+            "w-[var(--panel-width)] rounded-2xl border border-border bg-background",
+            panelPaddingClassName
+          )}
+        >
           <Story />
         </div>
       </ProTooltipProvider>
@@ -293,11 +303,8 @@ export const FullCanvasPanel: Story = {
             />
 
             <SettingControl label="Rotate">
-              <Button
+              <PanelIconTileButton
                 type="button"
-                variant="iconTile"
-                size="icon-sm"
-                className="size-7"
                 aria-label="Rotate canvas"
                 disabled={width === height}
                 onClick={() => {
@@ -305,8 +312,8 @@ export const FullCanvasPanel: Story = {
                   setHeight(width)
                 }}
               >
-                <RotateCw className="size-3.5" />
-              </Button>
+                <RotateCw className={panelIconClassName} />
+              </PanelIconTileButton>
             </SettingControl>
           </div>
         </SettingSection>

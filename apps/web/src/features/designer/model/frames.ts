@@ -1,12 +1,11 @@
 import { DEFAULT_CANVAS_SETTINGS } from "@/features/designer/model/defaults"
-import {
-  findMatchingPreset,
-  formatDimensionsLabel,
-} from "@/features/designer/model/presets"
+import { findMatchingPreset } from "@/features/designer/model/presets"
 import type { Layer } from "@/features/designer/model/layers"
 import type { CanvasSettings } from "@/features/designer/model/types"
 
 export type FrameNameSource = "auto" | "manual"
+
+export const DEFAULT_PAGE_NAME = "Untitled"
 
 export type DesignerFrame = {
   id: string
@@ -19,10 +18,7 @@ export const DEFAULT_FRAME_ID = "frame-1"
 
 function getInitialFrameName() {
   const { width, height, unit } = DEFAULT_CANVAS_SETTINGS
-  return (
-    findMatchingPreset(width, height, unit)?.label ??
-    formatDimensionsLabel(width, height, unit)
-  )
+  return findMatchingPreset(width, height, unit)?.label ?? DEFAULT_PAGE_NAME
 }
 
 export function createInitialFrame(): DesignerFrame {
@@ -83,4 +79,18 @@ export function getDuplicateFrameName(name: string) {
   }
 
   return `${trimmed} copy`
+}
+
+/** Keep a valid page selected whenever the frame list changes. */
+export function resolveActiveFrameId(
+  frames: DesignerFrame[],
+  activeFrameId: string
+): string {
+  if (frames.length === 0) {
+    return DEFAULT_FRAME_ID
+  }
+
+  return frames.some((frame) => frame.id === activeFrameId)
+    ? activeFrameId
+    : frames[0].id
 }

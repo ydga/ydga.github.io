@@ -1,12 +1,12 @@
 import { useEffect } from "react"
 
 import type { CanvasPreset } from "@/features/designer/model/presets"
-import type { FrameNameSource } from "@/features/designer/model/frames"
-import type { CanvasSettings } from "@/features/designer/model/types"
+import { findMatchingPreset } from "@/features/designer/model/presets"
 import {
-  findMatchingPreset,
-  formatDimensionsLabel,
-} from "@/features/designer/model/presets"
+  DEFAULT_PAGE_NAME,
+  type FrameNameSource,
+} from "@/features/designer/model/frames"
+import type { CanvasSettings } from "@/features/designer/model/types"
 
 type UseFrameNameSyncArgs = {
   settings: CanvasSettings
@@ -59,7 +59,7 @@ export function getSuggestedPageName(settings: CanvasSettings): string {
     return matchingPreset.label
   }
 
-  return formatDimensionsLabel(settings.width, settings.height, settings.unit)
+  return DEFAULT_PAGE_NAME
 }
 
 /** @deprecated Use useFrameNameSync */

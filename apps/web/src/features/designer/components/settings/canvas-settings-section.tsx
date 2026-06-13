@@ -20,7 +20,8 @@ import {
   type PresetCategory,
 } from "@workspace/ui/components/settings/preset-category-tabs"
 import { SettingControl } from "@workspace/ui/components/settings/setting-control"
-import { Button } from "@workspace/ui/components/button"
+import { PanelIconTileButton } from "@workspace/ui/components/settings/panel-icon-tile-button"
+import { panelIconClassName } from "@workspace/ui/components/settings/settings-field-styles"
 
 type CanvasSettingsSectionProps = {
   settings: CanvasSettings
@@ -52,17 +53,14 @@ export function CanvasSettingsSection({
           />
 
           <SettingControl label="Rotate">
-            <Button
+            <PanelIconTileButton
               type="button"
-              variant="iconTile"
-              size="icon-sm"
-              className="size-7"
               aria-label="Rotate frame"
               disabled={width === height}
               onClick={() => dispatch({ type: "rotate-orientation" })}
             >
-              <RotateCw className="size-3.5" />
-            </Button>
+              <RotateCw className={panelIconClassName} />
+            </PanelIconTileButton>
           </SettingControl>
         </div>
       </div>

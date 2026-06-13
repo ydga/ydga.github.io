@@ -1,30 +1,58 @@
 "use client"
 
 import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 import { Switch as SwitchPrimitive } from "radix-ui"
 
 import { cn } from "@workspace/ui/lib/utils"
+
+/** Track = 2× thumb + 4px inset; thumb snaps start/end so inset matches on both sides. */
+const switchTrackVariants = cva(
+  "peer group/switch relative inline-flex shrink-0 items-center justify-start rounded-full border border-transparent p-0.5 transition-colors outline-none [corner-shape:round] after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20 data-[state=checked]:justify-end dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-active-foreground dark:data-checked:bg-active data-unchecked:bg-input dark:data-unchecked:bg-input/80 data-disabled:cursor-not-allowed data-disabled:opacity-50",
+  {
+    variants: {
+      size: {
+        default: "h-[18px] w-[32px]",
+        sm: "h-[16px] w-[28px]",
+      },
+    },
+    defaultVariants: {
+      size: "default",
+    },
+  }
+)
+
+const switchThumbVariants = cva(
+  "pointer-events-none shrink-0 rounded-full bg-background ring-0 [corner-shape:round] dark:group-data-[state=unchecked]/switch:bg-foreground",
+  {
+    variants: {
+      size: {
+        default: "size-[14px]",
+        sm: "size-[12px]",
+      },
+    },
+    defaultVariants: {
+      size: "default",
+    },
+  }
+)
 
 function Switch({
   className,
   size = "default",
   ...props
-}: React.ComponentProps<typeof SwitchPrimitive.Root> & {
-  size?: "sm" | "default"
-}) {
+}: React.ComponentProps<typeof SwitchPrimitive.Root> &
+  VariantProps<typeof switchTrackVariants>) {
   return (
     <SwitchPrimitive.Root
       data-slot="switch"
       data-size={size}
-      className={cn(
-        "peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80 data-disabled:cursor-not-allowed data-disabled:opacity-50",
-        className
-      )}
+      className={cn(switchTrackVariants({ size }), className)}
       {...props}
     >
       <SwitchPrimitive.Thumb
         data-slot="switch-thumb"
-        className="pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 dark:data-unchecked:bg-foreground"
+        className={switchThumbVariants({ size })}
       />
     </SwitchPrimitive.Root>
   )

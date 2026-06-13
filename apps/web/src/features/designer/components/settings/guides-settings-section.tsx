@@ -1,4 +1,4 @@
-import { Columns3, Crosshair, Scan, Shield, Square } from "lucide-react"
+import { Columns3, Crosshair, Scan, Shield } from "lucide-react"
 
 import { isPrintDocument } from "@/features/designer/lib/document-intent"
 import type { CanvasSettings } from "@/features/designer/model/types"
@@ -23,14 +23,6 @@ export function GuidesSettingsSection({
       <div className="flex flex-wrap gap-2">
         {showPrintGuides ? (
           <>
-            <LabeledIconToggle
-              label="Crop marks"
-              icon={Square}
-              checked={guides.showTrim}
-              onCheckedChange={(value) =>
-                dispatch({ type: "set-guide", key: "showTrim", value })
-              }
-            />
             <LabeledIconToggle
               label="Bleed guide"
               icon={Scan}

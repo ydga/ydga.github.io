@@ -1,7 +1,3 @@
-import {
-  getCropMarkLines,
-  getCropMarkSpec,
-} from "@/features/designer/lib/crop-marks"
 import { isPrintDocument } from "@/features/designer/lib/document-intent"
 import { getPreviewGuideGeometry } from "@/features/designer/lib/print-zones"
 import type { CanvasSettings } from "@/features/designer/model/types"
@@ -51,15 +47,6 @@ export function GuidesOverlay({ settings, displayScale }: GuidesOverlayProps) {
 
   const centerX = trimGuide.x + trimGuide.width / 2
   const centerY = trimGuide.y + trimGuide.height / 2
-  const showCropMarks = guides.showTrim && showPrintGuides
-  const cropMarkSpec = showCropMarks ? getCropMarkSpec(settings, bleedPx) : null
-  const cropMarkLines =
-    cropMarkSpec === null
-      ? []
-      : getCropMarkLines(trimGuide, {
-          gap: cropMarkSpec.gap * displayScale,
-          length: cropMarkSpec.length * displayScale,
-        })
 
   return (
     <svg
@@ -88,21 +75,6 @@ export function GuidesOverlay({ settings, displayScale }: GuidesOverlayProps) {
           strokeWidth={1}
         />
       ) : null}
-
-      {showCropMarks
-        ? cropMarkLines.map((line, index) => (
-            <line
-              key={`crop-${index}`}
-              x1={line.x1}
-              y1={line.y1}
-              x2={line.x2}
-              y2={line.y2}
-              stroke="var(--color-foreground)"
-              strokeWidth={1}
-              vectorEffect="non-scaling-stroke"
-            />
-          ))
-        : null}
 
       {guides.showSafe && print.safeEnabled && showPrintGuides ? (
         <rect
