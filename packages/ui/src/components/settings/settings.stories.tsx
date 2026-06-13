@@ -9,7 +9,7 @@ import {
   Ruler,
 } from "lucide-react"
 
-import { Input } from "../input"
+import { SettingsInput } from "@workspace/ui/components/settings/settings-input"
 import { Button } from "../button"
 import { ProTooltipProvider } from "../tooltip"
 import { ToggleGroup, ToggleGroupItem } from "../toggle-group"
@@ -73,9 +73,8 @@ export const IconToggles: Story = {
           <SettingControl label="Background type">
             <ToggleGroup
               type="single"
-              variant="outline"
+              variant="tile"
               size="icon"
-              spacing={0}
               defaultValue="color"
             >
               <ToggleGroupItem value="color" aria-label="Solid color">
@@ -90,9 +89,8 @@ export const IconToggles: Story = {
           <SettingControl label="Fit: cover">
             <ToggleGroup
               type="single"
-              variant="outline"
+              variant="tile"
               size="icon"
-              spacing={0}
               defaultValue="cover"
             >
               <ToggleGroupItem value="cover" aria-label="Cover">
@@ -189,7 +187,7 @@ export const CompactInputs: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
       <SettingControl label="Bleed per edge">
-        <Input
+        <SettingsInput
           type="number"
           defaultValue={0.3}
           step={0.01}
@@ -200,7 +198,7 @@ export const CompactInputs: Story = {
       </SettingControl>
       <SettingControl label="Safe inset">
         <div className="flex items-center gap-1.5">
-          <Input
+          <SettingsInput
             type="number"
             defaultValue={0.3}
             step={0.01}
@@ -259,8 +257,9 @@ export const FullCanvasPanel: Story = {
             <SettingControl label="Rotate">
               <Button
                 type="button"
-                variant="ghost"
+                variant="iconTile"
                 size="icon-sm"
+                className="size-7"
                 aria-label="Rotate canvas"
                 disabled={width === height}
                 onClick={() => {

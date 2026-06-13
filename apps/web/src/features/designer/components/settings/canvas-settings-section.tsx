@@ -54,8 +54,9 @@ export function CanvasSettingsSection({
           <SettingControl label="Rotate">
             <Button
               type="button"
-              variant="ghost"
+              variant="iconTile"
               size="icon-sm"
+              className="size-7"
               aria-label="Rotate canvas"
               disabled={width === height}
               onClick={() => dispatch({ type: "rotate-orientation" })}

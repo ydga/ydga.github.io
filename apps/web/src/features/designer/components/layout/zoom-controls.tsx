@@ -32,7 +32,7 @@ export function ZoomControls({
     >
       <Button
         type="button"
-        variant="ghost"
+        variant="iconTile"
         size="icon-sm"
         aria-label="Zoom out"
         onClick={onZoomOut}
@@ -44,7 +44,7 @@ export function ZoomControls({
       </span>
       <Button
         type="button"
-        variant="ghost"
+        variant="iconTile"
         size="icon-sm"
         aria-label="Zoom in"
         onClick={onZoomIn}

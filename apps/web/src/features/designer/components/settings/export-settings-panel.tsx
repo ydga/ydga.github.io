@@ -61,7 +61,6 @@ export function ExportSettingsPanel({
                 type="single"
                 variant="outline"
                 size="sm"
-                spacing={0}
                 value={String(settings.pixelScale)}
                 onValueChange={(value) => {
                   if (value === "1" || value === "2") {
@@ -86,7 +85,6 @@ export function ExportSettingsPanel({
                 type="single"
                 variant="outline"
                 size="sm"
-                spacing={0}
                 value={settings.export.screenFormat}
                 onValueChange={(value) => {
                   if (value === "png" || value === "jpg") {
@@ -112,7 +110,6 @@ export function ExportSettingsPanel({
                 type="single"
                 variant="outline"
                 size="sm"
-                spacing={0}
                 value={String(settings.dpi)}
                 onValueChange={(value) => {
                   const nextDpi = Number(value)
@@ -142,7 +139,6 @@ export function ExportSettingsPanel({
                 type="single"
                 variant="outline"
                 size="sm"
-                spacing={0}
                 value="pdf"
               >
                 <ToggleGroupItem

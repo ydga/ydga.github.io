@@ -8,7 +8,7 @@ import type {
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
 import { isPrintDocument } from "@/features/designer/lib/document-intent"
 import { SettingControl } from "@workspace/ui/components/settings/setting-control"
-import { cn } from "@workspace/ui/lib/utils"
+import { IconTileToggle } from "@workspace/ui/components/settings/icon-tile-toggle"
 
 type ExportBurnInSectionProps = {
   settings: CanvasSettings
@@ -91,20 +91,14 @@ function BurnInToggle({
 }) {
   return (
     <SettingControl label={label}>
-      <button
-        type="button"
-        aria-pressed={checked}
-        aria-label={label}
+      <IconTileToggle
+        pressed={checked}
         disabled={disabled}
-        onClick={() => onCheckedChange(!checked)}
-        className={cn(
-          "inline-flex size-7 items-center justify-center rounded-4xl border border-input transition-colors hover:bg-muted",
-          checked && "border-ring bg-muted ring-1 ring-ring",
-          disabled && "cursor-not-allowed opacity-50"
-        )}
+        aria-label={label}
+        onPressedChange={onCheckedChange}
       >
         <Icon className="size-3.5" />
-      </button>
+      </IconTileToggle>
     </SettingControl>
   )
 }

@@ -2,7 +2,7 @@ import { SettingsSection } from "@/features/designer/components/settings/setting
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
 import { isPrintDocument } from "@/features/designer/lib/document-intent"
-import { Input } from "@workspace/ui/components/input"
+import { SettingsInput } from "@workspace/ui/components/settings/settings-input"
 import { SettingControl } from "@workspace/ui/components/settings/setting-control"
 import { Switch } from "@workspace/ui/components/switch"
 
@@ -35,7 +35,7 @@ export function PrintSettingsSection({
 
           {settings.print.bleedEnabled ? (
             <SettingControl label="Bleed per edge">
-              <Input
+              <SettingsInput
                 type="number"
                 min={0.1}
                 step={0.01}
@@ -67,7 +67,7 @@ export function PrintSettingsSection({
 
           {settings.print.safeEnabled ? (
             <SettingControl label="Safe inset from trim">
-              <Input
+              <SettingsInput
                 type="number"
                 min={0.1}
                 step={0.01}

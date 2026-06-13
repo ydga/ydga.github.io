@@ -17,6 +17,8 @@ import type {
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
+import { SettingsInput } from "@workspace/ui/components/settings/settings-input"
+import { settingsFieldClasses } from "@workspace/ui/components/settings/settings-field-styles"
 import { SettingControl } from "@workspace/ui/components/settings/setting-control"
 import {
   ToggleGroup,
@@ -42,9 +44,8 @@ export function BackgroundSettingsSection({
         <SettingControl label="Background type">
           <ToggleGroup
             type="single"
-            variant="outline"
-            size="sm"
-            spacing={0}
+            variant="tile"
+            size="icon"
             value={background.type}
             onValueChange={(value) => {
               if (isBackgroundType(value)) {
@@ -92,7 +93,7 @@ export function BackgroundSettingsSection({
             />
             <SettingControl label="Gradient angle">
               <div className="flex items-center gap-1.5">
-                <Input
+                <SettingsInput
                   type="number"
                   min={0}
                   max={359}
@@ -120,7 +121,7 @@ export function BackgroundSettingsSection({
           <>
             <div className="flex flex-col gap-2">
               <SettingControl label="Upload image">
-                <Input
+                <SettingsInput
                   type="file"
                   accept="image/*"
                   aria-label="Upload image"
@@ -147,9 +148,8 @@ export function BackgroundSettingsSection({
             <SettingControl label="Image fit">
               <ToggleGroup
                 type="single"
-                variant="outline"
-                size="sm"
-                spacing={0}
+                variant="tile"
+                size="icon"
                 value={background.fit}
                 onValueChange={(value) => {
                   if (isBackgroundFit(value)) {
@@ -198,11 +198,13 @@ function ColorField({
           type="color"
           value={value}
           aria-label={label}
-          className="h-7 w-10 shrink-0 cursor-pointer p-0.5"
+          className={settingsFieldClasses(
+            "h-7 w-10 shrink-0 cursor-pointer p-0.5"
+          )}
           onChange={(event) => onChange(event.target.value)}
         />
       </SettingControl>
-      <Input
+      <SettingsInput
         type="text"
         value={value}
         aria-label={`${label} hex`}

@@ -25,7 +25,7 @@ export function FramePresetCard({
       className={cn(
         "flex flex-col items-center gap-2 rounded-xl border px-2 py-2.5 text-left transition-colors",
         active
-          ? "border-ring bg-muted ring-1 ring-ring"
+          ? "control-selected"
           : "border-border bg-background hover:bg-muted/50"
       )}
     >
@@ -33,7 +33,7 @@ export function FramePresetCard({
         <div
           className={cn(
             "rounded-sm border border-foreground/30 bg-foreground/5",
-            active && "border-foreground/50 bg-foreground/10"
+            active && "border-active-foreground/40 bg-active-foreground/10"
           )}
           style={{
             width: `${previewWidth * 0.36}px`,

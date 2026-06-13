@@ -19,7 +19,6 @@ export function PresetCategoryTabs({
       type="single"
       variant="outline"
       size="sm"
-      spacing={0}
       value={value}
       onValueChange={(next) => {
         if (next === "screen" || next === "print") {

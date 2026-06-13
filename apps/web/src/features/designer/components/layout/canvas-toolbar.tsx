@@ -3,7 +3,7 @@ import { Download, FileCog } from "lucide-react"
 
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerUi } from "@/features/designer/state/use-designer-ui"
-import { Button } from "@workspace/ui/components/button"
+import { IconTileToggle } from "@workspace/ui/components/settings/icon-tile-toggle"
 import {
   Tooltip,
   TooltipContent,
@@ -81,17 +81,15 @@ function ToolbarIconButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant={active ? "secondary" : "ghost"}
-          size="icon-sm"
-          className={cn("size-9", active && "bg-muted")}
+        <IconTileToggle
+          pressed={active}
+          className={cn("size-9", active && "toolbar-selected")}
           disabled={disabled}
           aria-label={label}
-          onClick={onClick}
+          onPressedChange={() => onClick()}
         >
           {children}
-        </Button>
+        </IconTileToggle>
       </TooltipTrigger>
       <TooltipContent side="left">{label}</TooltipContent>
     </Tooltip>

@@ -5,7 +5,7 @@ import { SettingsSection } from "@/features/designer/components/settings/setting
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
 import { SettingControl } from "@workspace/ui/components/settings/setting-control"
-import { cn } from "@workspace/ui/lib/utils"
+import { IconTileToggle } from "@workspace/ui/components/settings/icon-tile-toggle"
 
 type GuidesSettingsSectionProps = {
   settings: CanvasSettings
@@ -89,20 +89,14 @@ function GuideToggle({
 }) {
   return (
     <SettingControl label={label}>
-      <button
-        type="button"
-        aria-pressed={checked}
-        aria-label={label}
+      <IconTileToggle
+        pressed={checked}
         disabled={disabled}
-        onClick={() => onCheckedChange(!checked)}
-        className={cn(
-          "inline-flex size-7 items-center justify-center rounded-4xl border border-input transition-colors hover:bg-muted",
-          checked && "border-ring bg-muted ring-1 ring-ring",
-          disabled && "cursor-not-allowed opacity-50"
-        )}
+        aria-label={label}
+        onPressedChange={onCheckedChange}
       >
         <Icon className="size-3.5" />
-      </button>
+      </IconTileToggle>
     </SettingControl>
   )
 }

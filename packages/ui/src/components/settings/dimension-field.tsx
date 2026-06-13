@@ -3,6 +3,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
+import { settingsInputGroupClasses } from "./settings-field-styles"
 import {
   Tooltip,
   TooltipContent,
@@ -41,7 +42,7 @@ function DimensionInput({
   onChange,
 }: DimensionInputProps) {
   return (
-    <InputGroup className="h-7 min-w-0 flex-1">
+    <InputGroup className={settingsInputGroupClasses("h-7 min-w-0 flex-1")}>
       <InputGroupAddon
         align="inline-start"
         className="py-0 pr-0 pl-1.5 text-xs font-medium"
