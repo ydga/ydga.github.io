@@ -51,6 +51,9 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   --font-sans: "Inter Variable", sans-serif;
+  --spacing-panel-width: var(--panel-width);
+  --spacing-stage-chrome: var(--stage-chrome-inset);
+  --spacing-settings-control: var(--settings-control-height);
 }
 
 :root {
@@ -88,6 +91,10 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --panel-width: 20rem;
+  --stage-chrome-inset: 1rem;
+  --viewport-fit-margin: 0.5rem;
+  --settings-control-height: 1.75rem;
 }
 
 .dark {
@@ -136,18 +143,70 @@
   body {
     @apply bg-background text-base text-foreground;
   }
+  button {
+    corner-shape: squircle;
+  }
+
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
+
+  [data-slot="button"],
+  [data-slot="toggle"],
+  [data-slot="toggle-group-item"],
+  [data-slot="input-group-button"] {
+    corner-shape: squircle;
+  }
 }
 
 @layer utilities {
+  /* Card / preset selection — purple active tokens */
   .control-selected {
     @apply border-transparent bg-active text-active-foreground ring-1 ring-active-foreground/25;
   }
 
-  .toolbar-selected {
-    @apply border-transparent bg-active-foreground text-active ring-1 ring-active-foreground/20 dark:bg-active dark:text-active-foreground dark:ring-active/30;
+  /* Settings numeric fields — mono tabular values */
+  .settings-numeric {
+    @apply font-mono text-xs tabular-nums;
+  }
+
+  .rounded-squircle {
+    border-radius: 9999px;
+    corner-shape: squircle;
+  }
+
+  .scrollbar-thin {
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 9999px;
+    transition: background-color 150ms ease;
+  }
+
+  .scrollbar-thin.is-scrolling {
+    scrollbar-color: color-mix(in oklch, var(--foreground) 10%, transparent)
+      transparent;
+  }
+
+  .scrollbar-thin.is-scrolling::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklch, var(--foreground) 10%, transparent);
+  }
+
+  .scrollbar-thin.is-scrolling::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklch, var(--foreground) 16%, transparent);
   }
 }

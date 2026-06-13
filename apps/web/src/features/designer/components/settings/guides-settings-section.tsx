@@ -1,11 +1,10 @@
 import { Columns3, Crosshair, Scan, Shield, Square } from "lucide-react"
 
 import { isPrintDocument } from "@/features/designer/lib/document-intent"
-import { SettingsSection } from "@/features/designer/components/settings/settings-section"
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
-import { SettingControl } from "@workspace/ui/components/settings/setting-control"
-import { IconTileToggle } from "@workspace/ui/components/settings/icon-tile-toggle"
+import { LabeledIconToggle } from "@workspace/ui/components/settings/labeled-icon-toggle"
+import { SettingSection } from "@workspace/ui/components/settings/setting-section"
 
 type GuidesSettingsSectionProps = {
   settings: CanvasSettings
@@ -20,11 +19,11 @@ export function GuidesSettingsSection({
   const showPrintGuides = isPrintDocument(settings)
 
   return (
-    <SettingsSection title="Preview guides">
+    <SettingSection title="Preview guides">
       <div className="flex flex-wrap gap-2">
         {showPrintGuides ? (
           <>
-            <GuideToggle
+            <LabeledIconToggle
               label="Crop marks"
               icon={Square}
               checked={guides.showTrim}
@@ -32,7 +31,7 @@ export function GuidesSettingsSection({
                 dispatch({ type: "set-guide", key: "showTrim", value })
               }
             />
-            <GuideToggle
+            <LabeledIconToggle
               label="Bleed guide"
               icon={Scan}
               checked={guides.showBleed && print.bleedEnabled}
@@ -41,7 +40,7 @@ export function GuidesSettingsSection({
                 dispatch({ type: "set-guide", key: "showBleed", value })
               }
             />
-            <GuideToggle
+            <LabeledIconToggle
               label="Safe area guide"
               icon={Shield}
               checked={guides.showSafe && print.safeEnabled}
@@ -53,7 +52,7 @@ export function GuidesSettingsSection({
           </>
         ) : null}
 
-        <GuideToggle
+        <LabeledIconToggle
           label="Center lines"
           icon={Crosshair}
           checked={guides.showCenter}
@@ -61,7 +60,7 @@ export function GuidesSettingsSection({
             dispatch({ type: "set-guide", key: "showCenter", value })
           }
         />
-        <GuideToggle
+        <LabeledIconToggle
           label="Rule of thirds"
           icon={Columns3}
           checked={guides.showThirds}
@@ -70,33 +69,6 @@ export function GuidesSettingsSection({
           }
         />
       </div>
-    </SettingsSection>
-  )
-}
-
-function GuideToggle({
-  label,
-  icon: Icon,
-  checked,
-  disabled,
-  onCheckedChange,
-}: {
-  label: string
-  icon: React.ComponentType<{ className?: string }>
-  checked: boolean
-  disabled?: boolean
-  onCheckedChange: (value: boolean) => void
-}) {
-  return (
-    <SettingControl label={label}>
-      <IconTileToggle
-        pressed={checked}
-        disabled={disabled}
-        aria-label={label}
-        onPressedChange={onCheckedChange}
-      >
-        <Icon className="size-3.5" />
-      </IconTileToggle>
-    </SettingControl>
+    </SettingSection>
   )
 }

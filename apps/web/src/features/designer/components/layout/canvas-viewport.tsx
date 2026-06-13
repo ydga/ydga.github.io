@@ -1,134 +1,96 @@
 import { useEffect, useRef } from "react"
 
+import { CanvasStage } from "@/features/designer/components/layout/canvas-stage"
 import {
-  AddPageButton,
-  PageNameField,
+  AddFrameButton,
+  DuplicateFrameButton,
+  FrameNameField,
+  FrameOrderButtons,
+  RemoveFrameButton,
 } from "@/features/designer/components/layout/page-controls"
-import { GuidesOverlay } from "@/features/designer/components/preview/guides-overlay"
-import type { CanvasSettings } from "@/features/designer/model/types"
-import { getExportDimensions } from "@/features/designer/lib/dimensions"
-import { getPreviewGuideGeometry } from "@/features/designer/lib/print-zones"
+import { useStageFit } from "@/features/designer/hooks/use-stage-fit"
+import { useScrollRevealScrollbar } from "@/features/designer/hooks/use-scroll-reveal-scrollbar"
 import {
-  getBackgroundFallbackColor,
-  renderBackground,
-} from "@/features/designer/lib/render-background"
-import { cn } from "@workspace/ui/lib/utils"
-
-type CanvasStageProps = {
-  settings: CanvasSettings
-  canvasRef: React.RefObject<HTMLCanvasElement | null>
-  displayScale: number
-  isPageSelected: boolean
-  onSelectPage: () => void
-}
-
-export function CanvasStage({
-  settings,
-  canvasRef,
-  displayScale,
-  isPageSelected,
-  onSelectPage,
-}: CanvasStageProps) {
-  const exportDimensions = getExportDimensions(settings)
-  const previewGeometry = getPreviewGuideGeometry(settings)
-  const { exportWidthPx, exportHeightPx } = exportDimensions
-  const exportDisplayWidth = exportWidthPx * displayScale
-  const exportDisplayHeight = exportHeightPx * displayScale
-  const bleedDisplay = previewGeometry.bleedPx * displayScale
-  const trimDisplayWidth = previewGeometry.trim.width * displayScale
-  const trimDisplayHeight = previewGeometry.trim.height * displayScale
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) {
-      return
-    }
-
-    let cancelled = false
-
-    canvas.width = exportWidthPx
-    canvas.height = exportHeightPx
-
-    const context = canvas.getContext("2d")
-    if (!context) {
-      return
-    }
-
-    void renderBackground(
-      context,
-      exportWidthPx,
-      exportHeightPx,
-      settings.background
-    ).catch(() => {
-      if (!cancelled) {
-        context.fillStyle = getBackgroundFallbackColor(settings.background)
-        context.fillRect(0, 0, exportWidthPx, exportHeightPx)
-      }
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [canvasRef, exportHeightPx, exportWidthPx, settings.background])
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      className={cn(
-        "relative block shrink-0 cursor-default overflow-visible shadow-lg ring-1 transition-shadow outline-none",
-        isPageSelected
-          ? "ring-2 ring-primary/40"
-          : "ring-foreground/10 hover:ring-foreground/20"
-      )}
-      style={{ width: trimDisplayWidth, height: trimDisplayHeight }}
-      onClick={onSelectPage}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault()
-          onSelectPage()
-        }
-      }}
-      aria-label="Select page"
-    >
-      <canvas
-        ref={canvasRef}
-        className="absolute block bg-white"
-        style={{
-          left: -bleedDisplay,
-          top: -bleedDisplay,
-          width: exportDisplayWidth,
-          height: exportDisplayHeight,
-        }}
-      />
-      <GuidesOverlay settings={settings} displayScale={displayScale} />
-    </div>
-  )
-}
+  frameHasElements,
+  type DesignerFrame,
+} from "@/features/designer/model/frames"
+import type { Layer } from "@/features/designer/model/layers"
+import { getMaxExportWidthPx } from "@/features/designer/lib/dimensions"
+import { ZOOM_WHEEL_SENSITIVITY } from "@/features/designer/model/ui-types"
 
 type CanvasViewportProps = {
-  settings: CanvasSettings
-  canvasRef: React.RefObject<HTMLCanvasElement | null>
+  frames: DesignerFrame[]
+  activeFrameId: string
+  layers: Layer[]
+  getCanvasRef: (frameId: string) => (node: HTMLCanvasElement | null) => void
   displayScale: number
   onFitScaleChange: (scale: number) => void
-  isPageSelected: boolean
-  onSelectPage: () => void
-  pageName: string
-  onPageNameChange: (name: string) => void
+  onZoomScaleChange: (scale: number) => void
+  onSelectFrame: (frameId: string) => void
+  onFrameNameChange: (name: string) => void
+  onAddFrame: () => string
+  onRemoveFrame: (frameId: string) => void
+  onDuplicateFrame: (frameId: string) => string
+  onMoveFrame: (frameId: string, direction: "up" | "down") => void
+  toolbarChromeRef: React.RefObject<HTMLElement | null>
+  zoomChromeRef: React.RefObject<HTMLElement | null>
 }
 
 export function CanvasViewport({
-  settings,
-  canvasRef,
+  frames,
+  activeFrameId,
+  layers,
+  getCanvasRef,
   displayScale,
   onFitScaleChange,
-  isPageSelected,
-  onSelectPage,
-  pageName,
-  onPageNameChange,
+  onZoomScaleChange,
+  onSelectFrame,
+  onFrameNameChange,
+  onAddFrame,
+  onRemoveFrame,
+  onDuplicateFrame,
+  onMoveFrame,
+  toolbarChromeRef,
+  zoomChromeRef,
 }: CanvasViewportProps) {
-  const viewportRef = useRef<HTMLDivElement>(null)
-  const exportDimensions = getExportDimensions(settings)
+  const canReorderFrames = frames.length > 1
+  const displayScaleRef = useRef(displayScale)
+  const activeFrameRef = useRef<HTMLDivElement>(null)
+  const fitExportWidthPx = getMaxExportWidthPx(
+    frames.map((frame) => frame.settings)
+  )
+  const { viewportRef, scrollRef, safeAreaInset } = useStageFit({
+    exportWidthPx: fitExportWidthPx,
+    onFitScaleChange,
+    toolbarChromeRef,
+    zoomChromeRef,
+  })
+
+  useScrollRevealScrollbar(scrollRef)
+
+  useEffect(() => {
+    displayScaleRef.current = displayScale
+  }, [displayScale])
+
+  useEffect(() => {
+    const frameEl = activeFrameRef.current
+    const scrollEl = scrollRef.current
+    if (!frameEl || !scrollEl) {
+      return
+    }
+
+    const frameRect = frameEl.getBoundingClientRect()
+    const scrollRect = scrollEl.getBoundingClientRect()
+    const isAbove = frameRect.top < scrollRect.top
+    const isBelow = frameRect.bottom > scrollRect.bottom
+
+    if (isAbove || isBelow) {
+      frameEl.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      })
+    }
+  }, [activeFrameId, scrollRef])
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -136,60 +98,94 @@ export function CanvasViewport({
       return
     }
 
-    function updateFitScale() {
-      const bounds = viewport?.getBoundingClientRect()
-      if (!bounds) {
+    function onWheel(event: WheelEvent) {
+      const scrollEl = scrollRef.current
+      const canScroll =
+        scrollEl !== null && scrollEl.scrollHeight > scrollEl.clientHeight + 1
+
+      if (canScroll && !event.ctrlKey && !event.metaKey) {
         return
       }
 
-      const paddingX = 64
-      const paddingY = 120
-      const availableWidth = Math.max(bounds.width - paddingX, 1)
-      const availableHeight = Math.max(bounds.height - paddingY, 1)
-      const scale = Math.min(
-        availableWidth / exportDimensions.exportWidthPx,
-        availableHeight / exportDimensions.exportHeightPx
-      )
+      event.preventDefault()
 
-      onFitScaleChange(scale)
+      const factor = Math.exp(-event.deltaY * ZOOM_WHEEL_SENSITIVITY)
+      onZoomScaleChange(displayScaleRef.current * factor)
     }
 
-    updateFitScale()
+    viewport.addEventListener("wheel", onWheel, { passive: false })
 
-    const observer = new ResizeObserver(updateFitScale)
-    observer.observe(viewport)
-
-    return () => observer.disconnect()
-  }, [
-    exportDimensions.exportHeightPx,
-    exportDimensions.exportWidthPx,
-    onFitScaleChange,
-  ])
+    return () => {
+      viewport.removeEventListener("wheel", onWheel)
+    }
+  }, [onZoomScaleChange, scrollRef, viewportRef])
 
   return (
     <div
       ref={viewportRef}
-      className="relative min-h-0 flex-1 overflow-hidden bg-muted/30"
+      className="relative min-h-0 flex-1 overflow-hidden bg-transparent"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
-          onSelectPage()
+          onSelectFrame(activeFrameId)
         }
       }}
     >
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <PageNameField
-            pageName={pageName}
-            onPageNameChange={onPageNameChange}
-          />
-          <CanvasStage
-            settings={settings}
-            canvasRef={canvasRef}
-            displayScale={displayScale}
-            isPageSelected={isPageSelected}
-            onSelectPage={onSelectPage}
-          />
-          <AddPageButton />
+      <div
+        ref={scrollRef}
+        className="absolute inset-0 scrollbar-thin overflow-y-auto overscroll-contain bg-transparent"
+        style={{ padding: safeAreaInset }}
+      >
+        <div className="flex min-h-full flex-col items-center">
+          <div className="flex flex-col items-center gap-3">
+            {frames.map((frame, index) => {
+              const isActive = frame.id === activeFrameId
+
+              return (
+                <div
+                  key={frame.id}
+                  ref={isActive ? activeFrameRef : undefined}
+                  className="group/frame flex flex-col items-start gap-3"
+                >
+                  <div className="flex max-w-full items-center gap-1 self-stretch">
+                    <FrameNameField
+                      pageName={frame.name}
+                      onPageNameChange={onFrameNameChange}
+                      onFocus={() => onSelectFrame(frame.id)}
+                      className="min-w-0 flex-1"
+                    />
+                    <DuplicateFrameButton
+                      frameName={frame.name}
+                      onDuplicate={() => onDuplicateFrame(frame.id)}
+                    />
+                    {canReorderFrames ? (
+                      <>
+                        <FrameOrderButtons
+                          frameName={frame.name}
+                          canMoveUp={index > 0}
+                          canMoveDown={index < frames.length - 1}
+                          onMoveUp={() => onMoveFrame(frame.id, "up")}
+                          onMoveDown={() => onMoveFrame(frame.id, "down")}
+                        />
+                        <RemoveFrameButton
+                          frameName={frame.name}
+                          hasElements={frameHasElements(frame, layers)}
+                          onRemove={() => onRemoveFrame(frame.id)}
+                        />
+                      </>
+                    ) : null}
+                  </div>
+                  <CanvasStage
+                    settings={frame.settings}
+                    registerCanvas={getCanvasRef(frame.id)}
+                    displayScale={displayScale}
+                    isPageSelected={isActive}
+                    onSelectPage={() => onSelectFrame(frame.id)}
+                  />
+                </div>
+              )
+            })}
+            <AddFrameButton onAddFrame={onAddFrame} />
+          </div>
         </div>
       </div>
     </div>

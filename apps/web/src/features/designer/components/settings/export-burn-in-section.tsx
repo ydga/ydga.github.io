@@ -1,11 +1,10 @@
 import { Columns3, Crosshair, Scan, Shield, Square } from "lucide-react"
 
-import { SettingsSection } from "@/features/designer/components/settings/settings-section"
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
 import { isPrintDocument } from "@/features/designer/lib/document-intent"
-import { SettingControl } from "@workspace/ui/components/settings/setting-control"
-import { IconTileToggle } from "@workspace/ui/components/settings/icon-tile-toggle"
+import { LabeledIconToggle } from "@workspace/ui/components/settings/labeled-icon-toggle"
+import { SettingSection } from "@workspace/ui/components/settings/setting-section"
 
 type ExportBurnInSectionProps = {
   settings: CanvasSettings
@@ -24,9 +23,9 @@ export function ExportBurnInSection({
   const { print } = settings
 
   return (
-    <SettingsSection title="Guides in file">
+    <SettingSection title="Guides in file">
       <div className="flex flex-wrap gap-2">
-        <BurnInToggle
+        <LabeledIconToggle
           label="Crop marks"
           icon={Square}
           checked={burnIn.trim}
@@ -34,7 +33,7 @@ export function ExportBurnInSection({
             dispatch({ type: "set-export-burn-in", key: "trim", value })
           }
         />
-        <BurnInToggle
+        <LabeledIconToggle
           label="Bleed"
           icon={Scan}
           checked={burnIn.bleed}
@@ -43,7 +42,7 @@ export function ExportBurnInSection({
             dispatch({ type: "set-export-burn-in", key: "bleed", value })
           }
         />
-        <BurnInToggle
+        <LabeledIconToggle
           label="Safe area"
           icon={Shield}
           checked={burnIn.safe}
@@ -52,7 +51,7 @@ export function ExportBurnInSection({
             dispatch({ type: "set-export-burn-in", key: "safe", value })
           }
         />
-        <BurnInToggle
+        <LabeledIconToggle
           label="Center lines"
           icon={Crosshair}
           checked={burnIn.center}
@@ -60,7 +59,7 @@ export function ExportBurnInSection({
             dispatch({ type: "set-export-burn-in", key: "center", value })
           }
         />
-        <BurnInToggle
+        <LabeledIconToggle
           label="Thirds"
           icon={Columns3}
           checked={burnIn.thirds}
@@ -69,33 +68,6 @@ export function ExportBurnInSection({
           }
         />
       </div>
-    </SettingsSection>
-  )
-}
-
-function BurnInToggle({
-  label,
-  icon: Icon,
-  checked,
-  disabled,
-  onCheckedChange,
-}: {
-  label: string
-  icon: React.ComponentType<{ className?: string }>
-  checked: boolean
-  disabled?: boolean
-  onCheckedChange: (value: boolean) => void
-}) {
-  return (
-    <SettingControl label={label}>
-      <IconTileToggle
-        pressed={checked}
-        disabled={disabled}
-        aria-label={label}
-        onPressedChange={onCheckedChange}
-      >
-        <Icon className="size-3.5" />
-      </IconTileToggle>
-    </SettingControl>
+    </SettingSection>
   )
 }

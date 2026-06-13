@@ -72,7 +72,7 @@ function ToggleGroupItem({
       data-size={context.size || size}
       data-spacing={context.spacing}
       className={cn(
-        "shrink-0 rounded-4xl shadow-none focus:z-10 focus-visible:z-10",
+        "shrink-0 rounded-full shadow-none focus:z-10 focus-visible:z-10",
         toggleVariants({
           variant: context.variant || variant,
           size: context.size || size,

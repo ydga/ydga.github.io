@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 
 import { SettingsInput } from "@workspace/ui/components/settings/settings-input"
+import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "../button"
 import { ProTooltipProvider } from "../tooltip"
 import { ToggleGroup, ToggleGroupItem } from "../toggle-group"
@@ -18,6 +19,8 @@ import { FramePresetCard } from "./frame-preset-card"
 import { PresetCategoryTabs, type PresetCategory } from "./preset-category-tabs"
 import { SettingControl } from "./setting-control"
 import { SettingSection } from "./setting-section"
+import { NavIconButton } from "./nav-icon-button"
+import { SlidingNavIndicator, SlidingNavItem } from "./sliding-nav-indicator"
 
 const meta = {
   title: "Settings/Primitives",
@@ -25,7 +28,7 @@ const meta = {
   decorators: [
     (Story) => (
       <ProTooltipProvider>
-        <div className="w-[320px] rounded-2xl border border-border bg-background p-4">
+        <div className="w-[var(--panel-width)] rounded-2xl border border-border bg-background p-4">
           <Story />
         </div>
       </ProTooltipProvider>
@@ -39,7 +42,7 @@ type Story = StoryObj<typeof meta>
 export const SettingSectionStory: Story = {
   name: "SettingSection",
   render: () => (
-    <SettingSection title="Canvas">
+    <SettingSection title="Dimensions">
       <p className="text-xs text-muted-foreground">
         Compact section header with 14px base scale.
       </p>
@@ -103,6 +106,42 @@ export const IconToggles: Story = {
           </SettingControl>
         </div>
       </div>
+    )
+  },
+}
+
+export const PresetCategoryTabsStory: Story = {
+  name: "PresetCategoryTabs",
+  render: function Render() {
+    const [category, setCategory] = useState<PresetCategory>("screen")
+
+    return <PresetCategoryTabs value={category} onValueChange={setCategory} />
+  },
+}
+
+export const SlidingNavIndicatorStory: Story = {
+  name: "SlidingNavIndicator",
+  render: function Render() {
+    const [activeIndex, setActiveIndex] = useState(0)
+
+    return (
+      <SlidingNavIndicator
+        activeIndex={activeIndex}
+        variant="primary"
+        className="rounded-squircle inline-flex flex-col gap-1 border border-border bg-background p-1"
+      >
+        {["Frame", "Layers", "Export"].map((label, index) => (
+          <SlidingNavItem key={label}>
+            <NavIconButton
+              active={activeIndex === index}
+              aria-label={label}
+              onClick={() => setActiveIndex(index)}
+            >
+              {label.slice(0, 1)}
+            </NavIconButton>
+          </SlidingNavItem>
+        ))}
+      </SlidingNavIndicator>
     )
   },
 }
@@ -244,7 +283,7 @@ export const FullCanvasPanel: Story = {
 
     return (
       <div className="flex flex-col gap-5">
-        <SettingSection title="Canvas">
+        <SettingSection title="Dimensions">
           <div className="flex min-w-0 items-center gap-2">
             <DimensionField
               width={width}

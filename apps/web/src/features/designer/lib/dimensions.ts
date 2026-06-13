@@ -70,6 +70,20 @@ export function edgeToPixels(
   return cmToPixels(value, dpi)
 }
 
+/** Widest frame export width — fit zoom is based on this so all frames share one scale. */
+export function getMaxExportWidthPx(settingsList: CanvasSettings[]): number {
+  if (settingsList.length === 0) {
+    return 1
+  }
+
+  return Math.max(
+    1,
+    ...settingsList.map(
+      (settings) => getExportDimensions(settings).exportWidthPx
+    )
+  )
+}
+
 export function getExportDimensions(
   settings: CanvasSettings
 ): ExportDimensions {

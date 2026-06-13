@@ -1,4 +1,4 @@
-import { SettingsSection } from "@/features/designer/components/settings/settings-section"
+import { SettingSection } from "@workspace/ui/components/settings/setting-section"
 import type { CanvasSettings } from "@/features/designer/model/types"
 import {
   getDocumentIntentLabel,
@@ -20,7 +20,7 @@ export function ExportSummarySection({ settings }: ExportSummarySectionProps) {
   const category = getDocumentIntentLabel(settings)
 
   return (
-    <SettingsSection title="Output">
+    <SettingSection title="Output">
       <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-muted/30 p-2.5 text-xs">
         <div className="flex items-center justify-between gap-2">
           <span className="text-muted-foreground">{category}</span>
@@ -59,7 +59,7 @@ export function ExportSummarySection({ settings }: ExportSummarySectionProps) {
           </p>
         ) : null}
       </div>
-    </SettingsSection>
+    </SettingSection>
   )
 }
 

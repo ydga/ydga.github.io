@@ -19,7 +19,7 @@ import {
 } from "@/features/designer/lib/dimensions"
 import { intentToUnit } from "@/features/designer/lib/document-intent"
 
-type DesignerAction =
+export type DesignerAction =
   | { type: "set-width"; value: number }
   | { type: "set-height"; value: number }
   | { type: "set-unit"; value: DimensionUnit }
@@ -85,7 +85,7 @@ function applyUnitChange(
   }
 }
 
-function designerReducer(
+export function designerReducer(
   settings: CanvasSettings,
   action: DesignerAction
 ): CanvasSettings {

@@ -2,7 +2,7 @@ import { ExportBurnInSection } from "@/features/designer/components/settings/exp
 import { ExportSummarySection } from "@/features/designer/components/settings/export-summary-section"
 import { useExportOverLimit } from "@/features/designer/components/settings/use-export-over-limit"
 import { PrintSettingsSection } from "@/features/designer/components/settings/print-settings-section"
-import { SettingsSection } from "@/features/designer/components/settings/settings-section"
+import { SettingSection } from "@workspace/ui/components/settings/setting-section"
 import {
   getDocumentIntentLabel,
   isPrintDocument,
@@ -11,7 +11,6 @@ import {
 import { downloadExport } from "@/features/designer/lib/export-canvas"
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
-import type { DesignerUi } from "@/features/designer/state/use-designer-ui"
 import { Button } from "@workspace/ui/components/button"
 import { SettingControl } from "@workspace/ui/components/settings/setting-control"
 import {
@@ -20,17 +19,17 @@ import {
 } from "@workspace/ui/components/toggle-group"
 
 type ExportSettingsPanelProps = {
-  ui: DesignerUi
+  frameName: string
   settings: CanvasSettings
   dispatch: DesignerDispatch
-  canvasRef: React.RefObject<HTMLCanvasElement | null>
+  getActiveCanvas: () => HTMLCanvasElement | null
 }
 
 export function ExportSettingsPanel({
-  ui,
+  frameName,
   settings,
   dispatch,
-  canvasRef,
+  getActiveCanvas,
 }: ExportSettingsPanelProps) {
   const overLimit = useExportOverLimit(settings)
   const category = getDocumentIntentLabel(settings)
@@ -42,7 +41,7 @@ export function ExportSettingsPanel({
       return
     }
 
-    await downloadExport(settings, canvasRef.current, ui.pageName)
+    await downloadExport(settings, getActiveCanvas(), frameName)
   }
 
   const exportLabel = isScreen
@@ -51,7 +50,7 @@ export function ExportSettingsPanel({
 
   return (
     <div className="flex flex-col gap-6">
-      <SettingsSection title={category}>
+      <SettingSection title={category}>
         {isScreen ? (
           <div className="flex flex-col gap-3">
             <SettingControl label="Scale">
@@ -150,7 +149,7 @@ export function ExportSettingsPanel({
             </SettingControl>
           </div>
         ) : null}
-      </SettingsSection>
+      </SettingSection>
 
       {isPrint ? (
         <>

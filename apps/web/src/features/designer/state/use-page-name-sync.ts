@@ -1,28 +1,28 @@
 import { useEffect } from "react"
 
+import type { CanvasPreset } from "@/features/designer/model/presets"
+import type { FrameNameSource } from "@/features/designer/model/frames"
+import type { CanvasSettings } from "@/features/designer/model/types"
 import {
   findMatchingPreset,
   formatDimensionsLabel,
-  type CanvasPreset,
 } from "@/features/designer/model/presets"
-import type { CanvasSettings } from "@/features/designer/model/types"
-import type { PageNameSource } from "@/features/designer/state/use-designer-ui"
 
-type UsePageNameSyncArgs = {
+type UseFrameNameSyncArgs = {
   settings: CanvasSettings
-  pageNameSource: PageNameSource
-  setPageNameFromPreset: (preset: CanvasPreset) => void
-  syncPageNameFromSettings: (settings: CanvasSettings) => void
+  frameNameSource: FrameNameSource
+  setFrameNameFromPreset: (preset: CanvasPreset) => void
+  syncFrameNameFromSettings: (settings: CanvasSettings) => void
 }
 
-export function usePageNameSync({
+export function useFrameNameSync({
   settings,
-  pageNameSource,
-  setPageNameFromPreset,
-  syncPageNameFromSettings,
-}: UsePageNameSyncArgs) {
+  frameNameSource,
+  setFrameNameFromPreset,
+  syncFrameNameFromSettings,
+}: UseFrameNameSyncArgs) {
   useEffect(() => {
-    if (pageNameSource === "manual") {
+    if (frameNameSource === "manual") {
       return
     }
 
@@ -33,18 +33,18 @@ export function usePageNameSync({
     )
 
     if (matchingPreset) {
-      setPageNameFromPreset(matchingPreset)
+      setFrameNameFromPreset(matchingPreset)
       return
     }
 
-    syncPageNameFromSettings(settings)
+    syncFrameNameFromSettings(settings)
   }, [
-    pageNameSource,
+    frameNameSource,
     settings.width,
     settings.height,
     settings.unit,
-    setPageNameFromPreset,
-    syncPageNameFromSettings,
+    setFrameNameFromPreset,
+    syncFrameNameFromSettings,
   ])
 }
 
@@ -61,3 +61,6 @@ export function getSuggestedPageName(settings: CanvasSettings): string {
 
   return formatDimensionsLabel(settings.width, settings.height, settings.unit)
 }
+
+/** @deprecated Use useFrameNameSync */
+export const usePageNameSync = useFrameNameSync

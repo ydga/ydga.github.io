@@ -23,7 +23,7 @@ export function FramePresetCard({
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex flex-col items-center gap-2 rounded-xl border px-2 py-2.5 text-left transition-colors",
+        "flex flex-col items-center gap-2 rounded-xl border px-2 py-2.5 text-left transition-colors [corner-shape:round]",
         active
           ? "control-selected"
           : "border-border bg-background hover:bg-muted/50"

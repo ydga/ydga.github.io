@@ -3,13 +3,20 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
-import { settingsInputGroupClasses } from "./settings-field-styles"
+import {
+  settingsControlHeightClassName,
+  settingsInputGroupClasses,
+  settingsLabelClassName,
+  settingsNumberFieldClassName,
+  settingsNumericTextClassName,
+} from "./settings-field-styles"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
+import { useScrubNumber } from "./use-scrub-number"
 
 type DimensionFieldProps = {
   width: number
@@ -41,15 +48,35 @@ function DimensionInput({
   ariaLabel,
   onChange,
 }: DimensionInputProps) {
+  const { isScrubbing, scrubHandlers } = useScrubNumber({
+    value,
+    onChange,
+    min,
+    step,
+  })
+
   return (
-    <InputGroup className={settingsInputGroupClasses("h-7 min-w-0 flex-1")}>
+    <InputGroup
+      className={cn(
+        settingsInputGroupClasses(
+          cn(settingsControlHeightClassName, "min-w-0 flex-1 cursor-ew-resize")
+        ),
+        isScrubbing && "select-none"
+      )}
+      {...scrubHandlers}
+    >
       <InputGroupAddon
         align="inline-start"
-        className="py-0 pr-0 pl-1.5 text-xs font-medium"
+        className="cursor-ew-resize py-0 pr-0 pl-1.5"
       >
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="cursor-default text-muted-foreground select-none">
+            <span
+              className={cn(
+                settingsLabelClassName,
+                "cursor-ew-resize select-none"
+              )}
+            >
               {label}
             </span>
           </TooltipTrigger>
@@ -62,7 +89,12 @@ function DimensionInput({
         step={step}
         value={value}
         aria-label={ariaLabel}
-        className="h-7 min-w-0 pr-2 pl-0 text-right font-mono text-xs tabular-nums"
+        className={cn(
+          settingsNumberFieldClassName,
+          settingsControlHeightClassName,
+          settingsNumericTextClassName,
+          "min-w-0 pr-2 pl-0 text-right"
+        )}
         onChange={(event) => {
           const parsed = Number.parseFloat(event.target.value)
           if (!Number.isNaN(parsed)) {

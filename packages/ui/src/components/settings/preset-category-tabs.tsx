@@ -1,7 +1,11 @@
+"use client"
+
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@workspace/ui/components/toggle-group"
+  SlidingNavIndicator,
+  SlidingNavItem,
+} from "@workspace/ui/components/settings/sliding-nav-indicator"
+import { cn } from "@workspace/ui/lib/utils"
 
 export type PresetCategory = "screen" | "print"
 
@@ -10,29 +14,46 @@ type PresetCategoryTabsProps = {
   onValueChange: (value: PresetCategory) => void
 }
 
+const segmentTriggerClassName =
+  "h-7 w-full flex-1 rounded-squircle px-2 text-xs font-medium text-muted-foreground hover:text-foreground data-active:bg-transparent data-active:text-foreground data-active:shadow-none"
+
 export function PresetCategoryTabs({
   value,
   onValueChange,
 }: PresetCategoryTabsProps) {
   return (
-    <ToggleGroup
-      type="single"
-      variant="outline"
-      size="sm"
+    <Tabs
       value={value}
       onValueChange={(next) => {
         if (next === "screen" || next === "print") {
           onValueChange(next)
         }
       }}
-      className="w-full"
+      className="w-full gap-0"
     >
-      <ToggleGroupItem value="screen" className="min-w-0 flex-1">
-        Screen
-      </ToggleGroupItem>
-      <ToggleGroupItem value="print" className="min-w-0 flex-1">
-        Print
-      </ToggleGroupItem>
-    </ToggleGroup>
+      <TabsList
+        className={cn(
+          "rounded-squircle h-8 w-full bg-muted p-0.5",
+          "[corner-shape:round]"
+        )}
+      >
+        <SlidingNavIndicator
+          activeIndex={value === "screen" ? 0 : 1}
+          variant="segmented"
+          className="flex h-full w-full"
+        >
+          <SlidingNavItem className="flex h-full flex-1">
+            <TabsTrigger value="screen" className={segmentTriggerClassName}>
+              Screen
+            </TabsTrigger>
+          </SlidingNavItem>
+          <SlidingNavItem className="flex h-full flex-1">
+            <TabsTrigger value="print" className={segmentTriggerClassName}>
+              Print
+            </TabsTrigger>
+          </SlidingNavItem>
+        </SlidingNavIndicator>
+      </TabsList>
+    </Tabs>
   )
 }

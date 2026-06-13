@@ -1,44 +1,80 @@
-import { DEFAULT_PAGE_ID } from "@/features/designer/model/ui-types"
+import { useRef } from "react"
+
 import { CanvasViewport } from "@/features/designer/components/layout/canvas-viewport"
 import { CanvasToolbar } from "@/features/designer/components/layout/canvas-toolbar"
+import { FloatingChrome } from "@/features/designer/components/layout/floating-chrome"
 import { ZoomControls } from "@/features/designer/components/layout/zoom-controls"
-import type { CanvasSettings } from "@/features/designer/model/types"
+import type { DesignerFrames } from "@/features/designer/state/use-designer-frames"
+import type { DesignerLayers } from "@/features/designer/state/use-designer-layers"
 import type { DesignerUi } from "@/features/designer/state/use-designer-ui"
 
 type MainStageProps = {
   ui: DesignerUi
-  settings: CanvasSettings
-  canvasRef: React.RefObject<HTMLCanvasElement | null>
+  frames: DesignerFrames
+  layers: DesignerLayers
+  getCanvasRef: (frameId: string) => (node: HTMLCanvasElement | null) => void
+  onSelectFrame: (frameId: string) => void
+  onAddFrame: () => string
+  onRemoveFrame: (frameId: string) => void
+  onDuplicateFrame: (frameId: string) => string
+  onMoveFrame: (frameId: string, direction: "up" | "down") => void
 }
 
-export function MainStage({ ui, settings, canvasRef }: MainStageProps) {
-  const isPageSelected =
-    ui.selection.kind === "page" && ui.selection.pageId === DEFAULT_PAGE_ID
+export function MainStage({
+  ui,
+  frames,
+  layers,
+  getCanvasRef,
+  onSelectFrame,
+  onAddFrame,
+  onRemoveFrame,
+  onDuplicateFrame,
+  onMoveFrame,
+}: MainStageProps) {
+  const toolbarChromeRef = useRef<HTMLDivElement>(null)
+  const zoomChromeRef = useRef<HTMLDivElement>(null)
+
+  function handleSelectFrame(frameId: string) {
+    onSelectFrame(frameId)
+    ui.selectPageAndOpen(frameId)
+  }
 
   return (
     <main className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <CanvasToolbar ui={ui} />
+      <FloatingChrome
+        position="top-right"
+        variant="frosted"
+        fitChromeRef={toolbarChromeRef}
+      >
+        <CanvasToolbar ui={ui} />
+      </FloatingChrome>
 
       <CanvasViewport
-        settings={settings}
-        canvasRef={canvasRef}
+        frames={frames.frames}
+        activeFrameId={frames.activeFrameId}
+        layers={layers.layers}
+        getCanvasRef={getCanvasRef}
         displayScale={ui.effectiveScale}
         onFitScaleChange={ui.setFitScale}
-        isPageSelected={isPageSelected}
-        onSelectPage={ui.selectPageAndOpen}
-        pageName={ui.pageName}
-        onPageNameChange={ui.setPageName}
+        onZoomScaleChange={ui.setZoomScale}
+        onSelectFrame={handleSelectFrame}
+        onFrameNameChange={frames.setFrameName}
+        onAddFrame={onAddFrame}
+        onRemoveFrame={onRemoveFrame}
+        onDuplicateFrame={onDuplicateFrame}
+        onMoveFrame={onMoveFrame}
+        toolbarChromeRef={toolbarChromeRef}
+        zoomChromeRef={zoomChromeRef}
       />
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-4">
+      <FloatingChrome position="bottom-center" fitChromeRef={zoomChromeRef}>
         <ZoomControls
           effectiveScale={ui.effectiveScale}
           zoomMode={ui.zoomMode}
-          onZoomIn={ui.zoomIn}
-          onZoomOut={ui.zoomOut}
+          onZoomScaleChange={ui.setZoomScale}
           onZoomFit={ui.zoomFit}
         />
-      </div>
+      </FloatingChrome>
     </main>
   )
 }

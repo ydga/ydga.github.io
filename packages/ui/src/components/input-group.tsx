@@ -64,7 +64,7 @@ function InputGroupAddon({
 }
 
 const inputGroupButtonVariants = cva(
-  "flex items-center gap-2 rounded-4xl text-sm shadow-none",
+  "flex items-center gap-2 rounded-full text-sm shadow-none",
   {
     variants: {
       size: {
@@ -92,6 +92,7 @@ function InputGroupButton({
     <Button
       type={type}
       data-size={size}
+      data-slot="input-group-button"
       variant={variant}
       className={cn(inputGroupButtonVariants({ size }), className)}
       {...props}

@@ -182,11 +182,12 @@ export function formatDimensionsLabel(
   height: number,
   unit: CanvasSettings["unit"]
 ): string {
-  if (unit === "px") {
-    return `${width} × ${height}`
-  }
+  const dimensions =
+    unit === "px"
+      ? `${width} × ${height}`
+      : `${formatDecimal(width)} × ${formatDecimal(height)}`
 
-  return `${formatDecimal(width)} × ${formatDecimal(height)}`
+  return `${dimensions} ${unit}`
 }
 
 function formatDecimal(value: number) {

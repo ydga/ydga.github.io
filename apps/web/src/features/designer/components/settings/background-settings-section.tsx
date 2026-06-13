@@ -8,7 +8,7 @@ import {
   Square,
 } from "lucide-react"
 
-import { SettingsSection } from "@/features/designer/components/settings/settings-section"
+import { SettingSection } from "@workspace/ui/components/settings/setting-section"
 import type {
   BackgroundFit,
   BackgroundType,
@@ -39,7 +39,7 @@ export function BackgroundSettingsSection({
   const { background } = settings
 
   return (
-    <SettingsSection title="Background">
+    <SettingSection title="Background">
       <div className="flex flex-col gap-3">
         <SettingControl label="Background type">
           <ToggleGroup
@@ -178,7 +178,7 @@ export function BackgroundSettingsSection({
           </>
         ) : null}
       </div>
-    </SettingsSection>
+    </SettingSection>
   )
 }
 

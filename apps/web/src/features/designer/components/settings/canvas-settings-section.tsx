@@ -7,7 +7,7 @@ import {
 } from "@/features/designer/model/presets"
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
-import { SettingsSection } from "@/features/designer/components/settings/settings-section"
+import { SettingSection } from "@workspace/ui/components/settings/setting-section"
 import {
   getDimensionMin,
   getDimensionStep,
@@ -38,7 +38,7 @@ export function CanvasSettingsSection({
   const step = getDimensionStep(intent)
 
   return (
-    <SettingsSection title="Canvas">
+    <SettingSection title="Dimensions">
       <div className="flex flex-col gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <DimensionField
@@ -57,7 +57,7 @@ export function CanvasSettingsSection({
               variant="iconTile"
               size="icon-sm"
               className="size-7"
-              aria-label="Rotate canvas"
+              aria-label="Rotate frame"
               disabled={width === height}
               onClick={() => dispatch({ type: "rotate-orientation" })}
             >
@@ -66,7 +66,7 @@ export function CanvasSettingsSection({
           </SettingControl>
         </div>
       </div>
-    </SettingsSection>
+    </SettingSection>
   )
 }
 
@@ -82,7 +82,7 @@ export function PresetsSection({
   }
 
   return (
-    <SettingsSection title="Presets">
+    <SettingSection title="Presets">
       <div className="flex flex-col gap-2">
         <PresetCategoryTabs
           value={category}
@@ -106,6 +106,6 @@ export function PresetsSection({
           ))}
         </div>
       </div>
-    </SettingsSection>
+    </SettingSection>
   )
 }

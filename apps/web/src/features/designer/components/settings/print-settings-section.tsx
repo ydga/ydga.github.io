@@ -1,4 +1,4 @@
-import { SettingsSection } from "@/features/designer/components/settings/settings-section"
+import { SettingSection } from "@workspace/ui/components/settings/setting-section"
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
 import { isPrintDocument } from "@/features/designer/lib/document-intent"
@@ -20,7 +20,7 @@ export function PrintSettingsSection({
   }
 
   return (
-    <SettingsSection title="Bleed & safe">
+    <SettingSection title="Bleed & safe">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <SettingControl label="Bleed">
@@ -86,6 +86,6 @@ export function PrintSettingsSection({
           ) : null}
         </div>
       </div>
-    </SettingsSection>
+    </SettingSection>
   )
 }
