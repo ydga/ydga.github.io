@@ -43,7 +43,7 @@ export function FramePresetCard({
       </div>
       <div className="flex w-full flex-col gap-0.5 text-center">
         <span className="text-xs leading-none font-medium">{label}</span>
-        <span className="text-[10px] leading-none text-muted-foreground">
+        <span className="text-[10px] leading-none text-foreground/65">
           {description}
         </span>
       </div>

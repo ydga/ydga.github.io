@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef } from "react"
 
 import { GuidesOverlay } from "@/features/designer/components/preview/guides-overlay"
 import type { CanvasSettings } from "@/features/designer/model/types"
@@ -25,7 +25,7 @@ export function CanvasStage({
   isPageSelected,
   onSelectPage,
 }: CanvasStageProps) {
-  const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const exportDimensions = getExportDimensions(settings)
   const previewGeometry = getPreviewGuideGeometry(settings)
   const { exportWidthPx, exportHeightPx } = exportDimensions
@@ -35,15 +35,16 @@ export function CanvasStage({
   const trimDisplayWidth = previewGeometry.trim.width * displayScale
   const trimDisplayHeight = previewGeometry.trim.height * displayScale
 
-  const canvasRef = useCallback(
+  const setCanvasRef = useCallback(
     (node: HTMLCanvasElement | null) => {
-      setCanvas(node)
+      canvasRef.current = node
       registerCanvas?.(node)
     },
     [registerCanvas]
   )
 
   useEffect(() => {
+    const canvas = canvasRef.current
     if (!canvas) {
       return
     }
@@ -73,7 +74,7 @@ export function CanvasStage({
     return () => {
       cancelled = true
     }
-  }, [canvas, exportHeightPx, exportWidthPx, settings.background])
+  }, [exportHeightPx, exportWidthPx, settings.background])
 
   return (
     <div
@@ -96,7 +97,7 @@ export function CanvasStage({
       aria-label="Select frame"
     >
       <canvas
-        ref={canvasRef}
+        ref={setCanvasRef}
         className="absolute block bg-white"
         style={{
           left: -bleedDisplay,

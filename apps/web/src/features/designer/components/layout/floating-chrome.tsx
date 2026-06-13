@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode, Ref } from "react"
+import type { ReactNode, Ref } from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 

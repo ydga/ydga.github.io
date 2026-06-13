@@ -1,6 +1,11 @@
 "use client"
 
-import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/tabs"
 import {
   SlidingNavIndicator,
   SlidingNavItem,
@@ -15,7 +20,7 @@ type PresetCategoryTabsProps = {
 }
 
 const segmentTriggerClassName =
-  "h-7 w-full flex-1 rounded-squircle px-2 text-xs font-medium text-muted-foreground hover:text-foreground data-active:bg-transparent data-active:text-foreground data-active:shadow-none"
+  "h-7 w-full flex-1 rounded-squircle px-2 text-xs font-medium text-foreground/70 hover:text-foreground data-active:bg-transparent data-active:text-foreground data-active:shadow-none"
 
 export function PresetCategoryTabs({
   value,
@@ -54,6 +59,8 @@ export function PresetCategoryTabs({
           </SlidingNavItem>
         </SlidingNavIndicator>
       </TabsList>
+      <TabsContent value="screen" forceMount className="sr-only" />
+      <TabsContent value="print" forceMount className="sr-only" />
     </Tabs>
   )
 }

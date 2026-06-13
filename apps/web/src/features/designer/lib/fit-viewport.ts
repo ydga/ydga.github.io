@@ -15,7 +15,7 @@ function getRequiredEdgeInsets(
   let top = VIEWPORT_FIT_MARGIN
   let right = VIEWPORT_FIT_MARGIN
   let bottom = VIEWPORT_FIT_MARGIN
-  let left = VIEWPORT_FIT_MARGIN
+  const left = VIEWPORT_FIT_MARGIN
 
   if (toolbar) {
     right = Math.max(right, viewport.right - toolbar.left + VIEWPORT_FIT_MARGIN)

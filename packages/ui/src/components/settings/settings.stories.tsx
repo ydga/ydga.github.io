@@ -10,7 +10,6 @@ import {
 } from "lucide-react"
 
 import { SettingsInput } from "@workspace/ui/components/settings/settings-input"
-import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "../button"
 import { ProTooltipProvider } from "../tooltip"
 import { ToggleGroup, ToggleGroupItem } from "../toggle-group"
