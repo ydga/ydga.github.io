@@ -112,12 +112,20 @@ export function GradientCanvasOverlay({
   const axisRef = useRef({ startX, startY, endX, endY })
   const colorPickerTimerRef = useRef<number | null>(null)
   const sortedStops = sortGradientStops(normalizeGradientStops(stops))
-  const [activeStopId, setActiveStopId] = useState<string>(
+  const [activeStopIdState, setActiveStopId] = useState<string>(
     () => sortedStops[0]?.id ?? ""
   )
   const [colorPickerStopId, setColorPickerStopId] = useState<string | null>(
     null
   )
+  const activeStopId = stops.some((stop) => stop.id === activeStopIdState)
+    ? activeStopIdState
+    : (sortedStops[0]?.id ?? "")
+  const openColorPickerStopId =
+    colorPickerStopId !== null &&
+    stops.some((stop) => stop.id === colorPickerStopId)
+      ? colorPickerStopId
+      : null
 
   useEffect(() => {
     stopsRef.current = stops
@@ -126,21 +134,6 @@ export function GradientCanvasOverlay({
   useEffect(() => {
     axisRef.current = { startX, startY, endX, endY }
   }, [endX, endY, startX, startY])
-
-  useEffect(() => {
-    if (!stops.some((stop) => stop.id === activeStopId)) {
-      setActiveStopId(sortGradientStops(stops)[0]?.id ?? "")
-    }
-  }, [activeStopId, stops])
-
-  useEffect(() => {
-    if (
-      colorPickerStopId &&
-      !stops.some((stop) => stop.id === colorPickerStopId)
-    ) {
-      setColorPickerStopId(null)
-    }
-  }, [colorPickerStopId, stops])
 
   useEffect(() => {
     return () => {
@@ -421,7 +414,7 @@ export function GradientCanvasOverlay({
           <Popover
             key={stop.id}
             modal={false}
-            open={colorPickerStopId === stop.id}
+            open={openColorPickerStopId === stop.id}
             onOpenChange={(open) => {
               if (!open) {
                 closeColorPicker()

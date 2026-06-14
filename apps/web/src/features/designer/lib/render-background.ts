@@ -39,8 +39,8 @@ function renderLinearGradient(
   const y1 = (background.gradientEndY / 100) * height
 
   const gradient = context.createLinearGradient(x0, y0, x1, y1)
-  const startT = sorted[0]?.position / 100 ?? 0
-  const endT = sorted[sorted.length - 1]?.position / 100 ?? 1
+  const startT = (sorted[0]?.position ?? 0) / 100
+  const endT = (sorted[sorted.length - 1]?.position ?? 100) / 100
   const span = endT - startT
 
   if (span <= 0) {
