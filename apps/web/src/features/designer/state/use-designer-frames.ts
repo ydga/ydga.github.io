@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 
 import {
   createFrameFromSource,
@@ -29,12 +29,6 @@ export function useDesignerFrames() {
     () => resolveActiveFrameId(frames, activeFrameId),
     [frames, activeFrameId]
   )
-
-  useLayoutEffect(() => {
-    if (resolvedActiveFrameId !== activeFrameId) {
-      setActiveFrameId(resolvedActiveFrameId)
-    }
-  }, [resolvedActiveFrameId, activeFrameId])
 
   const activeFrame =
     frames.find((frame) => frame.id === resolvedActiveFrameId) ?? frames[0]!

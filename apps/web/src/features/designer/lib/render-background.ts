@@ -176,13 +176,3 @@ export async function renderExportBackground(
     settings.background
   )
 }
-
-function paintPreviewCanvasBackgroundFallback(
-  context: CanvasRenderingContext2D,
-  settings: CanvasSettings
-) {
-  const { exportWidthPx, exportHeightPx } = getExportDimensions(settings)
-
-  context.fillStyle = getBackgroundFallbackColor(settings.background)
-  context.fillRect(0, 0, exportWidthPx, exportHeightPx)
-}

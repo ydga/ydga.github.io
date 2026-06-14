@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 
 import { getDocumentIntent } from "@/features/designer/lib/document-intent"
 import {
@@ -106,8 +106,10 @@ export function useExportSelection(
   const [syncSettings, setSyncSettings] = useState(false)
 
   const frameIdsKey = frames.map((frame) => frame.id).join("|")
+  const [trackedFrameIdsKey, setTrackedFrameIdsKey] = useState(frameIdsKey)
 
-  useEffect(() => {
+  if (frameIdsKey !== trackedFrameIdsKey) {
+    setTrackedFrameIdsKey(frameIdsKey)
     setEntries((current) => {
       const next: Record<string, PageExportEntry> = {}
 
@@ -117,7 +119,7 @@ export function useExportSelection(
 
       return next
     })
-  }, [frameIdsKey])
+  }
 
   const setSelected = useCallback((frameId: string, selected: boolean) => {
     setEntries((current) => {
