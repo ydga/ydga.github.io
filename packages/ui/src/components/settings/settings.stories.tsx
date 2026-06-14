@@ -14,6 +14,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { ProTooltipProvider } from "../tooltip"
 import { ToggleGroup, ToggleGroupItem } from "../toggle-group"
 import { DimensionField } from "./dimension-field"
+import { ColorPickerField } from "./color-picker"
 import { FramePresetCard } from "./frame-preset-card"
 import { PresetCategoryTabs, type PresetCategory } from "./preset-category-tabs"
 import { SettingControl } from "./setting-control"
@@ -74,6 +75,15 @@ export const DimensionFieldStory: Story = {
         onHeightChange={setHeight}
       />
     )
+  },
+}
+
+export const ColorPickerFieldStory: Story = {
+  name: "ColorPickerField",
+  render: function Render() {
+    const [color, setColor] = useState("#C45C3E")
+
+    return <ColorPickerField value={color} onChange={setColor} />
   },
 }
 

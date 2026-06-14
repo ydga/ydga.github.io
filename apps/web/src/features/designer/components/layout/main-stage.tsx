@@ -62,6 +62,7 @@ export function MainStage({
         onFitScaleChange={ui.setFitScale}
         onZoomScaleChange={ui.setZoomScale}
         onSelectFrame={handleSelectFrame}
+        dispatch={frames.dispatch}
         toolbarChromeRef={toolbarChromeRef}
         bottomChromeRef={bottomChromeRef}
       />

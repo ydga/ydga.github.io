@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef } from "react"
 
 import { GuidesOverlay } from "@/features/designer/components/preview/guides-overlay"
-import type { CanvasSettings } from "@/features/designer/model/types"
+import { GradientCanvasOverlay } from "@/features/designer/components/preview/gradient-canvas-overlay"
+import type {
+  CanvasSettings,
+  GradientStop,
+} from "@/features/designer/model/types"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
+import { normalizeBackgroundGradient } from "@/features/designer/lib/gradient-stops"
 import { getPreviewGuideGeometry } from "@/features/designer/lib/print-zones"
 import {
-  getBackgroundFallbackColor,
+  paintBackgroundFallback,
   renderPreviewCanvasBackground,
   renderTrimPreviewBackground,
   shouldShowBleedPreview,
@@ -18,6 +23,9 @@ type CanvasStageProps = {
   displayScale: number
   isPageSelected: boolean
   onSelectPage: () => void
+  onGradientStopsChange?: (stops: GradientStop[]) => void
+  onGradientStartChange?: (x: number, y: number) => void
+  onGradientEndChange?: (x: number, y: number) => void
 }
 
 export function CanvasStage({
@@ -26,8 +34,12 @@ export function CanvasStage({
   displayScale,
   isPageSelected,
   onSelectPage,
+  onGradientStopsChange,
+  onGradientStartChange,
+  onGradientEndChange,
 }: CanvasStageProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const frameRef = useRef<HTMLDivElement | null>(null)
   const exportDimensions = getExportDimensions(settings)
   const previewGeometry = getPreviewGuideGeometry(settings)
   const showBleedPreview = shouldShowBleedPreview(settings)
@@ -42,6 +54,12 @@ export function CanvasStage({
   const trimDisplayHeight = trimHeightPx * displayScale
   const canvasDisplayWidth = canvasWidthPx * displayScale
   const canvasDisplayHeight = canvasHeightPx * displayScale
+  const normalizedBackground = normalizeBackgroundGradient(settings.background)
+  const showGradientControls =
+    settings.background.type === "gradient" &&
+    onGradientStopsChange != null &&
+    onGradientStartChange != null &&
+    onGradientEndChange != null
 
   const setCanvasRef = useCallback(
     (node: HTMLCanvasElement | null) => {
@@ -71,8 +89,12 @@ export function CanvasStage({
 
     const paintFallback = () => {
       if (!cancelled) {
-        context.fillStyle = getBackgroundFallbackColor(settings.background)
-        context.fillRect(0, 0, canvasWidthPx, canvasHeightPx)
+        paintBackgroundFallback(
+          context,
+          canvasWidthPx,
+          canvasHeightPx,
+          settings.background
+        )
       }
     }
 
@@ -99,6 +121,7 @@ export function CanvasStage({
 
   return (
     <div
+      ref={frameRef}
       role="button"
       tabIndex={0}
       className={cn(
@@ -142,6 +165,19 @@ export function CanvasStage({
         )}
       />
       <GuidesOverlay settings={settings} displayScale={displayScale} />
+      {showGradientControls ? (
+        <GradientCanvasOverlay
+          boundsRef={frameRef}
+          stops={normalizedBackground.gradientStops}
+          startX={normalizedBackground.gradientStartX}
+          startY={normalizedBackground.gradientStartY}
+          endX={normalizedBackground.gradientEndX}
+          endY={normalizedBackground.gradientEndY}
+          onStopsChange={onGradientStopsChange}
+          onStartChange={onGradientStartChange}
+          onEndChange={onGradientEndChange}
+        />
+      ) : null}
     </div>
   )
 }

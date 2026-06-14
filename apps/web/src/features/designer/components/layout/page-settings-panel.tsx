@@ -24,13 +24,13 @@ export function PageSettingsPanel({
     <div className={panelSectionClassName}>
       <CanvasSettingsSection settings={settings} dispatch={dispatch} />
       <Separator />
-      <PresetsSection settings={settings} dispatch={dispatch} />
-      <Separator />
       <BackgroundSettingsSection
         settings={settings}
         dispatch={dispatch}
         onImageUpload={onImageUpload}
       />
+      <Separator />
+      <PresetsSection settings={settings} dispatch={dispatch} />
       <Separator />
       <GuidesSettingsSection settings={settings} dispatch={dispatch} />
     </div>

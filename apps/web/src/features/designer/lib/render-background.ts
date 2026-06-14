@@ -3,6 +3,10 @@ import type {
   CanvasSettings,
 } from "@/features/designer/model/types"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
+import {
+  normalizeBackgroundGradient,
+  sortGradientStops,
+} from "@/features/designer/lib/gradient-stops"
 
 export function shouldShowBleedPreview(settings: CanvasSettings): boolean {
   if (!settings.guides.showBleed) {
@@ -21,37 +25,33 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   })
 }
 
-function getLinearGradientPoints(
-  width: number,
-  height: number,
-  angleDeg: number
-) {
-  const angleRad = ((angleDeg - 90) * Math.PI) / 180
-  const centerX = width / 2
-  const centerY = height / 2
-  const length =
-    Math.abs(width * Math.sin(angleRad)) + Math.abs(height * Math.cos(angleRad))
-
-  return {
-    x0: centerX - (Math.cos(angleRad) * length) / 2,
-    y0: centerY - (Math.sin(angleRad) * length) / 2,
-    x1: centerX + (Math.cos(angleRad) * length) / 2,
-    y1: centerY + (Math.sin(angleRad) * length) / 2,
-  }
-}
-
 function renderLinearGradient(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
-  startColor: string,
-  endColor: string,
-  angleDeg: number
+  stops: BackgroundSettings["gradientStops"],
+  background: BackgroundSettings
 ) {
-  const { x0, y0, x1, y1 } = getLinearGradientPoints(width, height, angleDeg)
+  const sorted = sortGradientStops(stops)
+  const x0 = (background.gradientStartX / 100) * width
+  const y0 = (background.gradientStartY / 100) * height
+  const x1 = (background.gradientEndX / 100) * width
+  const y1 = (background.gradientEndY / 100) * height
+
   const gradient = context.createLinearGradient(x0, y0, x1, y1)
-  gradient.addColorStop(0, startColor)
-  gradient.addColorStop(1, endColor)
+  const startT = sorted[0]?.position / 100 ?? 0
+  const endT = sorted[sorted.length - 1]?.position / 100 ?? 1
+  const span = endT - startT
+
+  if (span <= 0) {
+    gradient.addColorStop(0, sorted[0]?.color ?? "#000000")
+  } else {
+    for (const stop of sorted) {
+      const position = (stop.position / 100 - startT) / span
+      gradient.addColorStop(Math.min(1, Math.max(0, position)), stop.color)
+    }
+  }
+
   context.fillStyle = gradient
   context.fillRect(0, 0, width, height)
 }
@@ -62,6 +62,11 @@ export async function renderBackground(
   height: number,
   background: BackgroundSettings
 ): Promise<void> {
+  if (background.type === "transparent") {
+    context.clearRect(0, 0, width, height)
+    return
+  }
+
   if (background.type === "color") {
     context.fillStyle = background.color
     context.fillRect(0, 0, width, height)
@@ -69,13 +74,13 @@ export async function renderBackground(
   }
 
   if (background.type === "gradient") {
+    const normalized = normalizeBackgroundGradient(background)
     renderLinearGradient(
       context,
       width,
       height,
-      background.color,
-      background.gradientEnd,
-      background.gradientAngle
+      normalized.gradientStops,
+      normalized
     )
     return
   }
@@ -132,7 +137,26 @@ export async function renderBackground(
 }
 
 export function getBackgroundFallbackColor(background: BackgroundSettings) {
+  if (background.type === "transparent") {
+    return null
+  }
+
   return background.color
+}
+
+export function paintBackgroundFallback(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  background: BackgroundSettings
+) {
+  if (background.type === "transparent") {
+    context.clearRect(0, 0, width, height)
+    return
+  }
+
+  context.fillStyle = getBackgroundFallbackColor(background) ?? "#ffffff"
+  context.fillRect(0, 0, width, height)
 }
 
 export async function renderPreviewCanvasBackground(

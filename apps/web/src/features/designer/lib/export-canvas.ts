@@ -43,6 +43,8 @@ export async function renderExportCanvas(
     throw new Error("Could not create export canvas context")
   }
 
+  context.clearRect(0, 0, exportWidthPx, exportHeightPx)
+
   if (
     sourceCanvas &&
     sourceCanvas.width === exportWidthPx &&

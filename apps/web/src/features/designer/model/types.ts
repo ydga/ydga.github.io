@@ -3,14 +3,25 @@ export type DocumentIntent = "screen" | "print"
 export type DimensionUnit = "px" | "cm"
 export type PixelScale = 1 | 2
 export type PrintDpi = 300 | 260 | 220 | 172
-export type BackgroundType = "color" | "gradient" | "image"
+export type BackgroundType = "color" | "gradient" | "image" | "transparent"
 export type BackgroundFit = "cover" | "contain" | "fit" | "tile"
+
+export type GradientStop = {
+  id: string
+  color: string
+  position: number
+}
 
 export type BackgroundSettings = {
   type: BackgroundType
   color: string
+  gradientStops: GradientStop[]
   gradientEnd: string
   gradientAngle: number
+  gradientStartX: number
+  gradientStartY: number
+  gradientEndX: number
+  gradientEndY: number
   imageSrc: string | null
   fit: BackgroundFit
 }

@@ -11,6 +11,7 @@ import {
   ZOOM_WHEEL_SENSITIVITY,
   type ZoomMode,
 } from "@/features/designer/model/ui-types"
+import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
 import { cn } from "@workspace/ui/lib/utils"
 
 type CanvasViewportProps = {
@@ -23,6 +24,7 @@ type CanvasViewportProps = {
   onFitScaleChange: (scale: number) => void
   onZoomScaleChange: (scale: number) => void
   onSelectFrame: (frameId: string) => void
+  dispatch: DesignerDispatch
   toolbarChromeRef: React.RefObject<HTMLElement | null>
   bottomChromeRef: React.RefObject<HTMLElement | null>
 }
@@ -37,6 +39,7 @@ export function CanvasViewport({
   onFitScaleChange,
   onZoomScaleChange,
   onSelectFrame,
+  dispatch,
   toolbarChromeRef,
   bottomChromeRef,
 }: CanvasViewportProps) {
@@ -137,6 +140,21 @@ export function CanvasViewport({
               displayScale={displayScale}
               isPageSelected
               onSelectPage={() => onSelectFrame(activeFrame.id)}
+              onGradientStopsChange={(value) =>
+                dispatch({ type: "set-background-gradient-stops", value })
+              }
+              onGradientStartChange={(x, y) =>
+                dispatch({
+                  type: "set-background-gradient-axis-start",
+                  value: { x, y },
+                })
+              }
+              onGradientEndChange={(x, y) =>
+                dispatch({
+                  type: "set-background-gradient-axis-end",
+                  value: { x, y },
+                })
+              }
             />
           </div>
         </div>

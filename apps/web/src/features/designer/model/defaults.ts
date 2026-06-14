@@ -14,8 +14,16 @@ export const DEFAULT_CANVAS_SETTINGS: CanvasSettings = {
   background: {
     type: "color",
     color: "#ffffff",
+    gradientStops: [
+      { id: "gradient-stop-start", color: "#ffffff", position: 0 },
+      { id: "gradient-stop-end", color: "#000000", position: 100 },
+    ],
     gradientEnd: "#000000",
     gradientAngle: 180,
+    gradientStartX: 15,
+    gradientStartY: 50,
+    gradientEndX: 85,
+    gradientEndY: 50,
     imageSrc: null,
     fit: "cover",
   },
