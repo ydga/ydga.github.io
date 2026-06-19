@@ -118,10 +118,15 @@ export function CanvasViewport({
       onZoomScaleChange(displayScaleRef.current * factor)
     }
 
-    viewport.addEventListener("wheel", onWheel, { passive: false })
+    // Capture so `preventDefault` runs before a focused `<textarea>` applies
+    // its default wheel scroll (which would steal zoom / feel like “scrolling the text box”).
+    viewport.addEventListener("wheel", onWheel, {
+      passive: false,
+      capture: true,
+    })
 
     return () => {
-      viewport.removeEventListener("wheel", onWheel)
+      viewport.removeEventListener("wheel", onWheel, { capture: true })
     }
   }, [onZoomScaleChange, viewportRef])
 

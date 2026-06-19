@@ -76,7 +76,7 @@ export function useStagePan({ enabled, resetKey }: UseStagePanOptions) {
       const target = event.target as HTMLElement
       if (
         target.closest(
-          "input, button, textarea, select, a, [contenteditable=true], [data-designer-text-drag], [data-designer-text-handle], [data-designer-text-box]"
+          "input, button, textarea, select, a, [contenteditable=true], [data-designer-text-drag], [data-designer-text-handle], [data-designer-text-box], [data-designer-canvas-frame]"
         ) ||
         target.closest("[data-slot=input-group-control]")
       ) {

@@ -2,26 +2,47 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react"
+import { flushSync } from "react-dom"
 
 import type {
   TextLayer,
   TextLayerUpdatePatch,
 } from "@/features/designer/model/layers"
-import { measureTextLayerContentBox } from "@/features/designer/lib/text-layer-layout"
 import {
+  SNAP_THRESHOLD_TRIM_PX,
+  snapTextLayerBoxTrimPx,
+} from "@/features/designer/lib/guide-snap"
+import {
+  measureTextLayerContentBox,
+  textLayerTextBlockHeightTrimPx,
+  verticalTextOffsetTrimPx,
+} from "@/features/designer/lib/text-layer-layout"
+import {
+  resolveTextLayerClip,
   resolveTextLayerColor,
   resolveTextLayerFontFamily,
   resolveTextLayerFontSizePx,
-  resolveTextLayerLineHeight,
+  resolveTextLayerLineHeightCss,
   resolveTextLayerSizing,
+  resolveTextLayerTextAlign,
+  resolveTextLayerTextDecorationLine,
+  resolveTextLayerVerticalAlign,
 } from "@/features/designer/model/text-layer-style"
 import { cn } from "@workspace/ui/lib/utils"
 
 const MIN_W_TRIM = 48
 const MIN_H_TRIM = 36
+
+/**
+ * Resize handles use `size-2` (0.5rem). Shift by s/6 so ~1/3 of the handle
+ * overlaps the text bounds and ~2/3 sits outside along each outward axis.
+ * Keep in sync with {@link handleBase}.
+ */
+const HANDLE_STICK_OUT = "0.5rem / 6"
 
 type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w"
 
@@ -51,6 +72,11 @@ type TextLayerBoxProps = {
   displayScale: number
   trimWidthPx: number
   trimHeightPx: number
+  /** When set, box position snaps to these trim-space X guides while moving or resizing. */
+  snapGuideXs?: readonly number[] | null
+  /** When set, box position snaps to these trim-space Y guides while moving or resizing. */
+  snapGuideYs?: readonly number[] | null
+  snapThresholdTrimPx?: number
   isSelected: boolean
   zIndex: number
   getFrameElement: () => HTMLElement | null
@@ -215,6 +241,9 @@ export function TextLayerBox({
   displayScale,
   trimWidthPx,
   trimHeightPx,
+  snapGuideXs,
+  snapGuideYs,
+  snapThresholdTrimPx = SNAP_THRESHOLD_TRIM_PX,
   isSelected,
   zIndex,
   getFrameElement,
@@ -232,6 +261,58 @@ export function TextLayerBox({
   const boxHeightTrim = layer.height
   const sizing = resolveTextLayerSizing(layer)
   const chromeActive = isSelected
+  const clipToBounds = resolveTextLayerClip(layer)
+
+  const softWrapForDisplay = sizing === "fixed"
+  const dragStripScreenPx = Math.max(10, 10 * displayScale)
+  const dragStripTrimPx = dragStripScreenPx / displayScale
+
+  const textVerticalOffsetTrim = useMemo(() => {
+    if (typeof document === "undefined") {
+      return 0
+    }
+    const canvas = document.createElement("canvas")
+    const ctx = canvas.getContext("2d")
+    if (!ctx) {
+      return 0
+    }
+    const maxW = Math.max(32, layer.width)
+    const fontSizePx = resolveTextLayerFontSizePx(layer)
+    const fontFamily = resolveTextLayerFontFamily(layer)
+    ctx.font = `${fontSizePx}px ${fontFamily}`
+    const blockH = textLayerTextBlockHeightTrimPx(
+      ctx,
+      layer,
+      maxW,
+      softWrapForDisplay
+    )
+    const boxH = Math.max(MIN_H_TRIM, boxHeightTrim)
+    /** Match {@link TextLayerBox} textarea: strips only when selected shrink the text band. */
+    const contentBoxTrimH = isSelected
+      ? Math.max(1, boxH - 2 * dragStripTrimPx)
+      : boxH
+    return verticalTextOffsetTrimPx(
+      contentBoxTrimH,
+      blockH,
+      resolveTextLayerVerticalAlign(layer)
+    )
+  }, [
+    boxHeightTrim,
+    dragStripTrimPx,
+    isSelected,
+    layer.fontFamily,
+    layer.fontSizePx,
+    layer.height,
+    layer.lineHeight,
+    layer.lineHeightUnit,
+    layer.text,
+    layer.textUnderline,
+    layer.textStrikethrough,
+    layer.verticalAlign,
+    layer.clip,
+    layer.width,
+    softWrapForDisplay,
+  ])
 
   useEffect(() => {
     if (!isSelected) {
@@ -249,6 +330,7 @@ export function TextLayerBox({
         const node = textareaRef.current
         if (node) {
           node.focus({ preventScroll: true })
+          node.select()
         }
         onTextLayerBeginTypingHandled()
       })
@@ -284,8 +366,13 @@ export function TextLayerBox({
     layer.fontSizePx,
     layer.height,
     layer.lineHeight,
+    layer.lineHeightUnit,
     layer.text,
+    layer.textAlign,
     layer.textSizing,
+    layer.textStrikethrough,
+    layer.textUnderline,
+    layer.verticalAlign,
     layer.width,
     layer.x,
     layer.y,
@@ -321,18 +408,37 @@ export function TextLayerBox({
       if (session.kind === "move") {
         const dx = px - session.trimStartX
         const dy = py - session.trimStartY
-        onUpdate({
-          x: clamp(
-            session.startX + dx,
-            0,
-            Math.max(0, trimWidthPx - session.startW)
-          ),
-          y: clamp(
-            session.startY + dy,
-            0,
-            Math.max(0, trimHeightPx - session.startH)
-          ),
-        })
+        let x = clamp(
+          session.startX + dx,
+          0,
+          Math.max(0, trimWidthPx - session.startW)
+        )
+        let y = clamp(
+          session.startY + dy,
+          0,
+          Math.max(0, trimHeightPx - session.startH)
+        )
+        if (
+          snapGuideXs &&
+          snapGuideYs &&
+          snapGuideXs.length > 0 &&
+          snapGuideYs.length > 0
+        ) {
+          const snapped = snapTextLayerBoxTrimPx(
+            x,
+            y,
+            session.startW,
+            session.startH,
+            snapGuideXs,
+            snapGuideYs,
+            snapThresholdTrimPx,
+            trimWidthPx,
+            trimHeightPx
+          )
+          x = snapped.x
+          y = snapped.y
+        }
+        onUpdate({ x, y })
         return
       }
 
@@ -350,8 +456,28 @@ export function TextLayerBox({
         trimHeightPx
       )
 
-      const nx = clamp(next.x, 0, trimWidthPx - next.w)
-      const ny = clamp(next.y, 0, trimHeightPx - next.h)
+      let nx = clamp(next.x, 0, trimWidthPx - next.w)
+      let ny = clamp(next.y, 0, trimHeightPx - next.h)
+      if (
+        snapGuideXs &&
+        snapGuideYs &&
+        snapGuideXs.length > 0 &&
+        snapGuideYs.length > 0
+      ) {
+        const snapped = snapTextLayerBoxTrimPx(
+          nx,
+          ny,
+          next.w,
+          next.h,
+          snapGuideXs,
+          snapGuideYs,
+          snapThresholdTrimPx,
+          trimWidthPx,
+          trimHeightPx
+        )
+        nx = snapped.x
+        ny = snapped.y
+      }
       onUpdate({
         x: nx,
         y: ny,
@@ -381,6 +507,9 @@ export function TextLayerBox({
     endDrag,
     getFrameElement,
     onUpdate,
+    snapGuideXs,
+    snapGuideYs,
+    snapThresholdTrimPx,
     trimHeightPx,
     trimWidthPx,
   ])
@@ -422,9 +551,6 @@ export function TextLayerBox({
     event.preventDefault()
     setTextEditing(false)
     onSelect()
-    if (resolveTextLayerSizing(layer) === "hug") {
-      onUpdate({ textSizing: "fixed" })
-    }
     dragRef.current = {
       kind: "resize",
       pointerId: event.pointerId,
@@ -440,7 +566,7 @@ export function TextLayerBox({
   }
 
   const handleBase =
-    "absolute z-20 box-border size-2.5 rounded-[2px] border-2 border-[#7c3aed] bg-white touch-none"
+    "absolute z-30 box-border size-2 rounded-[1px] border border-[#7c3aed] bg-white touch-none"
 
   const cursorFor: Record<ResizeHandle, string> = {
     nw: "cursor-nwse-resize",
@@ -460,13 +586,16 @@ export function TextLayerBox({
   const fontPx = resolveTextLayerFontSizePx(layer) * displayScale
   const fontFamily = resolveTextLayerFontFamily(layer)
   const color = resolveTextLayerColor(layer)
+  /** Grab strips sit in the top/bottom band only while the layer is selected. */
+  const dragStripCssPx = dragStripScreenPx
 
   return (
     <div
       data-designer-text-box
       data-designer-text-layer
       className={cn(
-        "pointer-events-auto absolute box-border overflow-visible rounded-[2px] border-2 border-transparent",
+        "pointer-events-auto absolute box-border overscroll-none rounded-[2px] border border-transparent",
+        clipToBounds ? "overflow-hidden" : "overflow-visible",
         chromeActive ? "border-[#7c3aed]" : "hover:border-muted-foreground/25"
       )}
       style={{
@@ -480,7 +609,7 @@ export function TextLayerBox({
         isSelected
           ? textEditing
             ? "Text — editing"
-            : "Text — double-click to edit"
+            : "Text — click to edit"
           : undefined
       }
       onDoubleClick={(event) => {
@@ -491,10 +620,12 @@ export function TextLayerBox({
         if (t.closest("[data-designer-text-handle]")) {
           return
         }
-        setTextEditing(true)
-        requestAnimationFrame(() => {
-          textareaRef.current?.focus()
+        flushSync(() => {
+          setTextEditing(true)
         })
+        const el = textareaRef.current
+        el?.focus({ preventScroll: true })
+        el?.select()
       }}
       onPointerDown={(event) => {
         const target = event.target as HTMLElement
@@ -535,23 +666,44 @@ export function TextLayerBox({
         aria-label="Text on canvas"
         readOnly={!textEditing}
         data-designer-text-editing={textEditing ? "true" : undefined}
-        tabIndex={textEditing ? 0 : -1}
+        tabIndex={isSelected || textEditing ? 0 : -1}
         className={cn(
-          "absolute inset-0 z-0 box-border h-full w-full resize-none overflow-hidden border-0 bg-transparent p-0.5 outline-none focus-visible:ring-0",
+          "absolute right-0 left-0 z-[25] box-border w-full resize-none overflow-hidden border-0 bg-transparent px-0.5 pt-0 pb-0.5 outline-none focus-visible:ring-0",
           sizing === "hug" && "whitespace-pre"
         )}
         style={{
+          top: isSelected ? dragStripCssPx : 0,
+          bottom: isSelected ? dragStripCssPx : 0,
           fontSize: fontPx,
-          lineHeight: resolveTextLayerLineHeight(layer),
+          lineHeight: resolveTextLayerLineHeightCss(layer),
           fontFamily,
           color,
+          textAlign: resolveTextLayerTextAlign(layer),
+          textDecorationLine: resolveTextLayerTextDecorationLine(layer),
+          paddingTop: `calc(0.125rem + ${textVerticalOffsetTrim * displayScale}px)`,
         }}
         value={layer.text}
         placeholder="Type…"
         onChange={(event) => onUpdate({ text: event.target.value })}
         onMouseDown={(event) => {
           if (event.detail === 2) {
-            setTextEditing(true)
+            flushSync(() => {
+              setTextEditing(true)
+            })
+            event.preventDefault()
+            const el = textareaRef.current
+            el?.focus({ preventScroll: true })
+            el?.select()
+            return
+          }
+          if (isSelected && !textEditing && event.detail === 1) {
+            flushSync(() => {
+              setTextEditing(true)
+            })
+            event.preventDefault()
+            const el = textareaRef.current
+            el?.focus({ preventScroll: true })
+            el?.select()
             return
           }
           if (!textEditing) {
@@ -562,10 +714,15 @@ export function TextLayerBox({
           event.stopPropagation()
         }}
         onDoubleClick={() => {
-          setTextEditing(true)
-          requestAnimationFrame(() => {
-            textareaRef.current?.focus()
+          flushSync(() => {
+            setTextEditing(true)
           })
+          const el = textareaRef.current
+          el?.focus({ preventScroll: true })
+          el?.select()
+        }}
+        onFocus={(event) => {
+          event.currentTarget.select()
         }}
         onBlur={() => {
           setTextEditing(false)
@@ -590,107 +747,103 @@ export function TextLayerBox({
           <div
             data-designer-text-drag
             aria-label="Drag to move text"
-            className="pointer-events-auto absolute top-0 right-3 left-3 z-[21] cursor-grab active:cursor-grabbing"
-            style={{ height: Math.max(10, 10 * displayScale) }}
+            className="pointer-events-auto absolute top-0 right-3 left-3 z-[28] cursor-grab active:cursor-grabbing"
+            style={{ height: dragStripCssPx }}
             onPointerDown={startMove}
             onClick={(event) => event.stopPropagation()}
           />
           <div
             data-designer-text-drag
             aria-label="Drag to move text"
-            className="pointer-events-auto absolute right-3 bottom-0 left-3 z-[21] cursor-grab active:cursor-grabbing"
-            style={{ height: Math.max(10, 10 * displayScale) }}
+            className="pointer-events-auto absolute right-3 bottom-0 left-3 z-[28] cursor-grab active:cursor-grabbing"
+            style={{ height: dragStripCssPx }}
             onPointerDown={startMove}
             onClick={(event) => event.stopPropagation()}
           />
-          <button
-            type="button"
-            data-designer-text-handle
-            aria-label="Resize north-west"
-            className={cn(
-              handleBase,
-              cursorFor.nw,
-              "top-0 left-0 -translate-x-1/2 -translate-y-1/2"
-            )}
-            onPointerDown={(e) => startResize("nw", e)}
-          />
-          <button
-            type="button"
-            data-designer-text-handle
-            aria-label="Resize north"
-            className={cn(
-              handleBase,
-              cursorFor.n,
-              "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2"
-            )}
-            onPointerDown={(e) => startResize("n", e)}
-          />
-          <button
-            type="button"
-            data-designer-text-handle
-            aria-label="Resize north-east"
-            className={cn(
-              handleBase,
-              cursorFor.ne,
-              "top-0 left-full -translate-x-1/2 -translate-y-1/2"
-            )}
-            onPointerDown={(e) => startResize("ne", e)}
-          />
-          <button
-            type="button"
-            data-designer-text-handle
-            aria-label="Resize east"
-            className={cn(
-              handleBase,
-              cursorFor.e,
-              "top-1/2 left-full -translate-x-1/2 -translate-y-1/2"
-            )}
-            onPointerDown={(e) => startResize("e", e)}
-          />
-          <button
-            type="button"
-            data-designer-text-handle
-            aria-label="Resize south-east"
-            className={cn(
-              handleBase,
-              cursorFor.se,
-              "top-full left-full -translate-x-1/2 -translate-y-1/2"
-            )}
-            onPointerDown={(e) => startResize("se", e)}
-          />
-          <button
-            type="button"
-            data-designer-text-handle
-            aria-label="Resize south"
-            className={cn(
-              handleBase,
-              cursorFor.s,
-              "top-full left-1/2 -translate-x-1/2 -translate-y-1/2"
-            )}
-            onPointerDown={(e) => startResize("s", e)}
-          />
-          <button
-            type="button"
-            data-designer-text-handle
-            aria-label="Resize south-west"
-            className={cn(
-              handleBase,
-              cursorFor.sw,
-              "top-full left-0 -translate-x-1/2 -translate-y-1/2"
-            )}
-            onPointerDown={(e) => startResize("sw", e)}
-          />
-          <button
-            type="button"
-            data-designer-text-handle
-            aria-label="Resize west"
-            className={cn(
-              handleBase,
-              cursorFor.w,
-              "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2"
-            )}
-            onPointerDown={(e) => startResize("w", e)}
-          />
+          {sizing === "fixed" ? (
+            <>
+              <button
+                type="button"
+                data-designer-text-handle
+                aria-label="Resize north-west"
+                className={cn(handleBase, cursorFor.nw, "top-0 left-0")}
+                style={{
+                  transform: `translate(calc(-50% - ${HANDLE_STICK_OUT}), calc(-50% - ${HANDLE_STICK_OUT}))`,
+                }}
+                onPointerDown={(e) => startResize("nw", e)}
+              />
+              <button
+                type="button"
+                data-designer-text-handle
+                aria-label="Resize north"
+                className={cn(handleBase, cursorFor.n, "top-0 left-1/2")}
+                style={{
+                  transform: `translate(-50%, calc(-50% - ${HANDLE_STICK_OUT}))`,
+                }}
+                onPointerDown={(e) => startResize("n", e)}
+              />
+              <button
+                type="button"
+                data-designer-text-handle
+                aria-label="Resize north-east"
+                className={cn(handleBase, cursorFor.ne, "top-0 left-full")}
+                style={{
+                  transform: `translate(calc(-50% + ${HANDLE_STICK_OUT}), calc(-50% - ${HANDLE_STICK_OUT}))`,
+                }}
+                onPointerDown={(e) => startResize("ne", e)}
+              />
+              <button
+                type="button"
+                data-designer-text-handle
+                aria-label="Resize east"
+                className={cn(handleBase, cursorFor.e, "top-1/2 left-full")}
+                style={{
+                  transform: `translate(calc(-50% + ${HANDLE_STICK_OUT}), -50%)`,
+                }}
+                onPointerDown={(e) => startResize("e", e)}
+              />
+              <button
+                type="button"
+                data-designer-text-handle
+                aria-label="Resize south-east"
+                className={cn(handleBase, cursorFor.se, "top-full left-full")}
+                style={{
+                  transform: `translate(calc(-50% + ${HANDLE_STICK_OUT}), calc(-50% + ${HANDLE_STICK_OUT}))`,
+                }}
+                onPointerDown={(e) => startResize("se", e)}
+              />
+              <button
+                type="button"
+                data-designer-text-handle
+                aria-label="Resize south"
+                className={cn(handleBase, cursorFor.s, "top-full left-1/2")}
+                style={{
+                  transform: `translate(-50%, calc(-50% + ${HANDLE_STICK_OUT}))`,
+                }}
+                onPointerDown={(e) => startResize("s", e)}
+              />
+              <button
+                type="button"
+                data-designer-text-handle
+                aria-label="Resize south-west"
+                className={cn(handleBase, cursorFor.sw, "top-full left-0")}
+                style={{
+                  transform: `translate(calc(-50% - ${HANDLE_STICK_OUT}), calc(-50% + ${HANDLE_STICK_OUT}))`,
+                }}
+                onPointerDown={(e) => startResize("sw", e)}
+              />
+              <button
+                type="button"
+                data-designer-text-handle
+                aria-label="Resize west"
+                className={cn(handleBase, cursorFor.w, "top-1/2 left-0")}
+                style={{
+                  transform: `translate(calc(-50% - ${HANDLE_STICK_OUT}), -50%)`,
+                }}
+                onPointerDown={(e) => startResize("w", e)}
+              />
+            </>
+          ) : null}
         </>
       ) : null}
     </div>

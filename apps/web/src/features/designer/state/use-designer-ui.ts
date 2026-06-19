@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import {
   DEFAULT_FRAME_ID,
@@ -93,6 +93,14 @@ export function useDesignerUi() {
     setZoomMode("manual")
     setManualZoom(clampZoom(value))
   }, [])
+
+  /** Keep the context panel in sync with canvas element selection. */
+  useEffect(() => {
+    if (selection.kind === "element") {
+      setPanelMode("document")
+      setPanelOpen(true)
+    }
+  }, [selection])
 
   const zoomFit = useCallback(() => {
     setZoomMode("fit")

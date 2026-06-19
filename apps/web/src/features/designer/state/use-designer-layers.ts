@@ -31,6 +31,9 @@ export function useDesignerLayers() {
     const id = crypto.randomUUID()
     const text = input.text ?? ""
     const width = input.width ?? 200
+    /** Drag-to-place supplies both dimensions → fixed wrap box; tap uses hug for both axes. */
+    const explicitBounds =
+      input.width !== undefined && input.height !== undefined
 
     const layer: TextLayer = {
       id,
@@ -45,7 +48,7 @@ export function useDesignerLayers() {
       fontFamily: DEFAULT_TEXT_FONT_FAMILY,
       fontSizePx: DEFAULT_TEXT_FONT_SIZE_PX,
       color: DEFAULT_TEXT_COLOR,
-      textSizing: "fixed",
+      textSizing: explicitBounds ? "fixed" : "hug",
     }
 
     setLayers((prev) => {

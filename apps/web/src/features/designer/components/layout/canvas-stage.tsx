@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { GuidesOverlay } from "@/features/designer/components/preview/guides-overlay"
 import { GradientCanvasOverlay } from "@/features/designer/components/preview/gradient-canvas-overlay"
@@ -8,6 +8,12 @@ import type {
 } from "@/features/designer/model/types"
 import type { CanvasTool, Selection } from "@/features/designer/model/ui-types"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
+import {
+  SNAP_THRESHOLD_TRIM_PX,
+  buildSnapGuideLinesTrimPx,
+  guideSnapActiveForText,
+  snapTextLayerBoxTrimPx,
+} from "@/features/designer/lib/guide-snap"
 import { normalizeBackgroundGradient } from "@/features/designer/lib/gradient-stops"
 import { getPreviewGuideGeometry } from "@/features/designer/lib/print-zones"
 import {
@@ -26,6 +32,9 @@ import { cn } from "@workspace/ui/lib/utils"
 const MIN_PLACE_TEXT_W = 48
 const MIN_PLACE_TEXT_H = 36
 const TEXT_PLACE_TAP_TRIM_PX = 4
+/** Defaults for tap-to-place text; keep aligned with `useDesignerLayers` `addTextLayer`. */
+const DEFAULT_NEW_TEXT_W_TRIM = 200
+const DEFAULT_NEW_TEXT_H_TRIM = 72
 
 type PlacementPreview = {
   x: number
@@ -142,6 +151,12 @@ export function CanvasStage({
   const canvasDisplayWidth = canvasWidthPx * displayScale
   const canvasDisplayHeight = canvasHeightPx * displayScale
   const normalizedBackground = normalizeBackgroundGradient(settings.background)
+  const snapGuides = useMemo(() => {
+    if (!guideSnapActiveForText(settings)) {
+      return null
+    }
+    return buildSnapGuideLinesTrimPx(settings, trimWidthPx, trimHeightPx)
+  }, [settings, trimHeightPx, trimWidthPx])
   const showGradientControls =
     settings.background.type === "gradient" &&
     onGradientStopsChange != null &&
@@ -322,7 +337,22 @@ export function CanvasStage({
         const dy = Math.abs(pt.y - session.y0)
 
         if (dx < TEXT_PLACE_TAP_TRIM_PX && dy < TEXT_PLACE_TAP_TRIM_PX) {
-          onPlaceText(session.x0, session.y0)
+          if (snapGuides) {
+            const s = snapTextLayerBoxTrimPx(
+              session.x0,
+              session.y0,
+              DEFAULT_NEW_TEXT_W_TRIM,
+              DEFAULT_NEW_TEXT_H_TRIM,
+              snapGuides.xs,
+              snapGuides.ys,
+              SNAP_THRESHOLD_TRIM_PX,
+              trimWidthPx,
+              trimHeightPx
+            )
+            onPlaceText(s.x, s.y)
+          } else {
+            onPlaceText(session.x0, session.y0)
+          }
         } else {
           const r = clampPlacementRect(
             session.x0,
@@ -332,12 +362,24 @@ export function CanvasStage({
             trimWidthPx,
             trimHeightPx
           )
-          onPlaceText(
-            r.x,
-            r.y,
-            Math.max(MIN_PLACE_TEXT_W, r.w),
-            Math.max(MIN_PLACE_TEXT_H, r.h)
-          )
+          const w = Math.max(MIN_PLACE_TEXT_W, r.w)
+          const h = Math.max(MIN_PLACE_TEXT_H, r.h)
+          if (snapGuides) {
+            const s = snapTextLayerBoxTrimPx(
+              r.x,
+              r.y,
+              w,
+              h,
+              snapGuides.xs,
+              snapGuides.ys,
+              SNAP_THRESHOLD_TRIM_PX,
+              trimWidthPx,
+              trimHeightPx
+            )
+            onPlaceText(s.x, s.y, w, h)
+          } else {
+            onPlaceText(r.x, r.y, w, h)
+          }
         }
         armSuppressFrameClickAfterTextPlace()
       }
@@ -346,12 +388,20 @@ export function CanvasStage({
       window.addEventListener("pointerup", onUp)
       window.addEventListener("pointercancel", onUp)
     },
-    [canvasTool, displayScale, onPlaceText, trimHeightPx, trimWidthPx]
+    [
+      canvasTool,
+      displayScale,
+      onPlaceText,
+      snapGuides,
+      trimHeightPx,
+      trimWidthPx,
+    ]
   )
 
   return (
     <div
       ref={frameRef}
+      data-designer-canvas-frame
       role="button"
       tabIndex={0}
       className={cn(
@@ -417,7 +467,7 @@ export function CanvasStage({
       {placementPreview && canvasTool === "text" ? (
         <div
           aria-hidden
-          className="pointer-events-none absolute z-[14] border-2 border-dashed border-[#7c3aed]"
+          className="pointer-events-none absolute z-[14] border border-dashed border-[#7c3aed]"
           style={{
             left: placementPreview.x * displayScale,
             top: placementPreview.y * displayScale,
@@ -438,6 +488,8 @@ export function CanvasStage({
               displayScale={displayScale}
               trimWidthPx={trimWidthPx}
               trimHeightPx={trimHeightPx}
+              snapGuideXs={snapGuides?.xs ?? null}
+              snapGuideYs={snapGuides?.ys ?? null}
               isSelected={isSelected}
               zIndex={z}
               getFrameElement={getFrameElement}

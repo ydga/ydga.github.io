@@ -1,3 +1,6 @@
+/** How {@link TextLayer.lineHeight} is interpreted (default: unitless multiplier). */
+export type TextLayerLineHeightUnit = "unitless" | "px" | "em"
+
 export type TextLayer = {
   id: string
   frameId: string
@@ -14,10 +17,21 @@ export type TextLayer = {
   fontSizePx?: number
   /** Text fill, hex (e.g. `#111827`). */
   color?: string
-  /** Unitless CSS line-height (e.g. `1.35`, or `0.85` for tight leading). Used for canvas, export, and hug height. */
+  /** Unitless multiplier, trim px, or `em` (see {@link TextLayerLineHeightUnit}). */
   lineHeight?: number
-  /** `hug` — box fits text; `fixed` — width and height set explicitly. */
+  lineHeightUnit?: TextLayerLineHeightUnit
+  /** `hug` — width and height both follow text; `fixed` — width and height set explicitly. */
   textSizing?: "hug" | "fixed"
+  /** Horizontal alignment inside the text box (canvas, export, and editor). */
+  textAlign?: "left" | "center" | "right"
+  /** Vertical alignment of the line stack inside the box height. */
+  verticalAlign?: "top" | "middle" | "bottom"
+  /** CSS `text-decoration-line: underline` when true. */
+  textUnderline?: boolean
+  /** CSS `text-decoration-line: line-through` when true. */
+  textStrikethrough?: boolean
+  /** When false, text may draw outside the box (editor + export). Default true. */
+  clip?: boolean
 }
 
 export type TextLayerUpdatePatch = Partial<
@@ -32,7 +46,13 @@ export type TextLayerUpdatePatch = Partial<
     | "fontSizePx"
     | "color"
     | "lineHeight"
+    | "lineHeightUnit"
     | "textSizing"
+    | "textAlign"
+    | "verticalAlign"
+    | "textUnderline"
+    | "textStrikethrough"
+    | "clip"
   >
 >
 

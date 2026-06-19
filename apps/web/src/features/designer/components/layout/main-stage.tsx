@@ -63,7 +63,20 @@ export function MainStage({
     )
   }, [layers, activeFrame.id])
 
-  function handleSelectFrame(frameId: string) {
+  const isTextLayerSelected = useMemo(() => {
+    const sel = ui.selection
+    if (sel.kind !== "element") {
+      return false
+    }
+    return activeFrameTextLayers.some((l) => l.id === sel.elementId)
+  }, [activeFrameTextLayers, ui.selection])
+
+  function handleCanvasPageSelect(frameId: string) {
+    onSelectFrame(frameId)
+    ui.selectPageAndOpen(frameId)
+  }
+
+  function handleFrameTabSelect(frameId: string) {
     onSelectFrame(frameId)
     ui.selectPageAndOpen(frameId)
   }
@@ -75,7 +88,7 @@ export function MainStage({
         variant="frosted"
         fitChromeRef={toolbarChromeRef}
       >
-        <CanvasToolbar ui={ui} />
+        <CanvasToolbar ui={ui} isTextLayerSelected={isTextLayerSelected} />
       </FloatingChrome>
 
       <CanvasViewport
@@ -87,7 +100,7 @@ export function MainStage({
         zoomMode={ui.zoomMode}
         onFitScaleChange={ui.setFitScale}
         onZoomScaleChange={ui.setZoomScale}
-        onSelectFrame={handleSelectFrame}
+        onSelectFrame={handleCanvasPageSelect}
         dispatch={frames.dispatch}
         toolbarChromeRef={toolbarChromeRef}
         bottomChromeRef={bottomChromeRef}
@@ -107,7 +120,7 @@ export function MainStage({
         activeFrameId={frames.activeFrameId}
         effectiveScale={ui.effectiveScale}
         zoomMode={ui.zoomMode}
-        onSelectFrame={handleSelectFrame}
+        onSelectFrame={handleFrameTabSelect}
         onAddFrame={onAddFrame}
         onDuplicateFrame={onDuplicateFrame}
         onRemovePage={() => onRemoveFrame(frames.activeFrameId)}

@@ -2,7 +2,8 @@ import type { TextLayer } from "@/features/designer/model/layers"
 import {
   resolveTextLayerFontFamily,
   resolveTextLayerFontSizePx,
-  resolveTextLayerLineHeight,
+  resolveTextLayerLineHeightUnit,
+  resolveTextLayerLineHeightValue,
 } from "@/features/designer/model/text-layer-style"
 
 const MIN_W_TRIM = 48
@@ -83,11 +84,18 @@ export function buildDisplayLines(
     : buildNewlineOnlyLines(text)
 }
 
-/** Rounded line height in px for layout, hug measurement, and export draw. */
+/** Rounded trim-space line height used for stacking and export. */
 export function textLineHeightTrimPx(layer: TextLayer): number {
-  return Math.round(
-    resolveTextLayerFontSizePx(layer) * resolveTextLayerLineHeight(layer)
-  )
+  const fs = resolveTextLayerFontSizePx(layer)
+  const unit = resolveTextLayerLineHeightUnit(layer)
+  const v = resolveTextLayerLineHeightValue(layer)
+  if (unit === "px") {
+    return v
+  }
+  if (unit === "em") {
+    return Math.max(1, Math.round(fs * v))
+  }
+  return Math.max(1, Math.round(fs * v))
 }
 
 function measureAdornedLineWidth(
@@ -133,8 +141,63 @@ function hugLineVisualHeightPx(
 }
 
 /**
+ * Trim-space height of the stacked lines (fixed: uniform line height per line;
+ * hug: per-line visual height from metrics, so line-height changes affect hug height).
+ */
+export function textLayerTextBlockHeightTrimPx(
+  ctx: CanvasRenderingContext2D,
+  layer: TextLayer,
+  maxWidthPx: number,
+  softWrap: boolean
+): number {
+  const wrapW = Math.max(32, maxWidthPx)
+  const lineHeight = textLineHeightTrimPx(layer)
+  const lines = buildDisplayLines(ctx, layer.text, wrapW, softWrap)
+  if (softWrap) {
+    return lines.length * lineHeight
+  }
+  let total = 0
+  for (const line of lines) {
+    total += hugLineVisualHeightPx(ctx, layer, line)
+  }
+  return total
+}
+
+/** Vertical advance after drawing one line (matches {@link textLayerTextBlockHeightTrimPx}). */
+export function lineAdvanceTrimPx(
+  ctx: CanvasRenderingContext2D,
+  layer: TextLayer,
+  line: string,
+  softWrap: boolean
+): number {
+  return softWrap
+    ? textLineHeightTrimPx(layer)
+    : hugLineVisualHeightPx(ctx, layer, line)
+}
+
+/**
+ * Trim-space offset to shift the first line down so the text block fits
+ * `boxHeightTrim` with vertical alignment.
+ */
+export function verticalTextOffsetTrimPx(
+  boxHeightTrim: number,
+  contentBlockHeightTrim: number,
+  verticalAlign: "top" | "middle" | "bottom"
+): number {
+  const extra = Math.max(0, boxHeightTrim - contentBlockHeightTrim)
+  if (verticalAlign === "middle") {
+    return extra / 2
+  }
+  if (verticalAlign === "bottom") {
+    return extra
+  }
+  return 0
+}
+
+/**
  * Bounding box in trim pixels (same rules as export draw).
- * When `softWrap` is false (`hug`), lines break only at newline characters.
+ * When `softWrap` is false (`hug`), lines break only at newline characters and
+ * both width and height follow that content (width is not capped by `maxWrapWidthPx`).
  */
 export function measureTextLayerContentBox(
   layer: TextLayer,
@@ -163,7 +226,6 @@ export function measureTextLayerContentBox(
 
   const fontSizePx = resolveTextLayerFontSizePx(layer)
   const fontFamily = resolveTextLayerFontFamily(layer)
-  const lineHeight = textLineHeightTrimPx(layer)
 
   ctx.font = `${fontSizePx}px ${fontFamily}`
   const lines = buildDisplayLines(ctx, layer.text, wrapW, softWrap)
@@ -176,20 +238,15 @@ export function measureTextLayerContentBox(
   const rawWidth = Math.ceil(
     Math.max(MIN_W_TRIM, maxLineW + (softWrap ? 0 : TEXT_HUG_WIDTH_PAD_PX))
   )
-  const width = Math.ceil(Math.min(wrapW, rawWidth))
+  // Fixed: cap by wrap width. Hug (newline-only): width is purely content-driven.
+  const width = softWrap
+    ? Math.ceil(Math.min(wrapW, rawWidth))
+    : Math.ceil(rawWidth)
 
-  let height: number
-  if (softWrap) {
-    height = Math.ceil(Math.max(MIN_H_TRIM, lines.length * lineHeight))
-  } else {
-    let totalLineH = 0
-    for (const line of lines) {
-      totalLineH += hugLineVisualHeightPx(ctx, layer, line)
-    }
-    height = Math.ceil(
-      Math.max(MIN_H_TRIM, totalLineH + TEXT_HUG_HEIGHT_PAD_PX)
-    )
-  }
+  const blockH = textLayerTextBlockHeightTrimPx(ctx, layer, wrapW, softWrap)
+  const height = Math.ceil(
+    Math.max(MIN_H_TRIM, softWrap ? blockH : blockH + TEXT_HUG_HEIGHT_PAD_PX)
+  )
 
   return { width, height }
 }

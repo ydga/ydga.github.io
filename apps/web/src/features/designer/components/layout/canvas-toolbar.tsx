@@ -22,11 +22,19 @@ const TOOLBAR_ITEMS = [
 
 type CanvasToolbarProps = {
   ui: DesignerUi
+  /** True when a text layer on the active frame is selected (toolbar highlights Text while still in select mode). */
+  isTextLayerSelected?: boolean
 }
 
-export function CanvasToolbar({ ui }: CanvasToolbarProps) {
-  const textToolActive = ui.canvasTool === "text"
-  const activeIndex = textToolActive
+export function CanvasToolbar({
+  ui,
+  isTextLayerSelected = false,
+}: CanvasToolbarProps) {
+  const textPlacementMode = ui.canvasTool === "text"
+  const textToolNavActive = textPlacementMode || isTextLayerSelected
+  /** Only one toolbar row “active” at a time: suppress Frame/Layers/Export while placing text or with a text layer selected. */
+  const panelNavSuppressed = textPlacementMode || isTextLayerSelected
+  const activeIndex = panelNavSuppressed
     ? null
     : getToolbarActiveIndex(ui.panelOpen, ui.panelMode)
 
@@ -39,11 +47,11 @@ export function CanvasToolbar({ ui }: CanvasToolbarProps) {
       <Tooltip>
         <TooltipTrigger asChild>
           <NavIconButton
-            active={textToolActive}
+            active={textToolNavActive}
             aria-label="Text tool"
-            aria-pressed={textToolActive}
+            aria-pressed={textToolNavActive}
             className={cn(
-              textToolActive &&
+              textToolNavActive &&
                 "bg-primary hover:bg-primary/90 hover:text-primary-foreground"
             )}
             onClick={() => ui.setCanvasTool("text")}
@@ -61,7 +69,7 @@ export function CanvasToolbar({ ui }: CanvasToolbarProps) {
       >
         {TOOLBAR_ITEMS.map(({ view, label, icon: Icon }) => {
           const active =
-            !textToolActive && ui.panelOpen && ui.panelMode === view
+            !panelNavSuppressed && ui.panelOpen && ui.panelMode === view
 
           return (
             <SlidingNavItem key={view}>
