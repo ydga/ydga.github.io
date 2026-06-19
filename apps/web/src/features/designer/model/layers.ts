@@ -1,5 +1,5 @@
-/** How {@link TextLayer.lineHeight} is interpreted (default: unitless multiplier). */
-export type TextLayerLineHeightUnit = "unitless" | "px" | "em"
+/** How {@link TextLayer.lineHeight} is interpreted: `em` relative to font size, trim-space `px`, or `auto` (browser/canvas metrics). */
+export type TextLayerLineHeightUnit = "px" | "em" | "auto"
 
 export type TextLayer = {
   id: string
@@ -15,9 +15,11 @@ export type TextLayer = {
   fontFamily?: string
   /** Font size in trim-space pixels (matches canvas export). */
   fontSizePx?: number
+  /** CSS numeric `font-weight` (100–900). */
+  fontWeight?: number
   /** Text fill, hex (e.g. `#111827`). */
   color?: string
-  /** Unitless multiplier, trim px, or `em` (see {@link TextLayerLineHeightUnit}). */
+  /** Line height: `em`, trim-space `px`, or `auto` (font-normal spacing). */
   lineHeight?: number
   lineHeightUnit?: TextLayerLineHeightUnit
   /** `hug` — width and height both follow text; `fixed` — width and height set explicitly. */
@@ -44,6 +46,7 @@ export type TextLayerUpdatePatch = Partial<
     | "height"
     | "fontFamily"
     | "fontSizePx"
+    | "fontWeight"
     | "color"
     | "lineHeight"
     | "lineHeightUnit"

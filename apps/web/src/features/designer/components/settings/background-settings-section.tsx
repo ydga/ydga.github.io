@@ -32,6 +32,7 @@ import { SettingsInput } from "@workspace/ui/components/settings/settings-input"
 import { SettingsSelect } from "@workspace/ui/components/settings/settings-select"
 import {
   panelIconClassName,
+  settingsColorSwatchTriggerClassName,
   settingsFieldClassName,
 } from "@workspace/ui/components/settings/settings-field-styles"
 import {
@@ -45,11 +46,6 @@ import {
 } from "@workspace/ui/components/tooltip"
 import { normalizeHexColor } from "@workspace/ui/lib/color-utils"
 import { cn } from "@workspace/ui/lib/utils"
-
-const backgroundSwatchTriggerClassName = cn(
-  settingsFieldClassName,
-  "size-7 shrink-0 cursor-pointer rounded-md border border-border/60 p-0.5 transition-colors hover:bg-muted/80"
-)
 
 const backgroundPopoverContentClassName = "w-44 gap-2.5 rounded-3xl p-2.5"
 
@@ -89,7 +85,7 @@ export function BackgroundSettingsSection({
             <button
               type="button"
               aria-label="Edit background"
-              className={backgroundSwatchTriggerClassName}
+              className={settingsColorSwatchTriggerClassName}
             >
               <BackgroundSwatch background={background} />
             </button>
@@ -306,7 +302,7 @@ function BackgroundSwatch({ background }: { background: BackgroundSettings }) {
   if (background.type === "color") {
     return (
       <span
-        className="block size-full rounded-[4px]"
+        className="pointer-events-none absolute inset-0"
         style={{ backgroundColor: background.color }}
       />
     )
@@ -317,7 +313,7 @@ function BackgroundSwatch({ background }: { background: BackgroundSettings }) {
 
     return (
       <span
-        className="block size-full rounded-[4px]"
+        className="pointer-events-none absolute inset-0"
         style={{
           background: gradientStopsToCss(
             normalized.gradientStops,
@@ -331,7 +327,7 @@ function BackgroundSwatch({ background }: { background: BackgroundSettings }) {
   if (background.type === "transparent") {
     return (
       <span
-        className="block size-full rounded-[4px]"
+        className="pointer-events-none absolute inset-0"
         style={transparentSwatchStyle}
       />
     )
@@ -342,13 +338,13 @@ function BackgroundSwatch({ background }: { background: BackgroundSettings }) {
       <img
         src={background.imageSrc}
         alt=""
-        className="block size-full rounded-[4px] object-cover"
+        className="pointer-events-none absolute inset-0 size-full object-cover"
       />
     )
   }
 
   return (
-    <span className="flex size-full items-center justify-center rounded-[4px]">
+    <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
       <ImageIcon className="size-3.5 text-muted-foreground" />
     </span>
   )

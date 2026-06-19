@@ -99,8 +99,8 @@ export function ContextPanel({
           <h2 className={panelTitleClassName}>{title}</h2>
           <PanelIconTileButton
             type="button"
-            aria-label="Close sidebar"
-            onClick={() => ui.closePanel()}
+            aria-label="Toggle sidebar"
+            onClick={() => ui.togglePanel()}
           >
             <PanelLeft className={panelIconClassName} />
           </PanelIconTileButton>

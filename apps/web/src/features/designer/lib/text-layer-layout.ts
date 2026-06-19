@@ -1,6 +1,6 @@
 import type { TextLayer } from "@/features/designer/model/layers"
 import {
-  resolveTextLayerFontFamily,
+  resolveTextLayerCanvasFont,
   resolveTextLayerFontSizePx,
   resolveTextLayerLineHeightUnit,
   resolveTextLayerLineHeightValue,
@@ -10,7 +10,6 @@ const MIN_W_TRIM = 48
 const MIN_H_TRIM = 36
 /** Extra trim px so hug boxes clear glyphs, caret, and textarea padding. */
 const TEXT_HUG_WIDTH_PAD_PX = 12
-const TEXT_HUG_HEIGHT_PAD_PX = 6
 
 function wrapLine(
   context: CanvasRenderingContext2D,
@@ -84,16 +83,42 @@ export function buildDisplayLines(
     : buildNewlineOnlyLines(text)
 }
 
+/**
+ * Trim-space line height for `lineHeightUnit: "auto"`, approximating CSS
+ * `line-height: normal` from font metrics (with a simple fallback when `ctx`
+ * is null, e.g. conversion math without a canvas).
+ */
+export function autoLineHeightApproxTrimPx(
+  layer: TextLayer,
+  ctx: CanvasRenderingContext2D | null
+): number {
+  const fs = resolveTextLayerFontSizePx(layer)
+  if (ctx) {
+    ctx.font = resolveTextLayerCanvasFont(layer)
+    const m = ctx.measureText("Mg")
+    const ascent =
+      m.fontBoundingBoxAscent ?? m.actualBoundingBoxAscent ?? fs * 0.74
+    const descent =
+      m.fontBoundingBoxDescent ?? m.actualBoundingBoxDescent ?? fs * 0.26
+    const core = ascent + descent
+    return Math.max(1, Math.round(core * 1.1))
+  }
+  return Math.max(1, Math.round(fs * 1.2))
+}
+
 /** Rounded trim-space line height used for stacking and export. */
-export function textLineHeightTrimPx(layer: TextLayer): number {
+export function textLineHeightTrimPx(
+  layer: TextLayer,
+  ctx: CanvasRenderingContext2D | null
+): number {
   const fs = resolveTextLayerFontSizePx(layer)
   const unit = resolveTextLayerLineHeightUnit(layer)
+  if (unit === "auto") {
+    return autoLineHeightApproxTrimPx(layer, ctx)
+  }
   const v = resolveTextLayerLineHeightValue(layer)
   if (unit === "px") {
     return v
-  }
-  if (unit === "em") {
-    return Math.max(1, Math.round(fs * v))
   }
   return Math.max(1, Math.round(fs * v))
 }
@@ -118,31 +143,9 @@ function measureAdornedLineWidth(
   return w
 }
 
-function hugLineVisualHeightPx(
-  ctx: CanvasRenderingContext2D,
-  layer: TextLayer,
-  line: string
-): number {
-  const base = textLineHeightTrimPx(layer)
-  const sample = line.length > 0 ? line : " "
-  const m = ctx.measureText(sample)
-  if (
-    m.actualBoundingBoxAscent !== undefined &&
-    m.actualBoundingBoxDescent !== undefined &&
-    Number.isFinite(m.actualBoundingBoxAscent) &&
-    Number.isFinite(m.actualBoundingBoxDescent)
-  ) {
-    return Math.max(
-      base,
-      Math.ceil(m.actualBoundingBoxAscent + m.actualBoundingBoxDescent + 2)
-    )
-  }
-  return base
-}
-
 /**
- * Trim-space height of the stacked lines (fixed: uniform line height per line;
- * hug: per-line visual height from metrics, so line-height changes affect hug height).
+ * Trim-space height of the stacked text block: every line uses the same resolved
+ * line-height (matches CSS / Figma-style auto layout), for both fixed wrap and hug.
  */
 export function textLayerTextBlockHeightTrimPx(
   ctx: CanvasRenderingContext2D,
@@ -151,28 +154,19 @@ export function textLayerTextBlockHeightTrimPx(
   softWrap: boolean
 ): number {
   const wrapW = Math.max(32, maxWidthPx)
-  const lineHeight = textLineHeightTrimPx(layer)
+  const lineHeight = textLineHeightTrimPx(layer, ctx)
   const lines = buildDisplayLines(ctx, layer.text, wrapW, softWrap)
-  if (softWrap) {
-    return lines.length * lineHeight
-  }
-  let total = 0
-  for (const line of lines) {
-    total += hugLineVisualHeightPx(ctx, layer, line)
-  }
-  return total
+  return lines.length * lineHeight
 }
 
-/** Vertical advance after drawing one line (matches {@link textLayerTextBlockHeightTrimPx}). */
+/** Vertical advance after drawing one line (same trim px as {@link textLayerTextBlockHeightTrimPx}). */
 export function lineAdvanceTrimPx(
   ctx: CanvasRenderingContext2D,
   layer: TextLayer,
-  line: string,
-  softWrap: boolean
+  _line: string,
+  _softWrap: boolean
 ): number {
-  return softWrap
-    ? textLineHeightTrimPx(layer)
-    : hugLineVisualHeightPx(ctx, layer, line)
+  return textLineHeightTrimPx(layer, ctx)
 }
 
 /**
@@ -224,10 +218,7 @@ export function measureTextLayerContentBox(
     }
   }
 
-  const fontSizePx = resolveTextLayerFontSizePx(layer)
-  const fontFamily = resolveTextLayerFontFamily(layer)
-
-  ctx.font = `${fontSizePx}px ${fontFamily}`
+  ctx.font = resolveTextLayerCanvasFont(layer)
   const lines = buildDisplayLines(ctx, layer.text, wrapW, softWrap)
 
   let maxLineW = 0
@@ -244,9 +235,7 @@ export function measureTextLayerContentBox(
     : Math.ceil(rawWidth)
 
   const blockH = textLayerTextBlockHeightTrimPx(ctx, layer, wrapW, softWrap)
-  const height = Math.ceil(
-    Math.max(MIN_H_TRIM, softWrap ? blockH : blockH + TEXT_HUG_HEIGHT_PAD_PX)
-  )
+  const height = Math.ceil(Math.max(MIN_H_TRIM, blockH))
 
   return { width, height }
 }

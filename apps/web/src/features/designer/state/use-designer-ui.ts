@@ -66,21 +66,10 @@ export function useDesignerUi() {
     setPanelOpen(true)
   }, [])
 
-  const togglePanelView = useCallback(
-    (view: PanelMode) => {
-      if (panelOpen && panelMode === view) {
-        setPanelOpen(false)
-        return
-      }
-
-      setPanelMode(view)
-      setPanelOpen(true)
-    },
-    [panelMode, panelOpen]
-  )
-
-  const closePanel = useCallback(() => {
-    setPanelOpen(false)
+  /** Switches panel mode and opens the panel. Collapsing is only via `togglePanel` (sidebar control). */
+  const togglePanelView = useCallback((view: PanelMode) => {
+    setPanelMode(view)
+    setPanelOpen(true)
   }, [])
 
   const togglePanel = useCallback(() => {
@@ -120,7 +109,6 @@ export function useDesignerUi() {
     panelMode,
     setPanelMode,
     togglePanelView,
-    closePanel,
     togglePanel,
     zoomMode,
     manualZoom,

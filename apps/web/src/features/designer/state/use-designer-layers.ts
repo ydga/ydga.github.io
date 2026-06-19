@@ -13,6 +13,7 @@ import {
   DEFAULT_TEXT_COLOR,
   DEFAULT_TEXT_FONT_FAMILY,
   DEFAULT_TEXT_FONT_SIZE_PX,
+  DEFAULT_TEXT_FONT_WEIGHT,
 } from "@/features/designer/model/text-layer-style"
 
 export type NewTextLayerInput = {
@@ -47,7 +48,9 @@ export function useDesignerLayers() {
       text,
       fontFamily: DEFAULT_TEXT_FONT_FAMILY,
       fontSizePx: DEFAULT_TEXT_FONT_SIZE_PX,
+      fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
       color: DEFAULT_TEXT_COLOR,
+      lineHeightUnit: "auto",
       textSizing: explicitBounds ? "fixed" : "hug",
     }
 

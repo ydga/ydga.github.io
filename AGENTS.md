@@ -9,6 +9,9 @@
 - For designer canvas text, prefers hug mode so both width and height follow content (line breaks only on explicit newlines), with tap-to-add defaulting to hug and drag-to-place using fixed bounds for a wrap box; avoid inner scrollbars on the field and sizing that clips glyphs. Fixed mode keeps explicit width and height with wrap-to-width inside the box.
 - Prefers wheel or trackpad over an active text layer to zoom or pan the canvas, not to scroll the text field.
 - After drawing a new text box on the canvas, prefers immediate edit mode with focus and purple selection chrome staying visible while typing.
+- For designer text line height, prefers `auto` (CSS `normal`) as the default for new text, with optional explicit `em` or `px`; persisted legacy `unitless` still reads as `em`.
+- In typography settings, prefers a visible `Line height` label above the row, then the value control and a compact `select` for the unit (`Auto`, `em`, `px`).
+- For font family, prefers live previews only while the font picker is open (not on the closed trigger) and a curated short list of popular Google Fonts alongside system presets, with webfonts loaded so the canvas and editor match.
 
 ## Learned Workspace Facts
 

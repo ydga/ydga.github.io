@@ -1,3 +1,4 @@
+import { useCallback } from "react"
 import {
   AlignCenter,
   AlignLeft,
@@ -19,34 +20,46 @@ import type {
 import {
   MAX_TEXT_LINE_HEIGHT_EM,
   MAX_TEXT_LINE_HEIGHT_PX,
-  MIN_TEXT_LINE_HEIGHT,
   MIN_TEXT_LINE_HEIGHT_EM,
   MIN_TEXT_LINE_HEIGHT_PX,
-  TEXT_LAYER_FONT_PRESETS,
+  TEXT_LAYER_FONT_WEIGHT_PRESETS,
   resolveTextLayerClip,
   resolveTextLayerColor,
   resolveTextLayerFontFamily,
   resolveTextLayerFontSizePx,
+  resolveTextLayerFontWeight,
   resolveTextLayerLineHeightUnit,
   resolveTextLayerLineHeightValue,
   resolveTextLayerSizing,
   resolveTextLayerTextAlign,
   resolveTextLayerVerticalAlign,
 } from "@/features/designer/model/text-layer-style"
+import { autoLineHeightApproxTrimPx } from "@/features/designer/lib/text-layer-layout"
+import { TextLayerFontFamilyPicker } from "@/features/designer/components/settings/text-layer-font-family-picker"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { ColorPickerField } from "@workspace/ui/components/settings/color-picker"
 import { DimensionField } from "@workspace/ui/components/settings/dimension-field"
-import { SettingsInput } from "@workspace/ui/components/settings/settings-input"
+import {
+  InputGroup,
+  InputGroupInput,
+} from "@workspace/ui/components/input-group"
 import { SettingsSelect } from "@workspace/ui/components/settings/settings-select"
 import {
   panelSectionClassName,
+  settingsControlHeightClassName,
+  settingsControlLineHeightClassName,
+  settingsInputGroupClasses,
   settingsLabelClassName,
+  settingsNumberFieldClassName,
+  settingsNumericTextClassName,
 } from "@workspace/ui/components/settings/settings-field-styles"
+import { useScrubNumber } from "@workspace/ui/components/settings/use-scrub-number"
 import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@workspace/ui/components/toggle-group"
 import { normalizeHexColor } from "@workspace/ui/lib/color-utils"
+import { cn } from "@workspace/ui/lib/utils"
 
 const MIN_W_TRIM = 48
 const MIN_H_TRIM = 36
@@ -63,6 +76,9 @@ function clampFontSizePx(value: number) {
 }
 
 function clampLineHeightForUnit(unit: TextLayerLineHeightUnit, value: number) {
+  if (unit === "auto") {
+    return value
+  }
   const rounded = Math.round(value * 100) / 100
   if (unit === "px") {
     return Math.min(
@@ -70,24 +86,24 @@ function clampLineHeightForUnit(unit: TextLayerLineHeightUnit, value: number) {
       Math.max(MIN_TEXT_LINE_HEIGHT_PX, Math.round(value))
     )
   }
-  if (unit === "em") {
-    return Math.min(
-      MAX_TEXT_LINE_HEIGHT_EM,
-      Math.max(MIN_TEXT_LINE_HEIGHT_EM, rounded)
-    )
-  }
-  return Math.max(MIN_TEXT_LINE_HEIGHT, rounded)
+  return Math.min(
+    MAX_TEXT_LINE_HEIGHT_EM,
+    Math.max(MIN_TEXT_LINE_HEIGHT_EM, rounded)
+  )
 }
 
 function isTextLayerLineHeightUnit(
   value: string
 ): value is TextLayerLineHeightUnit {
-  return value === "unitless" || value === "px" || value === "em"
+  return value === "px" || value === "em" || value === "auto"
 }
 
 function lineHeightTrimPxForConversion(layer: TextLayer): number {
-  const fs = resolveTextLayerFontSizePx(layer)
   const u = resolveTextLayerLineHeightUnit(layer)
+  if (u === "auto") {
+    return autoLineHeightApproxTrimPx(layer, null)
+  }
+  const fs = resolveTextLayerFontSizePx(layer)
   const val = resolveTextLayerLineHeightValue(layer)
   if (u === "px") {
     return val
@@ -99,7 +115,9 @@ function lineHeightConversionPatch(
   layer: TextLayer,
   nextUnit: TextLayerLineHeightUnit
 ): Pick<TextLayer, "lineHeight" | "lineHeightUnit"> {
-  const fs = resolveTextLayerFontSizePx(layer)
+  if (nextUnit === "auto") {
+    return { lineHeightUnit: "auto", lineHeight: undefined }
+  }
   const trim = lineHeightTrimPxForConversion(layer)
   if (nextUnit === "px") {
     return {
@@ -110,21 +128,15 @@ function lineHeightConversionPatch(
       ),
     }
   }
-  if (nextUnit === "em") {
-    const em = trim / fs
-    const rounded = Math.round(em * 100) / 100
-    return {
-      lineHeightUnit: "em",
-      lineHeight: Math.min(
-        MAX_TEXT_LINE_HEIGHT_EM,
-        Math.max(MIN_TEXT_LINE_HEIGHT_EM, rounded)
-      ),
-    }
-  }
-  const mult = trim / fs
+  const fs = resolveTextLayerFontSizePx(layer)
+  const em = trim / fs
+  const rounded = Math.round(em * 100) / 100
   return {
-    lineHeightUnit: "unitless",
-    lineHeight: Math.max(MIN_TEXT_LINE_HEIGHT, Math.round(mult * 100) / 100),
+    lineHeightUnit: "em",
+    lineHeight: Math.min(
+      MAX_TEXT_LINE_HEIGHT_EM,
+      Math.max(MIN_TEXT_LINE_HEIGHT_EM, rounded)
+    ),
   }
 }
 
@@ -152,6 +164,11 @@ export function TextLayerSettingsPanel({
 }: TextLayerSettingsPanelProps) {
   const fontFamily = resolveTextLayerFontFamily(layer)
   const fontSizePx = resolveTextLayerFontSizePx(layer)
+  const fontWeight = resolveTextLayerFontWeight(layer)
+  const fontWeightPresetValues = new Set(
+    TEXT_LAYER_FONT_WEIGHT_PRESETS.map((p) => p.value)
+  )
+  const fontWeightIsCustom = !fontWeightPresetValues.has(fontWeight)
   const lineHeightUnit = resolveTextLayerLineHeightUnit(layer)
   const lineHeightValue = resolveTextLayerLineHeightValue(layer)
   const textAlign = resolveTextLayerTextAlign(layer)
@@ -159,13 +176,26 @@ export function TextLayerSettingsPanel({
   const color = resolveTextLayerColor(layer)
   const sizing = resolveTextLayerSizing(layer)
 
-  const presetValues = new Set(
-    TEXT_LAYER_FONT_PRESETS.map((preset) => preset.value)
-  )
-  const fontIsCustom = !presetValues.has(fontFamily)
-
   const maxWidthPx = Math.max(MIN_W_TRIM, trimWidthPx - layer.x)
   const maxHeightPx = Math.max(MIN_H_TRIM, trimHeightPx - layer.y)
+
+  const onFontSizeScrub = useCallback(
+    (next: number) => {
+      onUpdate({ fontSizePx: clampFontSizePx(next) })
+    },
+    [onUpdate]
+  )
+
+  const {
+    isScrubbing: isFontSizeScrubbing,
+    scrubHandlers: fontSizeScrubHandlers,
+  } = useScrubNumber({
+    value: fontSizePx,
+    onChange: onFontSizeScrub,
+    min: 8,
+    max: 240,
+    step: 1,
+  })
 
   return (
     <div className={panelSectionClassName}>
@@ -258,47 +288,134 @@ export function TextLayerSettingsPanel({
 
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className={settingsLabelClassName}>Font</span>
-          <SettingsSelect
+          <TextLayerFontFamilyPicker
             aria-label="Font"
-            wrapperClassName="w-full min-w-0"
-            className="pl-2 text-left"
             value={fontFamily}
-            onChange={(event) => onUpdate({ fontFamily: event.target.value })}
-          >
-            {TEXT_LAYER_FONT_PRESETS.map((preset) => (
-              <option key={preset.value} value={preset.value}>
-                {preset.label}
-              </option>
-            ))}
-            {fontIsCustom ? <option value={fontFamily}>Custom</option> : null}
-          </SettingsSelect>
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <span className={settingsLabelClassName}>Size</span>
-          <SettingsInput
-            type="number"
-            aria-label="Font size"
-            min={8}
-            max={240}
-            step={1}
-            value={fontSizePx}
-            className="h-7 w-full min-w-0 font-mono tabular-nums"
-            onChange={(event) => {
-              const parsed = Number.parseFloat(event.target.value)
-              if (!Number.isNaN(parsed)) {
-                onUpdate({ fontSizePx: clampFontSizePx(parsed) })
-              }
-            }}
+            onChange={(next) => onUpdate({ fontFamily: next })}
           />
+          <div className="flex min-w-0 gap-3">
+            <div className="w-[9.5rem] min-w-0 shrink-0">
+              <SettingsSelect
+                aria-label="Font weight"
+                wrapperClassName="w-full min-w-0"
+                className="pl-2 text-left"
+                value={String(fontWeight)}
+                onChange={(event) => {
+                  const parsed = Number.parseInt(event.target.value, 10)
+                  if (!Number.isNaN(parsed)) {
+                    onUpdate({ fontWeight: parsed })
+                  }
+                }}
+              >
+                {TEXT_LAYER_FONT_WEIGHT_PRESETS.map((preset) => (
+                  <option key={preset.value} value={String(preset.value)}>
+                    {preset.label}
+                  </option>
+                ))}
+                {fontWeightIsCustom ? (
+                  <option value={String(fontWeight)}>Custom</option>
+                ) : null}
+              </SettingsSelect>
+            </div>
+            <div className="min-w-0 flex-1">
+              <InputGroup
+                className={cn(
+                  settingsInputGroupClasses(
+                    cn(
+                      settingsControlHeightClassName,
+                      "w-full min-w-0 cursor-ew-resize"
+                    )
+                  ),
+                  isFontSizeScrubbing && "select-none"
+                )}
+                {...fontSizeScrubHandlers}
+              >
+                <InputGroupInput
+                  type="number"
+                  aria-label="Font size"
+                  min={8}
+                  max={240}
+                  step={1}
+                  value={fontSizePx}
+                  className={cn(
+                    settingsNumberFieldClassName,
+                    settingsControlHeightClassName,
+                    settingsControlLineHeightClassName,
+                    settingsNumericTextClassName,
+                    "min-w-0 py-0 pr-2 pl-2 text-right"
+                  )}
+                  onChange={(event) => {
+                    const parsed = Number.parseFloat(event.target.value)
+                    if (!Number.isNaN(parsed)) {
+                      onUpdate({ fontSizePx: clampFontSizePx(parsed) })
+                    }
+                  }}
+                />
+              </InputGroup>
+            </div>
+          </div>
         </div>
 
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className={settingsLabelClassName}>Line height</span>
           <div className="flex min-w-0 gap-2">
+            <InputGroup
+              className={settingsInputGroupClasses(
+                cn(settingsControlHeightClassName, "min-w-0 flex-1")
+              )}
+            >
+              <InputGroupInput
+                type={lineHeightUnit === "auto" ? "text" : "number"}
+                readOnly={lineHeightUnit === "auto"}
+                disabled={lineHeightUnit === "auto"}
+                aria-label={
+                  lineHeightUnit === "auto"
+                    ? "Line height automatic"
+                    : lineHeightUnit === "px"
+                      ? "Line height in pixels"
+                      : "Line height in em"
+                }
+                {...(lineHeightUnit === "auto"
+                  ? {}
+                  : {
+                      min:
+                        lineHeightUnit === "px"
+                          ? MIN_TEXT_LINE_HEIGHT_PX
+                          : MIN_TEXT_LINE_HEIGHT_EM,
+                      max:
+                        lineHeightUnit === "px"
+                          ? MAX_TEXT_LINE_HEIGHT_PX
+                          : MAX_TEXT_LINE_HEIGHT_EM,
+                      step: lineHeightUnit === "px" ? 1 : 0.05,
+                    })}
+                value={lineHeightUnit === "auto" ? "Auto" : lineHeightValue}
+                className={cn(
+                  settingsNumberFieldClassName,
+                  settingsControlHeightClassName,
+                  settingsControlLineHeightClassName,
+                  settingsNumericTextClassName,
+                  "min-w-0 flex-1 py-0 pr-2 pl-2 text-right",
+                  lineHeightUnit === "auto" && "text-muted-foreground"
+                )}
+                onChange={(event) => {
+                  if (lineHeightUnit === "auto") {
+                    return
+                  }
+                  const parsed = Number.parseFloat(event.target.value)
+                  if (!Number.isNaN(parsed)) {
+                    onUpdate({
+                      lineHeight: clampLineHeightForUnit(
+                        lineHeightUnit,
+                        parsed
+                      ),
+                    })
+                  }
+                }}
+              />
+            </InputGroup>
             <SettingsSelect
               aria-label="Line height unit"
-              wrapperClassName="w-[7.5rem] shrink-0"
+              wrapperClassName="w-[9rem] shrink-0"
               className="pl-2 text-left"
               value={lineHeightUnit}
               onChange={(event) => {
@@ -308,45 +425,10 @@ export function TextLayerSettingsPanel({
                 }
               }}
             >
-              <option value="unitless">Unitless</option>
+              <option value="auto">Auto</option>
               <option value="em">em</option>
               <option value="px">px</option>
             </SettingsSelect>
-            <SettingsInput
-              type="number"
-              aria-label={
-                lineHeightUnit === "px"
-                  ? "Line height in pixels"
-                  : lineHeightUnit === "em"
-                    ? "Line height in em"
-                    : "Line height (unitless)"
-              }
-              min={
-                lineHeightUnit === "px"
-                  ? MIN_TEXT_LINE_HEIGHT_PX
-                  : lineHeightUnit === "em"
-                    ? MIN_TEXT_LINE_HEIGHT_EM
-                    : MIN_TEXT_LINE_HEIGHT
-              }
-              max={
-                lineHeightUnit === "px"
-                  ? MAX_TEXT_LINE_HEIGHT_PX
-                  : lineHeightUnit === "em"
-                    ? MAX_TEXT_LINE_HEIGHT_EM
-                    : undefined
-              }
-              step={lineHeightUnit === "px" ? 1 : 0.05}
-              value={lineHeightValue}
-              className="h-7 min-w-0 flex-1 font-mono tabular-nums"
-              onChange={(event) => {
-                const parsed = Number.parseFloat(event.target.value)
-                if (!Number.isNaN(parsed)) {
-                  onUpdate({
-                    lineHeight: clampLineHeightForUnit(lineHeightUnit, parsed),
-                  })
-                }
-              }}
-            />
           </div>
         </div>
 

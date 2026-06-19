@@ -8,7 +8,7 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 import { SettingsInput } from "@workspace/ui/components/settings/settings-input"
-import { settingsFieldClasses } from "@workspace/ui/components/settings/settings-field-styles"
+import { settingsColorSwatchTriggerClassName } from "@workspace/ui/components/settings/settings-field-styles"
 import {
   hexToHsv,
   hsvToHex,
@@ -182,15 +182,10 @@ export function ColorPickerField({
           <button
             type="button"
             aria-label={swatchLabel}
-            className={cn(
-              settingsFieldClasses(
-                "size-7 shrink-0 cursor-pointer rounded-md border border-border/60 p-0.5"
-              ),
-              swatchClassName
-            )}
+            className={cn(settingsColorSwatchTriggerClassName, swatchClassName)}
           >
             <span
-              className="block size-full rounded-[4px]"
+              className="pointer-events-none absolute inset-0"
               style={{ backgroundColor: normalizedValue }}
             />
           </button>

@@ -19,14 +19,17 @@ import {
 import {
   measureTextLayerContentBox,
   textLayerTextBlockHeightTrimPx,
+  textLineHeightTrimPx,
   verticalTextOffsetTrimPx,
 } from "@/features/designer/lib/text-layer-layout"
 import {
   resolveTextLayerClip,
   resolveTextLayerColor,
+  resolveTextLayerCanvasFont,
   resolveTextLayerFontFamily,
   resolveTextLayerFontSizePx,
-  resolveTextLayerLineHeightCss,
+  resolveTextLayerFontWeight,
+  resolveTextLayerLineHeightUnit,
   resolveTextLayerSizing,
   resolveTextLayerTextAlign,
   resolveTextLayerTextDecorationLine,
@@ -276,9 +279,7 @@ export function TextLayerBox({
       return 0
     }
     const maxW = Math.max(32, layer.width)
-    const fontSizePx = resolveTextLayerFontSizePx(layer)
-    const fontFamily = resolveTextLayerFontFamily(layer)
-    ctx.font = `${fontSizePx}px ${fontFamily}`
+    ctx.font = resolveTextLayerCanvasFont(layer)
     const blockH = textLayerTextBlockHeightTrimPx(
       ctx,
       layer,
@@ -297,6 +298,7 @@ export function TextLayerBox({
     boxHeightTrim,
     layer.fontFamily,
     layer.fontSizePx,
+    layer.fontWeight,
     layer.height,
     layer.lineHeight,
     layer.lineHeightUnit,
@@ -375,6 +377,7 @@ export function TextLayerBox({
     layer.color,
     layer.fontFamily,
     layer.fontSizePx,
+    layer.fontWeight,
     layer.height,
     layer.lineHeight,
     layer.lineHeightUnit,
@@ -599,6 +602,7 @@ export function TextLayerBox({
   const height = boxHeightTrim * displayScale
   const fontPx = resolveTextLayerFontSizePx(layer) * displayScale
   const fontFamily = resolveTextLayerFontFamily(layer)
+  const fontWeight = resolveTextLayerFontWeight(layer)
   const color = resolveTextLayerColor(layer)
   /** Grab strips sit in the top/bottom band only while the layer is selected. */
   const dragStripCssPx = dragStripScreenPx
@@ -685,7 +689,7 @@ export function TextLayerBox({
         data-designer-text-editing={textEditing ? "true" : undefined}
         tabIndex={isSelected || textEditing ? 0 : -1}
         className={cn(
-          "absolute right-0 left-0 z-[25] box-border w-full resize-none border-0 bg-transparent px-0.5 pt-0 pb-0.5 outline-none focus-visible:ring-0",
+          "absolute right-0 left-0 z-[25] box-border w-full resize-none border-0 bg-transparent px-0.5 py-0 outline-none focus-visible:ring-0",
           !clipToBounds &&
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           sizing === "hug" && "whitespace-pre"
@@ -697,12 +701,18 @@ export function TextLayerBox({
           overflow: clipToBounds ? "hidden" : "visible",
           overscrollBehavior: "none",
           fontSize: fontPx,
-          lineHeight: resolveTextLayerLineHeightCss(layer),
+          lineHeight:
+            resolveTextLayerLineHeightUnit(layer) === "auto"
+              ? "normal"
+              : `${textLineHeightTrimPx(layer, null) * displayScale}px`,
           fontFamily,
+          fontWeight,
           color,
           textAlign: resolveTextLayerTextAlign(layer),
           textDecorationLine: resolveTextLayerTextDecorationLine(layer),
-          paddingTop: `calc(0.125rem + ${textVerticalOffsetTrim * displayScale}px)`,
+          // Match canvas `textBaseline: "top"` + `verticalTextOffsetTrimPx`: no extra rem padding
+          // (asymmetric pb used to pull middle alignment off center).
+          paddingTop: `${textVerticalOffsetTrim * displayScale}px`,
         }}
         value={layer.text}
         placeholder="Type…"

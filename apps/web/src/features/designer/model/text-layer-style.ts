@@ -13,12 +13,32 @@ const LEGACY_DEFAULT_TEXT_FONT_FAMILY =
 
 export const DEFAULT_TEXT_FONT_SIZE_PX = 14
 
+/** CSS numeric `font-weight` for new and unset text layers. */
+export const DEFAULT_TEXT_FONT_WEIGHT = 400
+
+export const MIN_TEXT_FONT_WEIGHT = 100
+export const MAX_TEXT_FONT_WEIGHT = 900
+
+/** Font weight options in the text settings panel (CSS numeric weights). */
+export const TEXT_LAYER_FONT_WEIGHT_PRESETS: ReadonlyArray<{
+  label: string
+  value: number
+}> = [
+  { label: "Thin", value: 100 },
+  { label: "Extra light", value: 200 },
+  { label: "Light", value: 300 },
+  { label: "Regular", value: 400 },
+  { label: "Medium", value: 500 },
+  { label: "Semibold", value: 600 },
+  { label: "Bold", value: 700 },
+  { label: "Extra bold", value: 800 },
+  { label: "Black", value: 900 },
+]
+
 export const DEFAULT_TEXT_COLOR = "#111827"
 
+/** Default line height when using `em` (relative to font size). */
 export const DEFAULT_TEXT_LINE_HEIGHT = 1.35
-
-/** Unitless CSS line-height multiplier (matches CSS; minimum enforced). */
-export const MIN_TEXT_LINE_HEIGHT = 0.5
 
 /** `em` line-height bounds (CSS `em`, relative to font size). */
 export const MIN_TEXT_LINE_HEIGHT_EM = 0.25
@@ -45,6 +65,32 @@ export const TEXT_LAYER_FONT_PRESETS: ReadonlyArray<{
   },
 ]
 
+/**
+ * Widely used Google Fonts (see `apps/web/index.html`). First family matches
+ * the loaded face so canvas and editor stay aligned.
+ */
+export const TEXT_LAYER_GOOGLE_FONT_PRESETS: ReadonlyArray<{
+  label: string
+  value: string
+}> = [
+  { label: "Roboto", value: "'Roboto', system-ui, sans-serif" },
+  { label: "Open Sans", value: "'Open Sans', system-ui, sans-serif" },
+  { label: "Lato", value: "'Lato', system-ui, sans-serif" },
+  { label: "Montserrat", value: "'Montserrat', system-ui, sans-serif" },
+  { label: "Poppins", value: "'Poppins', system-ui, sans-serif" },
+  { label: "Oswald", value: "'Oswald', system-ui, sans-serif" },
+  { label: "Raleway", value: "'Raleway', system-ui, sans-serif" },
+  { label: "Merriweather", value: "'Merriweather', Georgia, serif" },
+  { label: "Source Sans 3", value: "'Source Sans 3', system-ui, sans-serif" },
+  { label: "Nunito Sans", value: "'Nunito Sans', system-ui, sans-serif" },
+]
+
+/** Presets + Google Fonts shown in the font picker. */
+export const TEXT_LAYER_ALL_FONT_CHOICES: ReadonlyArray<{
+  label: string
+  value: string
+}> = [...TEXT_LAYER_FONT_PRESETS, ...TEXT_LAYER_GOOGLE_FONT_PRESETS]
+
 export function resolveTextLayerFontFamily(layer: TextLayer): string {
   const raw = layer.fontFamily?.trim()
   if (!raw || raw === LEGACY_DEFAULT_TEXT_FONT_FAMILY) {
@@ -61,6 +107,23 @@ export function resolveTextLayerFontSizePx(layer: TextLayer): number {
   return n
 }
 
+export function resolveTextLayerFontWeight(layer: TextLayer): number {
+  const w = layer.fontWeight
+  if (w == null || !Number.isFinite(w)) {
+    return DEFAULT_TEXT_FONT_WEIGHT
+  }
+  const n = Math.round(w)
+  return Math.min(MAX_TEXT_FONT_WEIGHT, Math.max(MIN_TEXT_FONT_WEIGHT, n))
+}
+
+/** `CanvasRenderingContext2D.font` string (weight, size, family). */
+export function resolveTextLayerCanvasFont(layer: TextLayer): string {
+  const weight = resolveTextLayerFontWeight(layer)
+  const size = resolveTextLayerFontSizePx(layer)
+  const family = resolveTextLayerFontFamily(layer)
+  return `${weight} ${size}px ${family}`
+}
+
 export function resolveTextLayerColor(layer: TextLayer): string {
   return layer.color ?? DEFAULT_TEXT_COLOR
 }
@@ -72,16 +135,29 @@ export function resolveTextLayerSizing(layer: TextLayer): TextLayerSizing {
 export function resolveTextLayerLineHeightUnit(
   layer: TextLayer
 ): TextLayerLineHeightUnit {
-  const u = layer.lineHeightUnit
-  if (u === "px" || u === "em") {
+  const u = layer.lineHeightUnit as
+    | TextLayerLineHeightUnit
+    | "unitless"
+    | undefined
+  if (u === "unitless") {
+    return "em"
+  }
+  if (u === "px" || u === "em" || u === "auto") {
     return u
   }
-  return "unitless"
+  const raw = layer.lineHeight
+  if (raw == null || !Number.isFinite(raw)) {
+    return "auto"
+  }
+  return "em"
 }
 
 /** Resolved numeric `lineHeight` for the active unit (display + layout math). */
 export function resolveTextLayerLineHeightValue(layer: TextLayer): number {
   const unit = resolveTextLayerLineHeightUnit(layer)
+  if (unit === "auto") {
+    return DEFAULT_TEXT_LINE_HEIGHT
+  }
   const raw = layer.lineHeight
   const fs = resolveTextLayerFontSizePx(layer)
 
@@ -95,9 +171,6 @@ export function resolveTextLayerLineHeightValue(layer: TextLayer): number {
         )
       )
     }
-    if (unit === "em") {
-      return DEFAULT_TEXT_LINE_HEIGHT
-    }
     return DEFAULT_TEXT_LINE_HEIGHT
   }
 
@@ -107,29 +180,21 @@ export function resolveTextLayerLineHeightValue(layer: TextLayer): number {
       Math.max(MIN_TEXT_LINE_HEIGHT_PX, Math.round(raw))
     )
   }
-  if (unit === "em") {
-    const rounded = Math.round(raw * 100) / 100
-    return Math.min(
-      MAX_TEXT_LINE_HEIGHT_EM,
-      Math.max(MIN_TEXT_LINE_HEIGHT_EM, rounded)
-    )
-  }
-  return Math.max(MIN_TEXT_LINE_HEIGHT, raw)
+  const rounded = Math.round(raw * 100) / 100
+  return Math.min(
+    MAX_TEXT_LINE_HEIGHT_EM,
+    Math.max(MIN_TEXT_LINE_HEIGHT_EM, rounded)
+  )
 }
 
-/** CSS `line-height` for the canvas textarea (number = unitless). */
-export function resolveTextLayerLineHeightCss(
-  layer: TextLayer
-): string | number {
+/** CSS `line-height` for components that need a string (px, em, or `normal`). */
+export function resolveTextLayerLineHeightCss(layer: TextLayer): string {
   const unit = resolveTextLayerLineHeightUnit(layer)
+  if (unit === "auto") {
+    return "normal"
+  }
   const v = resolveTextLayerLineHeightValue(layer)
-  if (unit === "px") {
-    return `${v}px`
-  }
-  if (unit === "em") {
-    return `${v}em`
-  }
-  return v
+  return unit === "px" ? `${v}px` : `${v}em`
 }
 
 export function resolveTextLayerTextAlign(

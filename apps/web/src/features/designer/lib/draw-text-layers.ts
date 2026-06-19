@@ -8,7 +8,7 @@ import {
 import {
   resolveTextLayerClip,
   resolveTextLayerColor,
-  resolveTextLayerFontFamily,
+  resolveTextLayerCanvasFont,
   resolveTextLayerFontSizePx,
   resolveTextLayerSizing,
   resolveTextLayerStrikethrough,
@@ -113,10 +113,9 @@ export function drawTextLayersOnContext(
 
   for (const layer of ordered) {
     const fontSizePx = resolveTextLayerFontSizePx(layer)
-    const fontFamily = resolveTextLayerFontFamily(layer)
     const fill = resolveTextLayerColor(layer)
 
-    context.font = `${fontSizePx}px ${fontFamily}`
+    context.font = resolveTextLayerCanvasFont(layer)
     context.fillStyle = fill
 
     const x = trimOffsetPx + layer.x
