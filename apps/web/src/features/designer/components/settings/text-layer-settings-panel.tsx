@@ -5,13 +5,17 @@ import type {
   TextLayerUpdatePatch,
 } from "@/features/designer/model/layers"
 import {
+  MAX_TEXT_LINE_HEIGHT,
+  MIN_TEXT_LINE_HEIGHT,
   TEXT_LAYER_FONT_PRESETS,
   resolveTextLayerColor,
   resolveTextLayerFontFamily,
   resolveTextLayerFontSizePx,
+  resolveTextLayerLineHeight,
   resolveTextLayerSizing,
 } from "@/features/designer/model/text-layer-style"
 import { ColorPickerField } from "@workspace/ui/components/settings/color-picker"
+import { DimensionField } from "@workspace/ui/components/settings/dimension-field"
 import { SettingsInput } from "@workspace/ui/components/settings/settings-input"
 import { SettingsSelect } from "@workspace/ui/components/settings/settings-select"
 import {
@@ -38,6 +42,11 @@ function clampFontSizePx(value: number) {
   return Math.min(240, Math.max(8, Math.round(value)))
 }
 
+function clampLineHeightUnitless(value: number) {
+  const rounded = Math.round(value * 100) / 100
+  return Math.min(MAX_TEXT_LINE_HEIGHT, Math.max(MIN_TEXT_LINE_HEIGHT, rounded))
+}
+
 function isTextLayerSizing(value: string): value is "hug" | "fixed" {
   return value === "hug" || value === "fixed"
 }
@@ -50,6 +59,7 @@ export function TextLayerSettingsPanel({
 }: TextLayerSettingsPanelProps) {
   const fontFamily = resolveTextLayerFontFamily(layer)
   const fontSizePx = resolveTextLayerFontSizePx(layer)
+  const lineHeight = resolveTextLayerLineHeight(layer)
   const color = resolveTextLayerColor(layer)
   const sizing = resolveTextLayerSizing(layer)
 
@@ -97,56 +107,36 @@ export function TextLayerSettingsPanel({
           </ToggleGroup>
         </div>
 
-        {sizing === "fixed" ? (
-          <div className="flex min-w-0 gap-3">
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <span className={settingsLabelClassName}>W</span>
-              <SettingsInput
-                type="number"
-                aria-label="Box width"
-                min={MIN_W_TRIM}
-                max={maxWidthPx}
-                step={1}
-                value={Math.round(layer.width)}
-                className="h-7 w-full min-w-0 font-mono tabular-nums"
-                onChange={(event) => {
-                  const parsed = Number.parseFloat(event.target.value)
-                  if (!Number.isNaN(parsed)) {
-                    onUpdate({
-                      width: Math.min(
-                        maxWidthPx,
-                        Math.max(MIN_W_TRIM, Math.round(parsed))
-                      ),
-                    })
-                  }
-                }}
-              />
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <span className={settingsLabelClassName}>H</span>
-              <SettingsInput
-                type="number"
-                aria-label="Box height"
-                min={MIN_H_TRIM}
-                max={maxHeightPx}
-                step={1}
-                value={Math.round(layer.height)}
-                className="h-7 w-full min-w-0 font-mono tabular-nums"
-                onChange={(event) => {
-                  const parsed = Number.parseFloat(event.target.value)
-                  if (!Number.isNaN(parsed)) {
-                    onUpdate({
-                      height: Math.min(
-                        maxHeightPx,
-                        Math.max(MIN_H_TRIM, Math.round(parsed))
-                      ),
-                    })
-                  }
-                }}
-              />
-            </div>
-          </div>
-        ) : null}
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <span className={settingsLabelClassName}>Bounds</span>
+          <DimensionField
+            width={Math.round(layer.width)}
+            height={Math.round(layer.height)}
+            unit="px"
+            minWidth={MIN_W_TRIM}
+            minHeight={MIN_H_TRIM}
+            maxWidth={maxWidthPx}
+            maxHeight={maxHeightPx}
+            step={1}
+            disabled={sizing === "hug"}
+            onWidthChange={(value) =>
+              onUpdate({
+                width: Math.min(
+                  maxWidthPx,
+                  Math.max(MIN_W_TRIM, Math.round(value))
+                ),
+              })
+            }
+            onHeightChange={(value) =>
+              onUpdate({
+                height: Math.min(
+                  maxHeightPx,
+                  Math.max(MIN_H_TRIM, Math.round(value))
+                ),
+              })
+            }
+          />
+        </div>
 
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className={settingsLabelClassName}>Font</span>
@@ -180,6 +170,25 @@ export function TextLayerSettingsPanel({
               const parsed = Number.parseFloat(event.target.value)
               if (!Number.isNaN(parsed)) {
                 onUpdate({ fontSizePx: clampFontSizePx(parsed) })
+              }
+            }}
+          />
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <span className={settingsLabelClassName}>Line height</span>
+          <SettingsInput
+            type="number"
+            aria-label="Line height (unitless)"
+            min={MIN_TEXT_LINE_HEIGHT}
+            max={MAX_TEXT_LINE_HEIGHT}
+            step={0.05}
+            value={lineHeight}
+            className="h-7 w-full min-w-0 font-mono tabular-nums"
+            onChange={(event) => {
+              const parsed = Number.parseFloat(event.target.value)
+              if (!Number.isNaN(parsed)) {
+                onUpdate({ lineHeight: clampLineHeightUnitless(parsed) })
               }
             }}
           />

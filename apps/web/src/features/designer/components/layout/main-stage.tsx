@@ -30,6 +30,8 @@ type MainStageProps = {
   ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onSelectTextLayer: (layerId: string) => void
+  textLayerIdToBeginTyping: string | null
+  onTextLayerBeginTypingHandled: () => void
 }
 
 export function MainStage({
@@ -44,6 +46,8 @@ export function MainStage({
   onPlaceText,
   onUpdateTextLayer,
   onSelectTextLayer,
+  textLayerIdToBeginTyping,
+  onTextLayerBeginTypingHandled,
 }: MainStageProps) {
   const toolbarChromeRef = useRef<HTMLDivElement>(null)
   const bottomChromeRef = useRef<HTMLDivElement>(null)
@@ -93,6 +97,8 @@ export function MainStage({
         onPlaceText={onPlaceText}
         onUpdateTextLayer={onUpdateTextLayer}
         onSelectTextLayer={onSelectTextLayer}
+        textLayerIdToBeginTyping={textLayerIdToBeginTyping}
+        onTextLayerBeginTypingHandled={onTextLayerBeginTypingHandled}
       />
 
       <BottomStageBar

@@ -12,6 +12,12 @@ export const DEFAULT_TEXT_FONT_SIZE_PX = 14
 
 export const DEFAULT_TEXT_COLOR = "#111827"
 
+export const DEFAULT_TEXT_LINE_HEIGHT = 1.35
+
+/** Unitless line-height clamp (matches CSS; values below 1 give tighter leading). */
+export const MIN_TEXT_LINE_HEIGHT = 0.5
+export const MAX_TEXT_LINE_HEIGHT = 2.5
+
 export type TextLayerSizing = "hug" | "fixed"
 
 export const TEXT_LAYER_FONT_PRESETS: ReadonlyArray<{
@@ -51,4 +57,17 @@ export function resolveTextLayerColor(layer: TextLayer): string {
 
 export function resolveTextLayerSizing(layer: TextLayer): TextLayerSizing {
   return layer.textSizing === "hug" ? "hug" : "fixed"
+}
+
+export function resolveTextLayerLineHeight(layer: TextLayer): number {
+  const n = layer.lineHeight
+  if (
+    n == null ||
+    !Number.isFinite(n) ||
+    n < MIN_TEXT_LINE_HEIGHT ||
+    n > MAX_TEXT_LINE_HEIGHT
+  ) {
+    return DEFAULT_TEXT_LINE_HEIGHT
+  }
+  return n
 }

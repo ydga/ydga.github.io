@@ -44,6 +44,8 @@ type CanvasViewportProps = {
   ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onSelectTextLayer: (layerId: string) => void
+  textLayerIdToBeginTyping: string | null
+  onTextLayerBeginTypingHandled: () => void
 }
 
 export function CanvasViewport({
@@ -65,6 +67,8 @@ export function CanvasViewport({
   onPlaceText,
   onUpdateTextLayer,
   onSelectTextLayer,
+  textLayerIdToBeginTyping,
+  onTextLayerBeginTypingHandled,
 }: CanvasViewportProps) {
   const displayScaleRef = useRef(displayScale)
   const exportDimensions = getExportDimensions(activeFrame.settings)
@@ -93,7 +97,7 @@ export function CanvasViewport({
     onPointerUp,
     onPointerCancel,
   } = useStagePan({
-    enabled: !isFitZoom,
+    enabled: !isFitZoom && canvasTool !== "text",
     resetKey: `${activeFrame.id}:${isFitZoom ? "fit" : "manual"}`,
   })
 
@@ -185,6 +189,8 @@ export function CanvasViewport({
               onPlaceText={onPlaceText}
               onUpdateTextLayer={onUpdateTextLayer}
               onSelectTextLayer={onSelectTextLayer}
+              textLayerIdToBeginTyping={textLayerIdToBeginTyping}
+              onTextLayerBeginTypingHandled={onTextLayerBeginTypingHandled}
             />
           </div>
         </div>

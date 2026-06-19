@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { ContextPanel } from "@/features/designer/components/layout/context-panel"
 import { MainStage } from "@/features/designer/components/layout/main-stage"
@@ -40,6 +40,13 @@ export function DesignerShell() {
   const frames = useDesignerFrames()
   const layers = useDesignerLayers()
   const ui = useDesignerUi()
+  const [textLayerIdToBeginTyping, setTextLayerIdToBeginTyping] = useState<
+    string | null
+  >(null)
+
+  const clearTextLayerBeginTyping = useCallback(() => {
+    setTextLayerIdToBeginTyping(null)
+  }, [])
   const getCanvasRef = useCallback(
     (frameId: string) => (node: HTMLCanvasElement | null) => {
       if (node) {
@@ -118,7 +125,7 @@ export function DesignerShell() {
 
   const handlePlaceText = useCallback(
     (trimX: number, trimY: number, trimWidth?: number, trimHeight?: number) => {
-      layers.addTextLayer({
+      const id = layers.addTextLayer({
         frameId: frames.activeFrameId,
         x: trimX,
         y: trimY,
@@ -126,6 +133,10 @@ export function DesignerShell() {
         height: trimHeight,
       })
       ui.selectElement(frames.activeFrameId, id)
+      setTextLayerIdToBeginTyping(id)
+      queueMicrotask(() => {
+        ui.setCanvasTool("select")
+      })
     },
     [frames.activeFrameId, layers, ui]
   )
@@ -144,6 +155,8 @@ export function DesignerShell() {
           ui={ui}
           frames={frames}
           layers={layers.layers}
+          textLayerIdToBeginTyping={textLayerIdToBeginTyping}
+          onTextLayerBeginTypingHandled={clearTextLayerBeginTyping}
           getCanvasRef={getCanvasRef}
           onSelectFrame={(frameId) => {
             frames.selectFrame(frameId)

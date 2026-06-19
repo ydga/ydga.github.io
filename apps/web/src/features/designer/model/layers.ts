@@ -14,6 +14,8 @@ export type TextLayer = {
   fontSizePx?: number
   /** Text fill, hex (e.g. `#111827`). */
   color?: string
+  /** Unitless CSS line-height (e.g. `1.35`, or `0.85` for tight leading). Used for canvas, export, and hug height. */
+  lineHeight?: number
   /** `hug` — box fits text; `fixed` — width and height set explicitly. */
   textSizing?: "hug" | "fixed"
 }
@@ -29,6 +31,7 @@ export type TextLayerUpdatePatch = Partial<
     | "fontFamily"
     | "fontSizePx"
     | "color"
+    | "lineHeight"
     | "textSizing"
   >
 >

@@ -25,10 +25,20 @@ type DimensionFieldProps = {
   height: number
   unit?: "px" | "cm"
   min?: number
+  /** When set, overrides `min` for the width control only. */
+  minWidth?: number
+  /** When set, overrides `min` for the height control only. */
+  minHeight?: number
+  max?: number
+  /** When set, overrides `max` for the width control only. */
+  maxWidth?: number
+  /** When set, overrides `max` for the height control only. */
+  maxHeight?: number
   step?: number
   onWidthChange: (value: number) => void
   onHeightChange: (value: number) => void
   className?: string
+  disabled?: boolean
 }
 
 type DimensionInputProps = {
@@ -36,9 +46,11 @@ type DimensionInputProps = {
   tooltip: string
   value: number
   min: number
+  max?: number
   step: number
   ariaLabel: string
   onChange: (value: number) => void
+  disabled?: boolean
 }
 
 function DimensionInput({
@@ -46,15 +58,19 @@ function DimensionInput({
   tooltip,
   value,
   min,
+  max,
   step,
   ariaLabel,
   onChange,
+  disabled,
 }: DimensionInputProps) {
   const { isScrubbing, scrubHandlers } = useScrubNumber({
     value,
     onChange,
     min,
+    max,
     step,
+    disabled,
   })
 
   return (
@@ -88,8 +104,10 @@ function DimensionInput({
       <InputGroupInput
         type="number"
         min={min}
+        max={max}
         step={step}
         value={value}
+        disabled={disabled}
         aria-label={ariaLabel}
         className={cn(
           settingsNumberFieldClassName,
@@ -114,12 +132,22 @@ export function DimensionField({
   height,
   unit,
   min = 1,
+  minWidth,
+  minHeight,
+  max,
+  maxWidth,
+  maxHeight,
   step = 1,
   onWidthChange,
   onHeightChange,
   className,
+  disabled,
 }: DimensionFieldProps) {
   const unitLabel = unit ?? null
+  const wMin = minWidth ?? min
+  const hMin = minHeight ?? min
+  const wMax = maxWidth ?? max
+  const hMax = maxHeight ?? max
 
   return (
     <div className={cn("flex min-w-0 flex-1 items-center gap-1.5", className)}>
@@ -127,19 +155,23 @@ export function DimensionField({
         label="W"
         tooltip="Width"
         value={width}
-        min={min}
+        min={wMin}
+        max={wMax}
         step={step}
         ariaLabel="Width"
         onChange={onWidthChange}
+        disabled={disabled}
       />
       <DimensionInput
         label="H"
         tooltip="Height"
         value={height}
-        min={min}
+        min={hMin}
+        max={hMax}
         step={step}
         ariaLabel="Height"
         onChange={onHeightChange}
+        disabled={disabled}
       />
       {unitLabel ? (
         <span className="shrink-0 text-xs font-medium text-muted-foreground">

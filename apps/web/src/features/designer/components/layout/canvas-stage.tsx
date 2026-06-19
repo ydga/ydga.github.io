@@ -93,6 +93,8 @@ type CanvasStageProps = {
   ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onSelectTextLayer: (layerId: string) => void
+  textLayerIdToBeginTyping: string | null
+  onTextLayerBeginTypingHandled: () => void
 }
 
 export function CanvasStage({
@@ -111,10 +113,17 @@ export function CanvasStage({
   onPlaceText,
   onUpdateTextLayer,
   onSelectTextLayer,
+  textLayerIdToBeginTyping,
+  onTextLayerBeginTypingHandled,
 }: CanvasStageProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const frameRef = useRef<HTMLDivElement | null>(null)
   const textAreaRefs = useRef(new Map<string, HTMLTextAreaElement | null>())
+  /** Clicks that immediately follow text placement would otherwise bubble here and call `onSelectPage`, clearing the new text selection. */
+  const suppressFrameClickAfterTextPlaceRef = useRef(false)
+  const suppressFrameClickTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null)
   const placementSessionRef = useRef<PlacementSession | null>(null)
   const [placementPreview, setPlacementPreview] =
     useState<PlacementPreview | null>(null)
@@ -146,6 +155,25 @@ export function CanvasStage({
     },
     [registerCanvas]
   )
+
+  function armSuppressFrameClickAfterTextPlace() {
+    suppressFrameClickAfterTextPlaceRef.current = true
+    if (suppressFrameClickTimerRef.current != null) {
+      clearTimeout(suppressFrameClickTimerRef.current)
+    }
+    suppressFrameClickTimerRef.current = setTimeout(() => {
+      suppressFrameClickTimerRef.current = null
+      suppressFrameClickAfterTextPlaceRef.current = false
+    }, 400)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (suppressFrameClickTimerRef.current != null) {
+        clearTimeout(suppressFrameClickTimerRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -247,8 +275,12 @@ export function CanvasStage({
         if (!session || ev.pointerId !== session.pointerId) {
           return
         }
+        const frameEl = frameRef.current
+        if (!frameEl) {
+          return
+        }
         const pt = trimPointFromClient(
-          host,
+          frameEl,
           ev.clientX,
           ev.clientY,
           displayScale
@@ -276,8 +308,12 @@ export function CanvasStage({
         window.removeEventListener("pointercancel", onUp)
         setPlacementPreview(null)
 
+        const frameEl = frameRef.current
+        if (!frameEl) {
+          return
+        }
         const pt = trimPointFromClient(
-          host,
+          frameEl,
           ev.clientX,
           ev.clientY,
           displayScale
@@ -303,6 +339,7 @@ export function CanvasStage({
             Math.max(MIN_PLACE_TEXT_H, r.h)
           )
         }
+        armSuppressFrameClickAfterTextPlace()
       }
 
       window.addEventListener("pointermove", onMove)
@@ -324,7 +361,17 @@ export function CanvasStage({
       )}
       style={{ width: trimDisplayWidth, height: trimDisplayHeight }}
       onPointerDown={handleFramePointerDown}
-      onClick={() => {
+      onClick={(event) => {
+        if (suppressFrameClickAfterTextPlaceRef.current) {
+          suppressFrameClickAfterTextPlaceRef.current = false
+          if (suppressFrameClickTimerRef.current != null) {
+            clearTimeout(suppressFrameClickTimerRef.current)
+            suppressFrameClickTimerRef.current = null
+          }
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
         if (canvasTool !== "text") {
           onSelectPage()
         }
@@ -379,7 +426,7 @@ export function CanvasStage({
           }}
         />
       ) : null}
-      <div className="pointer-events-none absolute inset-0 z-[15]">
+      <div className="pointer-events-none absolute inset-0 z-[25]">
         {textLayers.map((layer, index) => {
           const isSelected = selectedTextId === layer.id
           const z = 10 + (textLayers.length - index)
@@ -394,6 +441,8 @@ export function CanvasStage({
               isSelected={isSelected}
               zIndex={z}
               getFrameElement={getFrameElement}
+              textLayerIdToBeginTyping={textLayerIdToBeginTyping}
+              onTextLayerBeginTypingHandled={onTextLayerBeginTypingHandled}
               onUpdate={(patch) => onUpdateTextLayer(layer.id, patch)}
               onSelect={() => onSelectTextLayer(layer.id)}
               onRegisterTextarea={(layerId, node) => {

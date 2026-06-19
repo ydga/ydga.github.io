@@ -15,14 +15,13 @@ import {
   resolveTextLayerColor,
   resolveTextLayerFontFamily,
   resolveTextLayerFontSizePx,
+  resolveTextLayerLineHeight,
   resolveTextLayerSizing,
 } from "@/features/designer/model/text-layer-style"
 import { cn } from "@workspace/ui/lib/utils"
 
 const MIN_W_TRIM = 48
 const MIN_H_TRIM = 36
-/** Square text boxes use one side length; respect the larger canvas minimum. */
-const MIN_SIDE_TRIM = Math.max(MIN_W_TRIM, MIN_H_TRIM)
 
 type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w"
 
@@ -61,6 +60,8 @@ type TextLayerBoxProps = {
     layerId: string,
     node: HTMLTextAreaElement | null
   ) => void
+  textLayerIdToBeginTyping: string | null
+  onTextLayerBeginTypingHandled: () => void
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -83,9 +84,9 @@ function clientToTrim(
   }
 }
 
-/** Resize while keeping width === height (trim-space px). */
-function applySquareResize(
-  handle: ResizeHandle,
+/** Edge handles: change only width or height; opposite edge stays fixed. */
+function applyEdgeResize(
+  handle: "n" | "s" | "e" | "w",
   px: number,
   py: number,
   start: { x: number; y: number; w: number; h: number },
@@ -97,55 +98,116 @@ function applySquareResize(
   const bottom = sy + sh
 
   switch (handle) {
-    case "se": {
-      const maxS = Math.min(trimW - sx, trimH - sy)
-      const s = clamp(Math.min(px - sx, py - sy), MIN_SIDE_TRIM, maxS)
-      return { x: sx, y: sy, w: s, h: s }
-    }
-    case "nw": {
-      const maxS = Math.min(right, bottom)
-      const s = clamp(Math.min(right - px, bottom - py), MIN_SIDE_TRIM, maxS)
-      return { x: right - s, y: bottom - s, w: s, h: s }
-    }
-    case "ne": {
-      const maxS = Math.min(trimW - sx, bottom)
-      const s = clamp(Math.min(px - sx, bottom - py), MIN_SIDE_TRIM, maxS)
-      return { x: sx, y: bottom - s, w: s, h: s }
-    }
-    case "sw": {
-      const maxS = Math.min(right, trimH - sy)
-      const s = clamp(Math.min(right - px, py - sy), MIN_SIDE_TRIM, maxS)
-      return { x: right - s, y: sy, w: s, h: s }
-    }
     case "e": {
-      const maxS = Math.min(trimW - sx, trimH)
-      const s = clamp(px - sx, MIN_SIDE_TRIM, maxS)
-      let y = sy + (sh - s) / 2
-      y = clamp(y, 0, trimH - s)
-      return { x: sx, y, w: s, h: s }
+      const w = clamp(px - sx, MIN_W_TRIM, trimW - sx)
+      return { x: sx, y: sy, w, h: sh }
     }
     case "w": {
-      const maxS = Math.min(right, trimH)
-      const s = clamp(right - px, MIN_SIDE_TRIM, maxS)
-      let y = sy + (sh - s) / 2
-      y = clamp(y, 0, trimH - s)
-      return { x: right - s, y, w: s, h: s }
+      const newLeft = clamp(px, 0, right - MIN_W_TRIM)
+      const w = right - newLeft
+      return { x: newLeft, y: sy, w, h: sh }
     }
     case "s": {
-      const maxS = Math.min(trimH - sy, trimW)
-      const s = clamp(py - sy, MIN_SIDE_TRIM, maxS)
-      let x = sx + (sw - s) / 2
-      x = clamp(x, 0, trimW - s)
-      return { x, y: sy, w: s, h: s }
+      const h = clamp(py - sy, MIN_H_TRIM, trimH - sy)
+      return { x: sx, y: sy, w: sw, h }
     }
     case "n": {
-      const maxS = Math.min(bottom, trimW)
-      const s = clamp(bottom - py, MIN_SIDE_TRIM, maxS)
-      let x = sx + (sw - s) / 2
-      x = clamp(x, 0, trimW - s)
-      return { x, y: bottom - s, w: s, h: s }
+      const newTop = clamp(py, 0, bottom - MIN_H_TRIM)
+      const h = bottom - newTop
+      return { x: sx, y: newTop, w: sw, h }
     }
   }
+}
+
+/**
+ * Corner handles: uniform scale so width/height ratio matches the start rect
+ * (trim-space px).
+ */
+function applyCornerResize(
+  handle: "nw" | "ne" | "sw" | "se",
+  px: number,
+  py: number,
+  start: { x: number; y: number; w: number; h: number },
+  trimW: number,
+  trimH: number
+): { x: number; y: number; w: number; h: number } {
+  const { x: sx, y: sy, w: sw, h: sh } = start
+  const right = sx + sw
+  const bottom = sy + sh
+  if (sw <= 0 || sh <= 0 || !Number.isFinite(sw) || !Number.isFinite(sh)) {
+    return {
+      x: sx,
+      y: sy,
+      w: Math.max(MIN_W_TRIM, sw),
+      h: Math.max(MIN_H_TRIM, sh),
+    }
+  }
+
+  const kMin = Math.max(MIN_W_TRIM / sw, MIN_H_TRIM / sh)
+  let rawW: number
+  let rawH: number
+  let kMax: number
+
+  switch (handle) {
+    case "se": {
+      rawW = px - sx
+      rawH = py - sy
+      kMax = Math.min((trimW - sx) / sw, (trimH - sy) / sh)
+      break
+    }
+    case "nw": {
+      rawW = right - px
+      rawH = bottom - py
+      kMax = Math.min(right / sw, bottom / sh)
+      break
+    }
+    case "ne": {
+      rawW = px - sx
+      rawH = bottom - py
+      kMax = Math.min((trimW - sx) / sw, bottom / sh)
+      break
+    }
+    case "sw": {
+      rawW = right - px
+      rawH = py - sy
+      kMax = Math.min(right / sw, (trimH - sy) / sh)
+      break
+    }
+  }
+
+  let k = Math.min(rawW / sw, rawH / sh)
+  if (!Number.isFinite(k)) {
+    k = kMin
+  }
+  k = clamp(k, kMin, Math.max(kMin, kMax))
+
+  const w = k * sw
+  const h = k * sh
+
+  switch (handle) {
+    case "se":
+      return { x: sx, y: sy, w, h }
+    case "nw":
+      return { x: right - w, y: bottom - h, w, h }
+    case "ne":
+      return { x: sx, y: bottom - h, w, h }
+    case "sw":
+      return { x: right - w, y: sy, w, h }
+  }
+}
+
+function applyResize(
+  handle: ResizeHandle,
+  px: number,
+  py: number,
+  start: { x: number; y: number; w: number; h: number },
+  trimW: number,
+  trimH: number
+): { x: number; y: number; w: number; h: number } {
+  if (handle === "n" || handle === "s" || handle === "e" || handle === "w") {
+    return applyEdgeResize(handle, px, py, start, trimW, trimH)
+  }
+  return applyCornerResize(handle, px, py, start, trimW, trimH)
 }
 
 export function TextLayerBox({
@@ -159,6 +221,8 @@ export function TextLayerBox({
   onUpdate,
   onSelect,
   onRegisterTextarea,
+  textLayerIdToBeginTyping,
+  onTextLayerBeginTypingHandled,
 }: TextLayerBoxProps) {
   const dragRef = useRef<DragSession | null>(null)
   const pointerCaptureRef = useRef<HTMLElement | null>(null)
@@ -167,7 +231,7 @@ export function TextLayerBox({
 
   const boxHeightTrim = layer.height
   const sizing = resolveTextLayerSizing(layer)
-  const chromeActive = isSelected && !textEditing
+  const chromeActive = isSelected
 
   useEffect(() => {
     if (!isSelected) {
@@ -176,15 +240,37 @@ export function TextLayerBox({
   }, [isSelected])
 
   useLayoutEffect(() => {
+    if (textLayerIdToBeginTyping !== layer.id) {
+      return
+    }
+    setTextEditing(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const node = textareaRef.current
+        if (node) {
+          node.focus({ preventScroll: true })
+        }
+        onTextLayerBeginTypingHandled()
+      })
+    })
+  }, [layer.id, onTextLayerBeginTypingHandled, textLayerIdToBeginTyping])
+
+  useLayoutEffect(() => {
     if (sizing !== "hug") {
       return
     }
 
     const maxWrap = Math.max(MIN_W_TRIM, trimWidthPx - layer.x)
     const maxH = Math.max(MIN_H_TRIM, trimHeightPx - layer.y)
-    const measured = measureTextLayerContentBox(layer, maxWrap)
-    const width = Math.min(measured.width, maxWrap)
-    const height = Math.min(measured.height, maxH)
+    const measured = measureTextLayerContentBox(
+      layer,
+      sizing === "hug" ? Number.POSITIVE_INFINITY : maxWrap,
+      sizing !== "hug"
+    )
+    const width =
+      sizing === "hug" ? measured.width : Math.min(measured.width, maxWrap)
+    const height =
+      sizing === "hug" ? measured.height : Math.min(measured.height, maxH)
 
     if (
       Math.abs(width - layer.width) > 0.5 ||
@@ -197,6 +283,7 @@ export function TextLayerBox({
     layer.fontFamily,
     layer.fontSizePx,
     layer.height,
+    layer.lineHeight,
     layer.text,
     layer.textSizing,
     layer.width,
@@ -249,7 +336,7 @@ export function TextLayerBox({
         return
       }
 
-      const next = applySquareResize(
+      const next = applyResize(
         session.handle,
         px,
         py,
@@ -380,9 +467,7 @@ export function TextLayerBox({
       data-designer-text-layer
       className={cn(
         "pointer-events-auto absolute box-border overflow-visible rounded-[2px] border-2 border-transparent",
-        chromeActive
-          ? "border-[#7c3aed] p-1.5"
-          : "hover:border-muted-foreground/25"
+        chromeActive ? "border-[#7c3aed]" : "hover:border-muted-foreground/25"
       )}
       style={{
         left,
@@ -392,7 +477,11 @@ export function TextLayerBox({
         zIndex,
       }}
       aria-label={
-        isSelected && !textEditing ? "Text — double-click to edit" : undefined
+        isSelected
+          ? textEditing
+            ? "Text — editing"
+            : "Text — double-click to edit"
+          : undefined
       }
       onDoubleClick={(event) => {
         if (!isSelected) {
@@ -448,14 +537,12 @@ export function TextLayerBox({
         data-designer-text-editing={textEditing ? "true" : undefined}
         tabIndex={textEditing ? 0 : -1}
         className={cn(
-          "absolute inset-0 z-0 box-border h-full w-full resize-none border-0 bg-transparent p-0.5 outline-none focus-visible:ring-0",
-          sizing === "hug"
-            ? "overflow-hidden"
-            : "overflow-x-hidden overflow-y-auto"
+          "absolute inset-0 z-0 box-border h-full w-full resize-none overflow-hidden border-0 bg-transparent p-0.5 outline-none focus-visible:ring-0",
+          sizing === "hug" && "whitespace-pre"
         )}
         style={{
           fontSize: fontPx,
-          lineHeight: 1.35,
+          lineHeight: resolveTextLayerLineHeight(layer),
           fontFamily,
           color,
         }}
@@ -503,16 +590,16 @@ export function TextLayerBox({
           <div
             data-designer-text-drag
             aria-label="Drag to move text"
-            className="pointer-events-auto absolute top-0 right-0 left-0 z-10 cursor-grab active:cursor-grabbing"
-            style={{ height: Math.max(6, 6 * displayScale) }}
+            className="pointer-events-auto absolute top-0 right-3 left-3 z-[21] cursor-grab active:cursor-grabbing"
+            style={{ height: Math.max(10, 10 * displayScale) }}
             onPointerDown={startMove}
             onClick={(event) => event.stopPropagation()}
           />
           <div
             data-designer-text-drag
             aria-label="Drag to move text"
-            className="pointer-events-auto absolute right-0 bottom-0 left-0 z-10 cursor-grab active:cursor-grabbing"
-            style={{ height: Math.max(6, 6 * displayScale) }}
+            className="pointer-events-auto absolute right-3 bottom-0 left-3 z-[21] cursor-grab active:cursor-grabbing"
+            style={{ height: Math.max(10, 10 * displayScale) }}
             onPointerDown={startMove}
             onClick={(event) => event.stopPropagation()}
           />

@@ -1,12 +1,13 @@
 import type { TextLayer } from "@/features/designer/model/layers"
 import {
-  buildWrappedLines,
-  lineHeightPx,
+  buildDisplayLines,
+  textLineHeightTrimPx,
 } from "@/features/designer/lib/text-layer-layout"
 import {
   resolveTextLayerColor,
   resolveTextLayerFontFamily,
   resolveTextLayerFontSizePx,
+  resolveTextLayerSizing,
 } from "@/features/designer/model/text-layer-style"
 
 const MIN_H_TRIM = 36
@@ -29,7 +30,7 @@ export function drawTextLayersOnContext(
     const fontSizePx = resolveTextLayerFontSizePx(layer)
     const fontFamily = resolveTextLayerFontFamily(layer)
     const fill = resolveTextLayerColor(layer)
-    const lineHeight = lineHeightPx(fontSizePx)
+    const lineHeight = textLineHeightTrimPx(layer)
 
     context.font = `${fontSizePx}px ${fontFamily}`
     context.fillStyle = fill
@@ -38,15 +39,27 @@ export function drawTextLayersOnContext(
     const y = trimOffsetPx + layer.y
     const maxWidth = Math.max(32, layer.width)
     const clipH = Math.max(MIN_H_TRIM, layer.height)
-    const lines = buildWrappedLines(context, layer.text, maxWidth)
+    const softWrap = resolveTextLayerSizing(layer) === "fixed"
+    const lines = buildDisplayLines(context, layer.text, maxWidth, softWrap)
+
+    const clipPad = softWrap ? 0 : 3
 
     context.save()
     context.beginPath()
-    context.rect(x, y, maxWidth, clipH)
+    context.rect(
+      x - clipPad,
+      y - clipPad,
+      maxWidth + 2 * clipPad,
+      clipH + 2 * clipPad
+    )
     context.clip()
 
     lines.forEach((line, index) => {
-      context.fillText(line, x, y + index * lineHeight, maxWidth)
+      if (softWrap) {
+        context.fillText(line, x, y + index * lineHeight, maxWidth)
+      } else {
+        context.fillText(line, x, y + index * lineHeight)
+      }
     })
 
     context.restore()
