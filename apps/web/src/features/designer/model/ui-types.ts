@@ -12,6 +12,7 @@ export type ElementSelection = {
 export type Selection = PageSelection | ElementSelection
 
 export type ZoomMode = "fit" | "manual"
+export type CanvasTool = "select" | "text"
 export type PanelMode = "document" | "export" | "layers"
 
 export const DEFAULT_FRAME_ID = "frame-1"

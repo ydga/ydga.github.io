@@ -47,6 +47,21 @@ export function LayersPanel({
           onReorder(frameId, fromIndex, toIndex)
         }
         selectedLayerId={selectedLayerId}
+        onSelectLayer={(layerId) => {
+          const willDeselect =
+            ui.selection.kind === "element" &&
+            ui.selection.pageId === frameId &&
+            ui.selection.elementId === layerId
+
+          ui.toggleElementSelection(frameId, layerId)
+
+          if (willDeselect) {
+            const active = document.activeElement
+            if (active instanceof HTMLElement) {
+              active.blur()
+            }
+          }
+        }}
       />
     </div>
   )

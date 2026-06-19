@@ -7,8 +7,14 @@ import { useStagePan } from "@/features/designer/hooks/use-stage-pan"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
 import { shouldShowBleedPreview } from "@/features/designer/lib/render-background"
 import type { DesignerFrame } from "@/features/designer/model/frames"
+import type {
+  TextLayer,
+  TextLayerUpdatePatch,
+} from "@/features/designer/model/layers"
 import {
   ZOOM_WHEEL_SENSITIVITY,
+  type CanvasTool,
+  type Selection,
   type ZoomMode,
 } from "@/features/designer/model/ui-types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
@@ -27,6 +33,17 @@ type CanvasViewportProps = {
   dispatch: DesignerDispatch
   toolbarChromeRef: React.RefObject<HTMLElement | null>
   bottomChromeRef: React.RefObject<HTMLElement | null>
+  canvasTool: CanvasTool
+  selection: Selection
+  textLayers: TextLayer[]
+  onPlaceText: (
+    trimX: number,
+    trimY: number,
+    trimWidth?: number,
+    trimHeight?: number
+  ) => void
+  onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
+  onSelectTextLayer: (layerId: string) => void
 }
 
 export function CanvasViewport({
@@ -42,6 +59,12 @@ export function CanvasViewport({
   dispatch,
   toolbarChromeRef,
   bottomChromeRef,
+  canvasTool,
+  selection,
+  textLayers,
+  onPlaceText,
+  onUpdateTextLayer,
+  onSelectTextLayer,
 }: CanvasViewportProps) {
   const displayScaleRef = useRef(displayScale)
   const exportDimensions = getExportDimensions(activeFrame.settings)
@@ -138,7 +161,7 @@ export function CanvasViewport({
               settings={activeFrame.settings}
               registerCanvas={getCanvasRef(activeFrame.id)}
               displayScale={displayScale}
-              isPageSelected
+              isPageSelected={selection.pageId === activeFrame.id}
               onSelectPage={() => onSelectFrame(activeFrame.id)}
               onGradientStopsChange={(value) =>
                 dispatch({ type: "set-background-gradient-stops", value })
@@ -155,6 +178,13 @@ export function CanvasViewport({
                   value: { x, y },
                 })
               }
+              frameId={activeFrame.id}
+              canvasTool={canvasTool}
+              selection={selection}
+              textLayers={textLayers}
+              onPlaceText={onPlaceText}
+              onUpdateTextLayer={onUpdateTextLayer}
+              onSelectTextLayer={onSelectTextLayer}
             />
           </div>
         </div>

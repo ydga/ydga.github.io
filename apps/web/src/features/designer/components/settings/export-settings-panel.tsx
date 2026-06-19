@@ -4,6 +4,11 @@ import { getExportCtaLabel } from "@/features/designer/lib/export-cta-label"
 import { downloadExports } from "@/features/designer/lib/export-canvas"
 import { mergeExportOverrides } from "@/features/designer/lib/export-settings"
 import type { DesignerFrame } from "@/features/designer/model/frames"
+import {
+  getLayersForFrame,
+  type Layer,
+  type TextLayer,
+} from "@/features/designer/model/layers"
 import { useExportSelection } from "@/features/designer/state/use-export-selection"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -19,6 +24,13 @@ type ExportSettingsPanelProps = {
   activeFrameId: string
   getCanvasForFrame: (frameId: string) => HTMLCanvasElement | null
   onFrameNameChange: (frameId: string, name: string) => void
+  layers: Layer[]
+}
+
+function getTextLayersForFrame(layers: Layer[], frameId: string): TextLayer[] {
+  return getLayersForFrame(layers, frameId).filter(
+    (layer): layer is TextLayer => layer.kind === "text"
+  )
 }
 
 export function ExportSettingsPanel({
@@ -26,6 +38,7 @@ export function ExportSettingsPanel({
   activeFrameId,
   getCanvasForFrame,
   onFrameNameChange,
+  layers,
 }: ExportSettingsPanelProps) {
   const {
     orderedEntries,
@@ -72,6 +85,7 @@ export function ExportSettingsPanel({
         settings: frameById.get(target.frameId)!.settings,
         overrides: target.overrides,
         sourceCanvas: getCanvasForFrame(target.frameId),
+        textLayers: getTextLayersForFrame(layers, target.frameId),
       }))
     )
   }

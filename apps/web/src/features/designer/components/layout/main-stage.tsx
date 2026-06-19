@@ -1,11 +1,15 @@
-import { useRef } from "react"
+import { useMemo, useRef } from "react"
 
 import { BottomStageBar } from "@/features/designer/components/layout/bottom-stage-bar"
 import { CanvasViewport } from "@/features/designer/components/layout/canvas-viewport"
 import { CanvasToolbar } from "@/features/designer/components/layout/canvas-toolbar"
 import { FloatingChrome } from "@/features/designer/components/layout/floating-chrome"
 import { frameHasElements } from "@/features/designer/model/frames"
-import type { Layer } from "@/features/designer/model/layers"
+import type {
+  Layer,
+  TextLayer,
+  TextLayerUpdatePatch,
+} from "@/features/designer/model/layers"
 import type { DesignerFrames } from "@/features/designer/state/use-designer-frames"
 import type { DesignerUi } from "@/features/designer/state/use-designer-ui"
 
@@ -18,6 +22,14 @@ type MainStageProps = {
   onAddFrame: () => string
   onDuplicateFrame: () => void
   onRemoveFrame: (frameId: string) => void
+  onPlaceText: (
+    trimX: number,
+    trimY: number,
+    trimWidth?: number,
+    trimHeight?: number
+  ) => void
+  onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
+  onSelectTextLayer: (layerId: string) => void
 }
 
 export function MainStage({
@@ -29,6 +41,9 @@ export function MainStage({
   onAddFrame,
   onDuplicateFrame,
   onRemoveFrame,
+  onPlaceText,
+  onUpdateTextLayer,
+  onSelectTextLayer,
 }: MainStageProps) {
   const toolbarChromeRef = useRef<HTMLDivElement>(null)
   const bottomChromeRef = useRef<HTMLDivElement>(null)
@@ -36,6 +51,13 @@ export function MainStage({
   const activeFrame =
     frames.frames.find((frame) => frame.id === frames.activeFrameId) ??
     frames.frames[0]!
+
+  const activeFrameTextLayers = useMemo(() => {
+    return layers.filter(
+      (layer): layer is TextLayer =>
+        layer.kind === "text" && layer.frameId === activeFrame.id
+    )
+  }, [layers, activeFrame.id])
 
   function handleSelectFrame(frameId: string) {
     onSelectFrame(frameId)
@@ -65,6 +87,12 @@ export function MainStage({
         dispatch={frames.dispatch}
         toolbarChromeRef={toolbarChromeRef}
         bottomChromeRef={bottomChromeRef}
+        canvasTool={ui.canvasTool}
+        selection={ui.selection}
+        textLayers={activeFrameTextLayers}
+        onPlaceText={onPlaceText}
+        onUpdateTextLayer={onUpdateTextLayer}
+        onSelectTextLayer={onSelectTextLayer}
       />
 
       <BottomStageBar

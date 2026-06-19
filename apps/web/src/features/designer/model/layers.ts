@@ -1,7 +1,56 @@
-export type Layer = {
+export type TextLayer = {
   id: string
   frameId: string
+  kind: "text"
   name: string
+  x: number
+  y: number
+  width: number
+  text: string
+  height: number
+  /** CSS `font-family` stack (trim-space pixels). */
+  fontFamily?: string
+  /** Font size in trim-space pixels (matches canvas export). */
+  fontSizePx?: number
+  /** Text fill, hex (e.g. `#111827`). */
+  color?: string
+  /** `hug` — box fits text; `fixed` — width and height set explicitly. */
+  textSizing?: "hug" | "fixed"
+}
+
+export type TextLayerUpdatePatch = Partial<
+  Pick<
+    TextLayer,
+    | "text"
+    | "x"
+    | "y"
+    | "width"
+    | "height"
+    | "fontFamily"
+    | "fontSizePx"
+    | "color"
+    | "textSizing"
+  >
+>
+
+export type Layer = TextLayer
+
+const TEXT_LAYER_LABEL_MAX = 28
+
+export function textLayerDisplayName(text: string) {
+  const trimmed = text.trim()
+  if (!trimmed) {
+    return "Text"
+  }
+
+  const firstLine = trimmed.split("\n")[0] ?? trimmed
+  return firstLine.length > TEXT_LAYER_LABEL_MAX
+    ? `${firstLine.slice(0, TEXT_LAYER_LABEL_MAX)}…`
+    : firstLine
+}
+
+export function isTextLayer(layer: Layer): layer is TextLayer {
+  return layer.kind === "text"
 }
 
 export function getLayersForFrame(layers: Layer[], frameId: string) {

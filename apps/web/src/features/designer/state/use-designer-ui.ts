@@ -4,6 +4,7 @@ import {
   DEFAULT_FRAME_ID,
   MAX_VIEWPORT_ZOOM,
   MIN_VIEWPORT_ZOOM,
+  type CanvasTool,
   type PanelMode,
   type Selection,
   type ZoomMode,
@@ -20,6 +21,7 @@ export function useDesignerUi() {
   })
   const [panelOpen, setPanelOpen] = useState(true)
   const [panelMode, setPanelMode] = useState<PanelMode>("document")
+  const [canvasTool, setCanvasTool] = useState<CanvasTool>("select")
   const [zoomMode, setZoomMode] = useState<ZoomMode>("fit")
   const [manualZoom, setManualZoom] = useState(1)
   const [fitScale, setFitScaleState] = useState(1)
@@ -32,6 +34,30 @@ export function useDesignerUi() {
 
   const selectPage = useCallback((pageId: string = DEFAULT_FRAME_ID) => {
     setSelection({ kind: "page", pageId })
+  }, [])
+
+  const selectElement = useCallback((pageId: string, elementId: string) => {
+    setSelection({ kind: "element", pageId, elementId })
+  }, [])
+
+  const toggleElementSelection = useCallback(
+    (pageId: string, elementId: string) => {
+      setSelection((prev) => {
+        if (
+          prev.kind === "element" &&
+          prev.pageId === pageId &&
+          prev.elementId === elementId
+        ) {
+          return { kind: "page", pageId }
+        }
+        return { kind: "element", pageId, elementId }
+      })
+    },
+    []
+  )
+
+  const toggleCanvasTool = useCallback((tool: CanvasTool) => {
+    setCanvasTool((current) => (current === tool ? "select" : tool))
   }, [])
 
   const selectPageAndOpen = useCallback((pageId: string = DEFAULT_FRAME_ID) => {
@@ -75,7 +101,12 @@ export function useDesignerUi() {
   return {
     selection,
     selectPage,
+    selectElement,
+    toggleElementSelection,
     selectPageAndOpen,
+    canvasTool,
+    toggleCanvasTool,
+    setCanvasTool,
     panelOpen,
     setPanelOpen,
     panelMode,

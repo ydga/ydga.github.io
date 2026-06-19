@@ -366,6 +366,7 @@ export function GradientCanvasOverlay({
 
   return (
     <div
+      data-designer-gradient-overlay
       className="pointer-events-none absolute inset-0 z-20"
       onClick={(event) => event.stopPropagation()}
     >

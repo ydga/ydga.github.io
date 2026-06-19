@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf"
 
 import { drawExportGuides } from "@/features/designer/lib/draw-export-guides"
+import { drawTextLayersOnContext } from "@/features/designer/lib/draw-text-layers"
 import {
   isPrintDocument,
   isScreenDocument,
@@ -11,6 +12,7 @@ import {
   type PageExportOverrides,
 } from "@/features/designer/lib/export-settings"
 import { renderBackground } from "@/features/designer/lib/render-background"
+import type { TextLayer } from "@/features/designer/model/layers"
 import type { CanvasSettings } from "@/features/designer/model/types"
 
 const JPEG_QUALITY = 0.92
@@ -20,6 +22,7 @@ export type ExportJob = {
   settings: CanvasSettings
   overrides: PageExportOverrides
   sourceCanvas: HTMLCanvasElement | null
+  textLayers: TextLayer[]
 }
 
 function sanitizeFilename(name: string) {
@@ -29,10 +32,11 @@ function sanitizeFilename(name: string) {
 
 export async function renderExportCanvas(
   settings: CanvasSettings,
-  sourceCanvas: HTMLCanvasElement | null
+  sourceCanvas: HTMLCanvasElement | null,
+  textLayers: TextLayer[]
 ): Promise<HTMLCanvasElement> {
   const exportDimensions = getExportDimensions(settings)
-  const { exportWidthPx, exportHeightPx } = exportDimensions
+  const { exportWidthPx, exportHeightPx, bleedPx } = exportDimensions
 
   const canvas = document.createElement("canvas")
   canvas.width = exportWidthPx
@@ -60,6 +64,10 @@ export async function renderExportCanvas(
     )
   }
 
+  if (textLayers.length > 0) {
+    drawTextLayersOnContext(context, textLayers, bleedPx)
+  }
+
   drawExportGuides(context, settings, settings.export.burnIn)
 
   return canvas
@@ -68,7 +76,8 @@ export async function renderExportCanvas(
 export async function downloadExport(
   settings: CanvasSettings,
   sourceCanvas: HTMLCanvasElement | null,
-  pageName: string
+  pageName: string,
+  textLayers: TextLayer[] = []
 ) {
   await downloadExports([
     {
@@ -80,6 +89,7 @@ export async function downloadExport(
         dpi: settings.dpi,
       },
       sourceCanvas,
+      textLayers,
     },
   ])
 }
@@ -87,7 +97,11 @@ export async function downloadExport(
 export async function downloadExports(jobs: ExportJob[]) {
   for (const job of jobs) {
     const settings = mergeExportOverrides(job.settings, job.overrides)
-    const exportCanvas = await renderExportCanvas(settings, job.sourceCanvas)
+    const exportCanvas = await renderExportCanvas(
+      settings,
+      job.sourceCanvas,
+      job.textLayers
+    )
     const exportDimensions = getExportDimensions(settings)
     const baseName = sanitizeFilename(job.pageName)
     const sizeLabel = `${exportDimensions.exportWidthPx}x${exportDimensions.exportHeightPx}`

@@ -9,8 +9,15 @@ import {
   getFramePanelTitle,
   getPanelTitle,
 } from "@/features/designer/components/layout/panel-title"
+import { TextLayerSettingsPanel } from "@/features/designer/components/settings/text-layer-settings-panel"
 import { ExportSettingsPanel } from "@/features/designer/components/settings/export-settings-panel"
-import type { Layer } from "@/features/designer/model/layers"
+import { getExportDimensions } from "@/features/designer/lib/dimensions"
+import type {
+  Layer,
+  TextLayer,
+  TextLayerUpdatePatch,
+} from "@/features/designer/model/layers"
+import type { Selection } from "@/features/designer/model/ui-types"
 import type { DesignerFrames } from "@/features/designer/state/use-designer-frames"
 import type { DesignerUi } from "@/features/designer/state/use-designer-ui"
 import { PanelIconTileButton } from "@workspace/ui/components/settings/panel-icon-tile-button"
@@ -30,6 +37,20 @@ type ContextPanelProps = {
   layers: Layer[]
   activeFrameId: string
   onReorderLayers: (frameId: string, fromIndex: number, toIndex: number) => void
+  onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
+}
+
+function getSelectedTextLayer(
+  selection: Selection,
+  layers: Layer[],
+  activeFrameId: string
+): TextLayer | null {
+  if (selection.kind !== "element" || selection.pageId !== activeFrameId) {
+    return null
+  }
+
+  const found = layers.find((l) => l.id === selection.elementId)
+  return found?.kind === "text" ? found : null
 }
 
 export function ContextPanel({
@@ -40,8 +61,17 @@ export function ContextPanel({
   layers,
   activeFrameId,
   onReorderLayers,
+  onUpdateTextLayer,
 }: ContextPanelProps) {
   const { selection, panelMode } = ui
+
+  const selectedTextLayer = getSelectedTextLayer(
+    selection,
+    layers,
+    activeFrameId
+  )
+
+  const { trimWidthPx, trimHeightPx } = getExportDimensions(frames.settings)
 
   const title =
     panelMode === "export"
@@ -50,7 +80,9 @@ export function ContextPanel({
         ? "Layers"
         : selection.kind === "page"
           ? getFramePanelTitle(frames.frameName)
-          : getPanelTitle(selection)
+          : selectedTextLayer != null
+            ? "Text"
+            : getPanelTitle(selection)
 
   return (
     <aside
@@ -81,6 +113,7 @@ export function ContextPanel({
               activeFrameId={frames.activeFrameId}
               getCanvasForFrame={getCanvasForFrame}
               onFrameNameChange={frames.setFrameNameForFrame}
+              layers={layers}
             />
           ) : (
             <div
@@ -101,6 +134,15 @@ export function ContextPanel({
                   settings={frames.settings}
                   dispatch={frames.dispatch}
                   onImageUpload={onImageUpload}
+                />
+              ) : selectedTextLayer ? (
+                <TextLayerSettingsPanel
+                  layer={selectedTextLayer}
+                  trimWidthPx={trimWidthPx}
+                  trimHeightPx={trimHeightPx}
+                  onUpdate={(patch) =>
+                    onUpdateTextLayer(selectedTextLayer.id, patch)
+                  }
                 />
               ) : (
                 <ObjectSettingsPanel />

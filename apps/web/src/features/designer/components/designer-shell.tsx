@@ -7,12 +7,39 @@ import { useDesignerLayers } from "@/features/designer/state/use-designer-layers
 import { useDesignerUi } from "@/features/designer/state/use-designer-ui"
 import { useFrameNameSync } from "@/features/designer/state/use-page-name-sync"
 
+function shouldLetFieldHandleDeleteKey(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  if (
+    target instanceof HTMLTextAreaElement &&
+    target.dataset.designerTextEditing === "true"
+  ) {
+    return true
+  }
+
+  if (target instanceof HTMLInputElement) {
+    const t = target.type
+    return !(
+      t === "button" ||
+      t === "submit" ||
+      t === "checkbox" ||
+      t === "radio" ||
+      t === "range" ||
+      t === "file" ||
+      t === "hidden"
+    )
+  }
+
+  return target.getAttribute("contenteditable") === "true"
+}
+
 export function DesignerShell() {
   const canvasRefs = useRef(new Map<string, HTMLCanvasElement | null>())
   const frames = useDesignerFrames()
   const layers = useDesignerLayers()
   const ui = useDesignerUi()
-
   const getCanvasRef = useCallback(
     (frameId: string) => (node: HTMLCanvasElement | null) => {
       if (node) {
@@ -45,6 +72,71 @@ export function DesignerShell() {
     }
   }, [frames.activeFrameId, ui.selection, ui.selectPage])
 
+  useEffect(() => {
+    if (ui.canvasTool !== "text") {
+      return
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        ui.setCanvasTool("select")
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      window.removeEventListener("keydown", onKeyDown)
+    }
+  }, [ui.canvasTool, ui.setCanvasTool])
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Delete" && event.key !== "Backspace") {
+        return
+      }
+
+      if (ui.selection.kind !== "element") {
+        return
+      }
+
+      if (shouldLetFieldHandleDeleteKey(event.target)) {
+        return
+      }
+
+      event.preventDefault()
+
+      const { pageId, elementId } = ui.selection
+      layers.removeLayer(elementId)
+      ui.selectPage(pageId)
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      window.removeEventListener("keydown", onKeyDown)
+    }
+  }, [layers.removeLayer, ui.selection, ui.selectPage])
+
+  const handlePlaceText = useCallback(
+    (trimX: number, trimY: number, trimWidth?: number, trimHeight?: number) => {
+      layers.addTextLayer({
+        frameId: frames.activeFrameId,
+        x: trimX,
+        y: trimY,
+        width: trimWidth,
+        height: trimHeight,
+      })
+      ui.selectElement(frames.activeFrameId, id)
+    },
+    [frames.activeFrameId, layers, ui]
+  )
+
+  const handleSelectTextLayer = useCallback(
+    (layerId: string) => {
+      ui.selectElement(frames.activeFrameId, layerId)
+    },
+    [frames.activeFrameId, ui]
+  )
+
   return (
     <div className="relative h-svh overflow-hidden bg-background">
       <div className="flex h-full min-h-0">
@@ -71,6 +163,9 @@ export function DesignerShell() {
             const nextActiveId = frames.removeFrame(frameId)
             ui.selectPage(nextActiveId)
           }}
+          onPlaceText={handlePlaceText}
+          onUpdateTextLayer={layers.updateTextLayer}
+          onSelectTextLayer={handleSelectTextLayer}
         />
 
         <ContextPanel
@@ -81,6 +176,7 @@ export function DesignerShell() {
           layers={layers.layers}
           activeFrameId={frames.activeFrameId}
           onReorderLayers={layers.reorderLayers}
+          onUpdateTextLayer={layers.updateTextLayer}
         />
       </div>
     </div>
