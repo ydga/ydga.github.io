@@ -243,9 +243,12 @@ export function TextLayerSettingsPanel({
             <Checkbox
               id={`text-layer-clip-${layer.id}`}
               checked={resolveTextLayerClip(layer)}
-              onCheckedChange={(checked) =>
-                onUpdate({ clip: checked === true })
-              }
+              onCheckedChange={(checked) => {
+                if (typeof checked !== "boolean") {
+                  return
+                }
+                onUpdate({ clip: checked })
+              }}
             />
             <span className="text-sm leading-none text-foreground">
               Clip to box

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 
 import { CanvasStage } from "@/features/designer/components/layout/canvas-stage"
 import { FrameNameField } from "@/features/designer/components/layout/page-controls"
@@ -101,6 +101,11 @@ export function CanvasViewport({
     resetKey: `${activeFrame.id}:${isFitZoom ? "fit" : "manual"}`,
   })
 
+  const anyTextLayerAllowsPaintOverflow = useMemo(
+    () => textLayers.some((l) => l.clip === false),
+    [textLayers]
+  )
+
   useEffect(() => {
     displayScaleRef.current = displayScale
   }, [displayScale])
@@ -143,7 +148,10 @@ export function CanvasViewport({
       <div
         ref={stageRef}
         className={cn(
-          "absolute inset-0 touch-none overflow-hidden overscroll-none bg-transparent",
+          "absolute inset-0 touch-none overscroll-none bg-transparent",
+          anyTextLayerAllowsPaintOverflow
+            ? "overflow-visible"
+            : "overflow-hidden",
           canPan && (isDragging ? "cursor-grabbing" : "cursor-grab")
         )}
         style={{ padding: safeAreaInset }}

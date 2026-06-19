@@ -6,7 +6,8 @@
 - For the in-repo image and designer flows, prefers a compact floating toolbar on the canvas, collapsible side settings that scroll on their own, and the main stage reserved for the primary asset.
 - Stores prompts and plans for personal side projects in an Obsidian vault under a projects area, not only in chat threads.
 - When working in this repo, expects assistants to read `AGENTS.md` when it is present for learned preferences and workspace facts.
-- For designer canvas text, prefers hug mode to grow with content: no inner scrollbar, no automatic word wrap (line breaks only on explicit newlines), and sizing that does not clip characters; fixed mode keeps wrap-to-width and vertical scroll as needed.
+- For designer canvas text, prefers hug mode so both width and height follow content (line breaks only on explicit newlines), with tap-to-add defaulting to hug and drag-to-place using fixed bounds for a wrap box; avoid inner scrollbars on the field and sizing that clips glyphs. Fixed mode keeps explicit width and height with wrap-to-width inside the box.
+- Prefers wheel or trackpad over an active text layer to zoom or pan the canvas, not to scroll the text field.
 - After drawing a new text box on the canvas, prefers immediate edit mode with focus and purple selection chrome staying visible while typing.
 
 ## Learned Workspace Facts

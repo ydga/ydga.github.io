@@ -315,6 +315,22 @@ export function TextLayerBox({
     }
   }, [isSelected])
 
+  /** UA styles make textareas scroll; block wheel on the field so the canvas zoom handler owns scroll gestures. */
+  useLayoutEffect(() => {
+    const el = textareaRef.current
+    if (!el) {
+      return
+    }
+    function onWheel(event: WheelEvent) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => {
+      el.removeEventListener("wheel", onWheel)
+    }
+  }, [layer.id, clipToBounds, isSelected, textEditing])
+
   useLayoutEffect(() => {
     if (textLayerIdToBeginTyping !== layer.id) {
       return
@@ -592,8 +608,10 @@ export function TextLayerBox({
       data-designer-text-box
       data-designer-text-layer
       className={cn(
-        "pointer-events-auto absolute box-border overscroll-none rounded-[2px] border border-transparent",
-        // Resize handles extend past the box; `overflow-hidden` would clip them when clip is on.
+        "pointer-events-auto absolute box-border overscroll-none border border-transparent",
+        // Rounded corners + overflow can clip overflow-visible descendants in some engines when clip is off.
+        clipToBounds ? "rounded-[2px]" : "rounded-none",
+        // Resize handles extend past the box; unclipped text must paint past the layer rect too.
         isSelected || !clipToBounds ? "overflow-visible" : "overflow-hidden",
         chromeActive ? "border-[#7c3aed]" : "hover:border-muted-foreground/25"
       )}
@@ -667,12 +685,17 @@ export function TextLayerBox({
         data-designer-text-editing={textEditing ? "true" : undefined}
         tabIndex={isSelected || textEditing ? 0 : -1}
         className={cn(
-          "absolute right-0 left-0 z-[25] box-border w-full resize-none overflow-hidden border-0 bg-transparent px-0.5 pt-0 pb-0.5 outline-none focus-visible:ring-0",
+          "absolute right-0 left-0 z-[25] box-border w-full resize-none border-0 bg-transparent px-0.5 pt-0 pb-0.5 outline-none focus-visible:ring-0",
+          !clipToBounds &&
+            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           sizing === "hug" && "whitespace-pre"
         )}
         style={{
           top: 0,
           bottom: 0,
+          // Inline overflow beats UA `textarea { overflow: auto }` so unclipped text can paint past the box.
+          overflow: clipToBounds ? "hidden" : "visible",
+          overscrollBehavior: "none",
           fontSize: fontPx,
           lineHeight: resolveTextLayerLineHeightCss(layer),
           fontFamily,

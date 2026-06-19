@@ -157,6 +157,12 @@ export function CanvasStage({
     }
     return buildSnapGuideLinesTrimPx(settings, trimWidthPx, trimHeightPx)
   }, [settings, trimHeightPx, trimWidthPx])
+
+  /** `overflow:hidden` on the frame would clip HTML text that paints past the layer rect when clip is off. */
+  const anyTextLayerAllowsPaintOverflow = useMemo(
+    () => textLayers.some((l) => l.clip === false),
+    [textLayers]
+  )
   const showGradientControls =
     settings.background.type === "gradient" &&
     onGradientStopsChange != null &&
@@ -407,7 +413,9 @@ export function CanvasStage({
       className={cn(
         "group/frame-chrome relative block shrink-0 outline-none",
         canvasTool === "text" ? "cursor-crosshair" : "cursor-inherit",
-        showBleedPreview ? "overflow-visible" : "overflow-hidden"
+        showBleedPreview || anyTextLayerAllowsPaintOverflow
+          ? "overflow-visible"
+          : "overflow-hidden"
       )}
       style={{ width: trimDisplayWidth, height: trimDisplayHeight }}
       onPointerDown={handleFramePointerDown}
@@ -476,7 +484,7 @@ export function CanvasStage({
           }}
         />
       ) : null}
-      <div className="pointer-events-none absolute inset-0 z-[25]">
+      <div className="pointer-events-none absolute inset-0 z-[25] overflow-visible">
         {textLayers.map((layer, index) => {
           const isSelected = selectedTextId === layer.id
           const z = 10 + (textLayers.length - index)
