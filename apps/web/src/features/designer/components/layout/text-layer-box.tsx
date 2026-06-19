@@ -265,7 +265,6 @@ export function TextLayerBox({
 
   const softWrapForDisplay = sizing === "fixed"
   const dragStripScreenPx = Math.max(10, 10 * displayScale)
-  const dragStripTrimPx = dragStripScreenPx / displayScale
 
   const textVerticalOffsetTrim = useMemo(() => {
     if (typeof document === "undefined") {
@@ -287,10 +286,8 @@ export function TextLayerBox({
       softWrapForDisplay
     )
     const boxH = Math.max(MIN_H_TRIM, boxHeightTrim)
-    /** Match {@link TextLayerBox} textarea: strips only when selected shrink the text band. */
-    const contentBoxTrimH = isSelected
-      ? Math.max(1, boxH - 2 * dragStripTrimPx)
-      : boxH
+    /** Full box height: drag strips overlay the textarea without shrinking it (avoids text jump on select). */
+    const contentBoxTrimH = boxH
     return verticalTextOffsetTrimPx(
       contentBoxTrimH,
       blockH,
@@ -298,8 +295,6 @@ export function TextLayerBox({
     )
   }, [
     boxHeightTrim,
-    dragStripTrimPx,
-    isSelected,
     layer.fontFamily,
     layer.fontSizePx,
     layer.height,
@@ -551,6 +546,9 @@ export function TextLayerBox({
     event.preventDefault()
     setTextEditing(false)
     onSelect()
+    if (resolveTextLayerSizing(layer) === "hug") {
+      onUpdate({ textSizing: "fixed" })
+    }
     dragRef.current = {
       kind: "resize",
       pointerId: event.pointerId,
@@ -595,7 +593,8 @@ export function TextLayerBox({
       data-designer-text-layer
       className={cn(
         "pointer-events-auto absolute box-border overscroll-none rounded-[2px] border border-transparent",
-        clipToBounds ? "overflow-hidden" : "overflow-visible",
+        // Resize handles extend past the box; `overflow-hidden` would clip them when clip is on.
+        isSelected || !clipToBounds ? "overflow-visible" : "overflow-hidden",
         chromeActive ? "border-[#7c3aed]" : "hover:border-muted-foreground/25"
       )}
       style={{
@@ -672,8 +671,8 @@ export function TextLayerBox({
           sizing === "hug" && "whitespace-pre"
         )}
         style={{
-          top: isSelected ? dragStripCssPx : 0,
-          bottom: isSelected ? dragStripCssPx : 0,
+          top: 0,
+          bottom: 0,
           fontSize: fontPx,
           lineHeight: resolveTextLayerLineHeightCss(layer),
           fontFamily,
@@ -732,6 +731,12 @@ export function TextLayerBox({
             event.stopPropagation()
             setTextEditing(false)
             event.currentTarget.blur()
+            return
+          }
+          // Parent frame uses `role="button"`; without this, Enter / Space bubble and
+          // activate that control instead of inserting a newline or a space in the field.
+          if (event.key === "Enter" || event.key === " ") {
+            event.stopPropagation()
           }
         }}
         onClick={(event) => {
@@ -760,90 +765,86 @@ export function TextLayerBox({
             onPointerDown={startMove}
             onClick={(event) => event.stopPropagation()}
           />
-          {sizing === "fixed" ? (
-            <>
-              <button
-                type="button"
-                data-designer-text-handle
-                aria-label="Resize north-west"
-                className={cn(handleBase, cursorFor.nw, "top-0 left-0")}
-                style={{
-                  transform: `translate(calc(-50% - ${HANDLE_STICK_OUT}), calc(-50% - ${HANDLE_STICK_OUT}))`,
-                }}
-                onPointerDown={(e) => startResize("nw", e)}
-              />
-              <button
-                type="button"
-                data-designer-text-handle
-                aria-label="Resize north"
-                className={cn(handleBase, cursorFor.n, "top-0 left-1/2")}
-                style={{
-                  transform: `translate(-50%, calc(-50% - ${HANDLE_STICK_OUT}))`,
-                }}
-                onPointerDown={(e) => startResize("n", e)}
-              />
-              <button
-                type="button"
-                data-designer-text-handle
-                aria-label="Resize north-east"
-                className={cn(handleBase, cursorFor.ne, "top-0 left-full")}
-                style={{
-                  transform: `translate(calc(-50% + ${HANDLE_STICK_OUT}), calc(-50% - ${HANDLE_STICK_OUT}))`,
-                }}
-                onPointerDown={(e) => startResize("ne", e)}
-              />
-              <button
-                type="button"
-                data-designer-text-handle
-                aria-label="Resize east"
-                className={cn(handleBase, cursorFor.e, "top-1/2 left-full")}
-                style={{
-                  transform: `translate(calc(-50% + ${HANDLE_STICK_OUT}), -50%)`,
-                }}
-                onPointerDown={(e) => startResize("e", e)}
-              />
-              <button
-                type="button"
-                data-designer-text-handle
-                aria-label="Resize south-east"
-                className={cn(handleBase, cursorFor.se, "top-full left-full")}
-                style={{
-                  transform: `translate(calc(-50% + ${HANDLE_STICK_OUT}), calc(-50% + ${HANDLE_STICK_OUT}))`,
-                }}
-                onPointerDown={(e) => startResize("se", e)}
-              />
-              <button
-                type="button"
-                data-designer-text-handle
-                aria-label="Resize south"
-                className={cn(handleBase, cursorFor.s, "top-full left-1/2")}
-                style={{
-                  transform: `translate(-50%, calc(-50% + ${HANDLE_STICK_OUT}))`,
-                }}
-                onPointerDown={(e) => startResize("s", e)}
-              />
-              <button
-                type="button"
-                data-designer-text-handle
-                aria-label="Resize south-west"
-                className={cn(handleBase, cursorFor.sw, "top-full left-0")}
-                style={{
-                  transform: `translate(calc(-50% - ${HANDLE_STICK_OUT}), calc(-50% + ${HANDLE_STICK_OUT}))`,
-                }}
-                onPointerDown={(e) => startResize("sw", e)}
-              />
-              <button
-                type="button"
-                data-designer-text-handle
-                aria-label="Resize west"
-                className={cn(handleBase, cursorFor.w, "top-1/2 left-0")}
-                style={{
-                  transform: `translate(calc(-50% - ${HANDLE_STICK_OUT}), -50%)`,
-                }}
-                onPointerDown={(e) => startResize("w", e)}
-              />
-            </>
-          ) : null}
+          <button
+            type="button"
+            data-designer-text-handle
+            aria-label="Resize north-west"
+            className={cn(handleBase, cursorFor.nw, "top-0 left-0")}
+            style={{
+              transform: `translate(calc(-50% - ${HANDLE_STICK_OUT}), calc(-50% - ${HANDLE_STICK_OUT}))`,
+            }}
+            onPointerDown={(e) => startResize("nw", e)}
+          />
+          <button
+            type="button"
+            data-designer-text-handle
+            aria-label="Resize north"
+            className={cn(handleBase, cursorFor.n, "top-0 left-1/2")}
+            style={{
+              transform: `translate(-50%, calc(-50% - ${HANDLE_STICK_OUT}))`,
+            }}
+            onPointerDown={(e) => startResize("n", e)}
+          />
+          <button
+            type="button"
+            data-designer-text-handle
+            aria-label="Resize north-east"
+            className={cn(handleBase, cursorFor.ne, "top-0 left-full")}
+            style={{
+              transform: `translate(calc(-50% + ${HANDLE_STICK_OUT}), calc(-50% - ${HANDLE_STICK_OUT}))`,
+            }}
+            onPointerDown={(e) => startResize("ne", e)}
+          />
+          <button
+            type="button"
+            data-designer-text-handle
+            aria-label="Resize east"
+            className={cn(handleBase, cursorFor.e, "top-1/2 left-full")}
+            style={{
+              transform: `translate(calc(-50% + ${HANDLE_STICK_OUT}), -50%)`,
+            }}
+            onPointerDown={(e) => startResize("e", e)}
+          />
+          <button
+            type="button"
+            data-designer-text-handle
+            aria-label="Resize south-east"
+            className={cn(handleBase, cursorFor.se, "top-full left-full")}
+            style={{
+              transform: `translate(calc(-50% + ${HANDLE_STICK_OUT}), calc(-50% + ${HANDLE_STICK_OUT}))`,
+            }}
+            onPointerDown={(e) => startResize("se", e)}
+          />
+          <button
+            type="button"
+            data-designer-text-handle
+            aria-label="Resize south"
+            className={cn(handleBase, cursorFor.s, "top-full left-1/2")}
+            style={{
+              transform: `translate(-50%, calc(-50% + ${HANDLE_STICK_OUT}))`,
+            }}
+            onPointerDown={(e) => startResize("s", e)}
+          />
+          <button
+            type="button"
+            data-designer-text-handle
+            aria-label="Resize south-west"
+            className={cn(handleBase, cursorFor.sw, "top-full left-0")}
+            style={{
+              transform: `translate(calc(-50% - ${HANDLE_STICK_OUT}), calc(-50% + ${HANDLE_STICK_OUT}))`,
+            }}
+            onPointerDown={(e) => startResize("sw", e)}
+          />
+          <button
+            type="button"
+            data-designer-text-handle
+            aria-label="Resize west"
+            className={cn(handleBase, cursorFor.w, "top-1/2 left-0")}
+            style={{
+              transform: `translate(calc(-50% - ${HANDLE_STICK_OUT}), -50%)`,
+            }}
+            onPointerDown={(e) => startResize("w", e)}
+          />
         </>
       ) : null}
     </div>
