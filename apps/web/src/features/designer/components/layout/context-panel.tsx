@@ -87,10 +87,8 @@ export function ContextPanel({
   return (
     <aside
       className={cn(
-        "flex shrink-0 flex-col border-l border-border bg-background transition-[width,margin] duration-200 ease-out",
-        ui.panelOpen
-          ? "w-[var(--panel-width)]"
-          : "w-0 overflow-hidden border-l-0"
+        "flex shrink-0 flex-col bg-background transition-[width,margin] duration-200 ease-out",
+        ui.panelOpen ? "w-[var(--panel-width)]" : "w-0 overflow-hidden"
       )}
       aria-hidden={!ui.panelOpen}
     >

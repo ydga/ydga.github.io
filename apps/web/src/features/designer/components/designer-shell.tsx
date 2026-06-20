@@ -150,7 +150,7 @@ export function DesignerShell() {
 
   return (
     <div className="relative h-svh overflow-hidden bg-background">
-      <div className="flex h-full min-h-0">
+      <div className="flex h-full min-h-0 pt-2 pb-2 pl-2">
         <MainStage
           ui={ui}
           frames={frames}

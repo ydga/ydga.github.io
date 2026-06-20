@@ -5,6 +5,11 @@ import { RemoveFrameButton } from "@/features/designer/components/layout/page-co
 import { ZoomControls } from "@/features/designer/components/layout/zoom-controls"
 import type { DesignerFrame } from "@/features/designer/model/frames"
 import type { ZoomMode } from "@/features/designer/model/ui-types"
+import {
+  SlidingNavIndicator,
+  SlidingNavItem,
+} from "@workspace/ui/components/settings/sliding-nav-indicator"
+import { settingsControlHeightClassName } from "@workspace/ui/components/settings/settings-field-styles"
 import { Button } from "@workspace/ui/components/button"
 import {
   Tooltip,
@@ -12,6 +17,9 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
+
+const pageTabTriggerClassName =
+  "inline-flex h-full min-h-0 shrink-0 items-center justify-center rounded-squircle border-0 bg-transparent py-0 text-xs font-medium leading-none tabular-nums shadow-none outline-none transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
 
 type BottomStageBarProps = {
   frames: DesignerFrame[]
@@ -68,10 +76,7 @@ export function BottomStageBar({
   }
 
   return (
-    <div
-      ref={fitChromeRef}
-      className="relative z-20 shrink-0 border-t border-border bg-background/90 backdrop-blur-md"
-    >
+    <div ref={fitChromeRef} className="relative z-20 shrink-0">
       <div className="flex items-center justify-between gap-4 px-4 py-2">
         <div className="flex min-w-0 items-center gap-1">
           <Tooltip>
@@ -91,40 +96,57 @@ export function BottomStageBar({
             <TooltipContent>Previous page</TooltipContent>
           </Tooltip>
 
-          <div
-            className="flex min-w-0 scrollbar-thin items-center gap-1 overflow-x-auto"
-            role="tablist"
-            aria-label="Pages"
-          >
-            {frames.map((frame, index) => {
-              const isActive = frame.id === activeFrameId
-              const label = frame.name.trim() || `Page ${index + 1}`
+          <div className="flex min-w-0 scrollbar-thin overflow-x-auto">
+            <div
+              className={cn(
+                "rounded-squircle flex items-stretch bg-muted p-0.5 [corner-shape:round]",
+                settingsControlHeightClassName
+              )}
+              role="tablist"
+              aria-label="Pages"
+            >
+              <SlidingNavIndicator
+                activeIndex={activeIndex >= 0 ? activeIndex : null}
+                variant="segmented"
+                className="flex h-full min-h-0 items-stretch"
+              >
+                {frames.map((frame, index) => {
+                  const isActive = frame.id === activeFrameId
+                  const pageNumber = index + 1
+                  const isSingleDigit = pageNumber < 10
+                  const label = frame.name.trim() || `Page ${pageNumber}`
 
-              return (
-                <Tooltip key={frame.id}>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      role="tab"
-                      aria-selected={isActive}
-                      aria-label={label}
-                      className={cn(
-                        "shrink-0 px-2.5 font-medium tabular-nums ring-1 transition-shadow ring-inset",
-                        isActive
-                          ? "bg-active text-active-foreground ring-black/10 hover:bg-active/90 dark:ring-white/10"
-                          : "text-muted-foreground ring-transparent"
-                      )}
-                      onClick={() => onSelectFrame(frame.id)}
+                  return (
+                    <SlidingNavItem
+                      key={frame.id}
+                      className="flex h-full min-h-0 items-stretch"
                     >
-                      {index + 1}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{label}</TooltipContent>
-                </Tooltip>
-              )
-            })}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={isActive}
+                            aria-label={label}
+                            className={cn(
+                              pageTabTriggerClassName,
+                              isSingleDigit ? "aspect-square px-0" : "px-2.5",
+                              isActive
+                                ? "text-foreground"
+                                : "text-foreground/70"
+                            )}
+                            onClick={() => onSelectFrame(frame.id)}
+                          >
+                            {pageNumber}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>{label}</TooltipContent>
+                      </Tooltip>
+                    </SlidingNavItem>
+                  )
+                })}
+              </SlidingNavIndicator>
+            </div>
           </div>
 
           <Tooltip>

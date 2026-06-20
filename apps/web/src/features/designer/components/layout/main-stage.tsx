@@ -82,7 +82,7 @@ export function MainStage({
   }
 
   return (
-    <main className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+    <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[18px] bg-stage-canvas">
       <FloatingChrome
         position="top-right"
         variant="frosted"

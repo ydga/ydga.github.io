@@ -1,6 +1,7 @@
 import { RotateCw } from "lucide-react"
 
 import {
+  formatDimensionsLabel,
   getPresetCategoryForSettings,
   getPresetsForIntent,
   isPresetActive,
@@ -91,7 +92,11 @@ export function PresetsSection({
             <FramePresetCard
               key={preset.id}
               label={preset.label}
-              description={preset.description}
+              tooltip={formatDimensionsLabel(
+                preset.width,
+                preset.height,
+                preset.unit
+              )}
               aspectRatio={preset.aspectRatio}
               active={isPresetActive(
                 preset,

@@ -171,23 +171,23 @@ export const FramePresetGrid: Story = {
     const [activeId, setActiveId] = useState("portrait")
 
     const screenPresets = [
-      { id: "post", label: "Post", description: "1080 × 1080", aspectRatio: 1 },
+      { id: "post", label: "Post", tooltip: "1080 × 1080 px", aspectRatio: 1 },
       {
         id: "portrait",
         label: "Portrait",
-        description: "1080 × 1350",
+        tooltip: "1080 × 1350 px",
         aspectRatio: 1080 / 1350,
       },
       {
         id: "landscape",
         label: "Landscape",
-        description: "1080 × 566",
+        tooltip: "1080 × 566 px",
         aspectRatio: 1080 / 566,
       },
       {
         id: "story",
         label: "Story",
-        description: "1080 × 1920",
+        tooltip: "1080 × 1920 px",
         aspectRatio: 1080 / 1920,
       },
     ]
@@ -196,26 +196,38 @@ export const FramePresetGrid: Story = {
       {
         id: "letter",
         label: "Letter",
-        description: "21.6 × 27.9 cm",
+        tooltip: "21.6 × 27.9 cm",
         aspectRatio: 21.59 / 27.94,
+      },
+      {
+        id: "legal",
+        label: "Legal",
+        tooltip: "21.6 × 35.6 cm",
+        aspectRatio: 21.59 / 35.56,
       },
       {
         id: "a4",
         label: "A4",
-        description: "21 × 29.7 cm",
+        tooltip: "21 × 29.7 cm",
         aspectRatio: 21 / 29.7,
       },
       {
-        id: "a5",
-        label: "A5",
-        description: "14.8 × 21 cm",
-        aspectRatio: 14.8 / 21,
+        id: "tabloid",
+        label: "Tabloid",
+        tooltip: "27.9 × 43.2 cm",
+        aspectRatio: 27.94 / 43.18,
       },
       {
         id: "4x6",
         label: "4×6",
-        description: "10.2 × 15.2 cm",
+        tooltip: "10.2 × 15.2 cm",
         aspectRatio: 10.16 / 15.24,
+      },
+      {
+        id: "5x7",
+        label: "5×7",
+        tooltip: "12.7 × 17.8 cm",
+        aspectRatio: 12.7 / 17.78,
       },
     ]
 
@@ -229,7 +241,7 @@ export const FramePresetGrid: Story = {
             <FramePresetCard
               key={preset.id}
               label={preset.label}
-              description={preset.description}
+              tooltip={preset.tooltip}
               aspectRatio={preset.aspectRatio}
               active={activeId === preset.id}
               onSelect={() => setActiveId(preset.id)}
@@ -279,23 +291,23 @@ export const FullCanvasPanel: Story = {
     const [activeId, setActiveId] = useState("portrait")
 
     const presets = [
-      { id: "post", label: "Post", description: "1080 × 1080", aspectRatio: 1 },
+      { id: "post", label: "Post", tooltip: "1080 × 1080 px", aspectRatio: 1 },
       {
         id: "portrait",
         label: "Portrait",
-        description: "1080 × 1350",
+        tooltip: "1080 × 1350 px",
         aspectRatio: 1080 / 1350,
       },
       {
         id: "landscape",
         label: "Landscape",
-        description: "1080 × 566",
+        tooltip: "1080 × 566 px",
         aspectRatio: 1080 / 566,
       },
       {
         id: "story",
         label: "Story",
-        description: "1080 × 1920",
+        tooltip: "1080 × 1920 px",
         aspectRatio: 1080 / 1920,
       },
     ]
@@ -335,7 +347,7 @@ export const FullCanvasPanel: Story = {
               <FramePresetCard
                 key={preset.id}
                 label={preset.label}
-                description={preset.description}
+                tooltip={preset.tooltip}
                 aspectRatio={preset.aspectRatio}
                 active={activeId === preset.id}
                 onSelect={() => setActiveId(preset.id)}
