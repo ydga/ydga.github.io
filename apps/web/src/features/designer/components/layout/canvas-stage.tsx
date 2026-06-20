@@ -794,6 +794,7 @@ export function CanvasStage({
               startY={normalizedShapeFill.gradientStartY}
               endX={normalizedShapeFill.gradientEndX}
               endY={normalizedShapeFill.gradientEndY}
+              pointerPassthrough
               onStopsChange={handleShapeGradientStopsChange}
               onStartChange={handleShapeGradientStartChange}
               onEndChange={handleShapeGradientEndChange}

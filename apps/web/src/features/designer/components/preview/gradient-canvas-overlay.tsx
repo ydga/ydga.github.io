@@ -34,6 +34,8 @@ type GradientCanvasOverlayProps = {
   onStopsChange: (stops: GradientStop[]) => void
   onStartChange: (x: number, y: number) => void
   onEndChange: (x: number, y: number) => void
+  /** When true, only the gradient line and stops capture pointers so layers below can be dragged. */
+  pointerPassthrough?: boolean
 }
 
 function pointerToPercent(
@@ -107,6 +109,7 @@ export function GradientCanvasOverlay({
   onStopsChange,
   onStartChange,
   onEndChange,
+  pointerPassthrough = false,
 }: GradientCanvasOverlayProps) {
   const stopsRef = useRef(stops)
   const axisRef = useRef({ startX, startY, endX, endY })
@@ -197,7 +200,9 @@ export function GradientCanvasOverlay({
     [activeStopId, stops, updateStops]
   )
 
-  const handleLinePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+  const handleLinePointerDown = (
+    event: React.PointerEvent<HTMLDivElement | SVGLineElement>
+  ) => {
     event.preventDefault()
     event.stopPropagation()
     closeColorPicker()
@@ -207,24 +212,26 @@ export function GradientCanvasOverlay({
       return
     }
 
-    const { x1, y1, x2, y2 } = axisEndpointsPx(
-      bounds,
-      startX,
-      startY,
-      endX,
-      endY
-    )
-    const distance = distanceToSegmentPx(
-      event.clientX,
-      event.clientY,
-      x1,
-      y1,
-      x2,
-      y2
-    )
+    if (!pointerPassthrough) {
+      const { x1, y1, x2, y2 } = axisEndpointsPx(
+        bounds,
+        startX,
+        startY,
+        endX,
+        endY
+      )
+      const distance = distanceToSegmentPx(
+        event.clientX,
+        event.clientY,
+        x1,
+        y1,
+        x2,
+        y2
+      )
 
-    if (distance > LINE_HIT_TOLERANCE_PX) {
-      return
+      if (distance > LINE_HIT_TOLERANCE_PX) {
+        return
+      }
     }
 
     const { x, y } = pointerToPercent(event.clientX, event.clientY, bounds)
@@ -370,10 +377,12 @@ export function GradientCanvasOverlay({
       className="pointer-events-none absolute inset-0 z-20"
       onClick={(event) => event.stopPropagation()}
     >
-      <div
-        className="pointer-events-auto absolute inset-0 z-0"
-        onPointerDown={handleLinePointerDown}
-      />
+      {!pointerPassthrough ? (
+        <div
+          className="pointer-events-auto absolute inset-0 z-0"
+          onPointerDown={handleLinePointerDown}
+        />
+      ) : null}
 
       <svg
         className="pointer-events-none absolute inset-0 size-full mix-blend-difference"
@@ -381,6 +390,20 @@ export function GradientCanvasOverlay({
         preserveAspectRatio="none"
         aria-hidden
       >
+        {pointerPassthrough ? (
+          <line
+            x1={startX}
+            y1={startY}
+            x2={endX}
+            y2={endY}
+            stroke="transparent"
+            strokeWidth={LINE_HIT_TOLERANCE_PX * 2}
+            vectorEffect="non-scaling-stroke"
+            className="pointer-events-auto cursor-crosshair"
+            style={{ pointerEvents: "stroke" }}
+            onPointerDown={handleLinePointerDown}
+          />
+        ) : null}
         <line
           x1={startX}
           y1={startY}
@@ -389,6 +412,7 @@ export function GradientCanvasOverlay({
           stroke="#ffffff"
           strokeWidth={2.8}
           vectorEffect="non-scaling-stroke"
+          pointerEvents="none"
         />
       </svg>
 
