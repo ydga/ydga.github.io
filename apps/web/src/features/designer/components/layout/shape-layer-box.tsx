@@ -198,7 +198,6 @@ function ShapeFillBackground({
       <g clipPath={`url(#${clipId})`} opacity={opacity}>
         <foreignObject x={0} y={0} width={width} height={height}>
           <div
-            xmlns="http://www.w3.org/1999/xhtml"
             style={{
               width: "100%",
               height: "100%",

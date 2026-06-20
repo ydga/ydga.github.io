@@ -6,6 +6,8 @@ import type { BackgroundSettings } from "@/features/designer/model/types"
 /** How {@link TextLayer.letterSpacing} is stored: trim-space `px` or `em` (relative to font size). */
 export type TextLayerLetterSpacingUnit = "px" | "em"
 
+export type ShapeType = "circle" | "square" | "triangle" | "line"
+
 export type TextLayer = {
   id: string
   frameId: string

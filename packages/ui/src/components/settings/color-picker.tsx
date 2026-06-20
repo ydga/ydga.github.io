@@ -38,7 +38,9 @@ function loadRecentColors(): string[] {
 function saveRecentColors(colors: string[]): void {
   try {
     localStorage.setItem(RECENT_COLORS_KEY, JSON.stringify(colors))
-  } catch {}
+  } catch {
+    // Ignore storage quota or private-mode failures.
+  }
 }
 
 function addToRecent(colors: string[], color: string): string[] {
