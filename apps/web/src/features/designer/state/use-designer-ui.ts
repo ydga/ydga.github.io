@@ -85,10 +85,13 @@ export function useDesignerUi() {
 
   /** Keep the context panel in sync with canvas element selection. */
   useEffect(() => {
-    if (selection.kind === "element") {
+    if (selection.kind !== "element") {
+      return
+    }
+    queueMicrotask(() => {
       setPanelMode("document")
       setPanelOpen(true)
-    }
+    })
   }, [selection])
 
   const zoomFit = useCallback(() => {

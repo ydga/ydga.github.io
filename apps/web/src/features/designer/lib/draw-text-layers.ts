@@ -177,7 +177,7 @@ export function drawTextLayersOnContext(
         underline,
         strikethrough,
       })
-      lineY += lineAdvanceTrimPx(context, layer, line, softWrap)
+      lineY += lineAdvanceTrimPx(context, layer)
     }
 
     context.restore()

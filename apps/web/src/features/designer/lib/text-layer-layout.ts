@@ -162,9 +162,7 @@ export function textLayerTextBlockHeightTrimPx(
 /** Vertical advance after drawing one line (same trim px as {@link textLayerTextBlockHeightTrimPx}). */
 export function lineAdvanceTrimPx(
   ctx: CanvasRenderingContext2D,
-  layer: TextLayer,
-  _line: string,
-  _softWrap: boolean
+  layer: TextLayer
 ): number {
   return textLineHeightTrimPx(layer, ctx)
 }

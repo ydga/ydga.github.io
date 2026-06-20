@@ -313,7 +313,9 @@ export function TextLayerBox({
 
   useEffect(() => {
     if (!isSelected) {
-      setTextEditing(false)
+      queueMicrotask(() => {
+        setTextEditing(false)
+      })
     }
   }, [isSelected])
 
@@ -337,15 +339,17 @@ export function TextLayerBox({
     if (textLayerIdToBeginTyping !== layer.id) {
       return
     }
-    setTextEditing(true)
-    requestAnimationFrame(() => {
+    queueMicrotask(() => {
+      setTextEditing(true)
       requestAnimationFrame(() => {
-        const node = textareaRef.current
-        if (node) {
-          node.focus({ preventScroll: true })
-          node.select()
-        }
-        onTextLayerBeginTypingHandled()
+        requestAnimationFrame(() => {
+          const node = textareaRef.current
+          if (node) {
+            node.focus({ preventScroll: true })
+            node.select()
+          }
+          onTextLayerBeginTypingHandled()
+        })
       })
     })
   }, [layer.id, onTextLayerBeginTypingHandled, textLayerIdToBeginTyping])
