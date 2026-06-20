@@ -148,33 +148,35 @@
   body {
     @apply bg-background text-base text-foreground;
   }
-  button:not([data-slot="switch"]):not([data-slot="toggle"]):not(
-      [data-slot="toggle-group-item"]
-    ) {
-    corner-shape: squircle;
-  }
-
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
 
-  [data-slot="button"]:not([data-variant="iconTile"]),
-  [data-slot="input-group-button"] {
-    corner-shape: squircle;
-  }
+  @supports (corner-shape: squircle) {
+    button:not([data-slot="switch"]):not([data-slot="toggle"]):not(
+        [data-slot="toggle-group-item"]
+      ) {
+      corner-shape: squircle;
+    }
 
-  [data-slot="button"][data-variant="iconTile"],
-  [data-slot="toggle"][data-variant="tile"],
-  [data-slot="toggle-group-item"][data-variant="tile"] {
-    corner-shape: squircle;
-  }
+    [data-slot="button"]:not([data-variant="iconTile"]),
+    [data-slot="input-group-button"] {
+      corner-shape: squircle;
+    }
 
-  [data-slot="toggle"]:not([data-variant="tile"]),
-  [data-slot="toggle-group-item"]:not([data-variant="tile"]),
-  [data-slot="switch"],
-  [data-slot="switch-thumb"] {
-    corner-shape: round;
+    [data-slot="button"][data-variant="iconTile"],
+    [data-slot="toggle"][data-variant="tile"],
+    [data-slot="toggle-group-item"][data-variant="tile"] {
+      corner-shape: squircle;
+    }
+
+    [data-slot="toggle"]:not([data-variant="tile"]),
+    [data-slot="toggle-group-item"]:not([data-variant="tile"]),
+    [data-slot="switch"],
+    [data-slot="switch-thumb"] {
+      corner-shape: round;
+    }
   }
 }
 
@@ -189,9 +191,16 @@
     @apply font-mono text-xs leading-4 tabular-nums;
   }
 
+  /* squircle: ~iOS-icon rounding as a safe fallback for browsers without corner-shape */
   .rounded-squircle {
-    border-radius: 9999px;
+    border-radius: 28%;
     corner-shape: squircle;
+  }
+
+  @supports (corner-shape: squircle) {
+    .rounded-squircle {
+      border-radius: 9999px;
+    }
   }
 
   .scrollbar-thin {
