@@ -8,6 +8,8 @@ import {
   AlignVerticalJustifyStart,
   ArrowLeftRight,
   ArrowUpDown,
+  CaseLower,
+  CaseUpper,
   Lock,
   Square,
   Strikethrough,
@@ -15,6 +17,7 @@ import {
   UnfoldHorizontal,
   UnfoldVertical,
 } from "lucide-react"
+import { PanelIconTileToggle } from "@workspace/ui/components/settings/panel-icon-tile-toggle"
 
 import type {
   TextLayer,
@@ -41,6 +44,7 @@ import {
   resolveTextLayerOpacity,
   resolveTextLayerSizing,
   resolveTextLayerTextAlign,
+  resolveTextLayerTextTransform,
   resolveTextLayerVerticalAlign,
 } from "@/features/designer/model/text-layer-style"
 import { TextLayerFontFamilyPicker } from "@/features/designer/components/settings/text-layer-font-family-picker"
@@ -62,6 +66,7 @@ import {
 import type { SlidingSegmentedTabItem } from "@workspace/ui/components/settings/sliding-segmented-tabs"
 import { SlidingSegmentedTabs } from "@workspace/ui/components/settings/sliding-segmented-tabs"
 import {
+  panelIconClassName,
   panelSectionClassName,
   settingsControlHeightClassName,
   settingsControlLineHeightClassName,
@@ -72,10 +77,6 @@ import {
   settingsNumericTextClassName,
 } from "@workspace/ui/components/settings/settings-field-styles"
 import { useScrubNumber } from "@workspace/ui/components/settings/use-scrub-number"
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@workspace/ui/components/toggle-group"
 import { normalizeHexColor } from "@workspace/ui/lib/color-utils"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -276,6 +277,12 @@ export function TextLayerSettingsPanel({
   const verticalAlign = resolveTextLayerVerticalAlign(layer)
   const color = resolveTextLayerColor(layer)
   const opacity = Math.round(resolveTextLayerOpacity(layer) * 100)
+  const decoration = layer.textStrikethrough
+    ? "strike"
+    : layer.textUnderline
+      ? "underline"
+      : "normal"
+  const textTransform = resolveTextLayerTextTransform(layer)
   const sizing = resolveTextLayerSizing(layer)
   const maintainAspect = resolveTextLayerMaintainBoundsAspect(layer)
   const fixedSizing = sizing === "fixed"
@@ -487,9 +494,6 @@ export function TextLayerSettingsPanel({
             </InputGroup>
           </div>
         </div>
-      </SettingSection>
-
-      <SettingSection title="Spacing">
         <div className="flex min-w-0 gap-2">
           <InputGroup
             className={settingsInputGroupClasses(
@@ -616,42 +620,73 @@ export function TextLayerSettingsPanel({
             />
           </InputGroup>
         </div>
-      </SettingSection>
+        <div className="flex w-full items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PanelIconTileToggle
+                aria-label="Underline"
+                pressed={decoration === "underline"}
+                onPressedChange={(on) =>
+                  onUpdate({
+                    textUnderline: on,
+                    textStrikethrough: on ? false : layer.textStrikethrough,
+                  })
+                }
+              >
+                <Underline className={panelIconClassName} />
+              </PanelIconTileToggle>
+            </TooltipTrigger>
+            <TooltipContent side="top">Underline</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PanelIconTileToggle
+                aria-label="Strikethrough"
+                pressed={decoration === "strike"}
+                onPressedChange={(on) =>
+                  onUpdate({
+                    textStrikethrough: on,
+                    textUnderline: on ? false : layer.textUnderline,
+                  })
+                }
+              >
+                <Strikethrough className={panelIconClassName} />
+              </PanelIconTileToggle>
+            </TooltipTrigger>
+            <TooltipContent side="top">Strikethrough</TooltipContent>
+          </Tooltip>
 
-      <SettingSection title="Decoration">
-        <ToggleGroup
-          type="multiple"
-          variant="tile"
-          size="icon"
-          className="w-full"
-          value={[
-            ...(layer.textUnderline ? (["underline"] as const) : []),
-            ...(layer.textStrikethrough ? (["strike"] as const) : []),
-          ]}
-          onValueChange={(next) => {
-            onUpdate({
-              textUnderline: next.includes("underline"),
-              textStrikethrough: next.includes("strike"),
-            })
-          }}
-        >
-          <ToggleGroupItem
-            value="underline"
-            size="icon"
-            className="flex-1"
-            aria-label="Underline"
-          >
-            <Underline className="size-3.5" aria-hidden />
-          </ToggleGroupItem>
-          <ToggleGroupItem
-            value="strike"
-            size="icon"
-            className="flex-1"
-            aria-label="Strikethrough"
-          >
-            <Strikethrough className="size-3.5" aria-hidden />
-          </ToggleGroupItem>
-        </ToggleGroup>
+          <div className="mx-1 h-4 w-px shrink-0 bg-border" />
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PanelIconTileToggle
+                aria-label="All caps"
+                pressed={textTransform === "uppercase"}
+                onPressedChange={(on) =>
+                  onUpdate({ textTransform: on ? "uppercase" : "none" })
+                }
+              >
+                <CaseUpper className={panelIconClassName} />
+              </PanelIconTileToggle>
+            </TooltipTrigger>
+            <TooltipContent side="top">All caps</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PanelIconTileToggle
+                aria-label="Lowercase"
+                pressed={textTransform === "lowercase"}
+                onPressedChange={(on) =>
+                  onUpdate({ textTransform: on ? "lowercase" : "none" })
+                }
+              >
+                <CaseLower className={panelIconClassName} />
+              </PanelIconTileToggle>
+            </TooltipTrigger>
+            <TooltipContent side="top">Lowercase</TooltipContent>
+          </Tooltip>
+        </div>
       </SettingSection>
 
       <SettingSection title="Align">

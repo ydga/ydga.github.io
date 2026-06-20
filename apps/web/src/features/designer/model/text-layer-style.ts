@@ -285,3 +285,23 @@ export function resolveTextLayerTextDecorationLine(layer: TextLayer): string {
   }
   return "none"
 }
+
+/** Resolved CSS `text-transform` value. Defaults to `"none"`. */
+export function resolveTextLayerTextTransform(
+  layer: TextLayer
+): "none" | "uppercase" | "lowercase" {
+  const v = layer.textTransform
+  if (v === "uppercase" || v === "lowercase") return v
+  return "none"
+}
+
+/**
+ * Returns the display string for a text layer, applying any `textTransform`
+ * so the canvas (which doesn't support CSS text-transform) renders correctly.
+ */
+export function applyTextTransform(text: string, layer: TextLayer): string {
+  const t = resolveTextLayerTextTransform(layer)
+  if (t === "uppercase") return text.toUpperCase()
+  if (t === "lowercase") return text.toLowerCase()
+  return text
+}

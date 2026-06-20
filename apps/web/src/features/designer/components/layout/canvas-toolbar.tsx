@@ -81,7 +81,11 @@ export function CanvasToolbar({
                     aria-pressed={active}
                     onClick={() => {
                       ui.setCanvasTool("select")
-                      ui.togglePanelView(view)
+                      if (view === "document") {
+                        ui.selectPageAndOpen(ui.selection.pageId)
+                      } else {
+                        ui.togglePanelView(view)
+                      }
                     }}
                   >
                     <Icon />

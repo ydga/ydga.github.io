@@ -13,7 +13,7 @@ export function SettingSection({
   className,
 }: SettingSectionProps) {
   return (
-    <section className={cn("flex flex-col gap-3", className)}>
+    <section className={cn("flex flex-col gap-3 py-5 first:pt-0", className)}>
       <h3 className={settingsLabelClassName}>{title}</h3>
       {children}
     </section>

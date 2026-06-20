@@ -34,6 +34,7 @@ import {
   resolveTextLayerMaintainBoundsAspect,
   resolveTextLayerOpacity,
   resolveTextLayerSizing,
+  resolveTextLayerTextTransform,
   resolveTextLayerTextAlign,
   resolveTextLayerTextDecorationLine,
   resolveTextLayerVerticalAlign,
@@ -797,6 +798,7 @@ export function TextLayerBox({
           color,
           textAlign: resolveTextLayerTextAlign(layer),
           textDecorationLine: resolveTextLayerTextDecorationLine(layer),
+          textTransform: resolveTextLayerTextTransform(layer),
           letterSpacing: resolveTextLayerLetterSpacingCss(layer),
           // Match canvas `textBaseline: "top"` + `verticalTextOffsetTrimPx`: no extra rem padding
           // (asymmetric pb used to pull middle alignment off center).

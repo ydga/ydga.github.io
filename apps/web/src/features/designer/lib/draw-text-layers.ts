@@ -6,6 +6,7 @@ import {
   verticalTextOffsetTrimPx,
 } from "@/features/designer/lib/text-layer-layout"
 import {
+  applyTextTransform,
   resolveTextLayerClip,
   resolveTextLayerColor,
   resolveTextLayerCanvasFont,
@@ -135,7 +136,12 @@ export function drawTextLayersOnContext(
     const verticalAlign = resolveTextLayerVerticalAlign(layer)
     const underline = resolveTextLayerUnderline(layer)
     const strikethrough = resolveTextLayerStrikethrough(layer)
-    const lines = buildDisplayLines(context, layer.text, maxWidth, softWrap)
+    const lines = buildDisplayLines(
+      context,
+      applyTextTransform(layer.text, layer),
+      maxWidth,
+      softWrap
+    )
 
     const clipPad = softWrap ? 0 : 3
 

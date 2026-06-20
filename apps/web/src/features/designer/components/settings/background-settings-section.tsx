@@ -35,10 +35,8 @@ import {
   settingsColorSwatchTriggerClassName,
   settingsFieldClassName,
 } from "@workspace/ui/components/settings/settings-field-styles"
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@workspace/ui/components/toggle-group"
+import type { SlidingSegmentedTabItem } from "@workspace/ui/components/settings/sliding-segmented-tabs"
+import { SlidingSegmentedTabs } from "@workspace/ui/components/settings/sliding-segmented-tabs"
 import {
   Tooltip,
   TooltipContent,
@@ -48,6 +46,33 @@ import { normalizeHexColor } from "@workspace/ui/lib/color-utils"
 import { cn } from "@workspace/ui/lib/utils"
 
 const backgroundPopoverContentClassName = "w-44 gap-2.5 rounded-3xl p-2.5"
+
+const BACKGROUND_TYPE_ITEMS: SlidingSegmentedTabItem[] = [
+  {
+    value: "color",
+    ariaLabel: "Solid color",
+    tooltip: "Color",
+    content: <Palette className="size-3.5" aria-hidden />,
+  },
+  {
+    value: "gradient",
+    ariaLabel: "Gradient",
+    tooltip: "Gradient",
+    content: <Blend className="size-3.5" aria-hidden />,
+  },
+  {
+    value: "image",
+    ariaLabel: "Image",
+    tooltip: "Image",
+    content: <ImageIcon className="size-3.5" aria-hidden />,
+  },
+  {
+    value: "transparent",
+    ariaLabel: "Transparent",
+    tooltip: "Transparent",
+    content: <SquareDashed className="size-3.5" aria-hidden />,
+  },
+]
 
 const backgroundSummaryFieldClassName = cn(
   settingsFieldClassName,
@@ -152,51 +177,15 @@ function BackgroundTypeToggle({
   onChange: (value: BackgroundType) => void
 }) {
   return (
-    <ToggleGroup
-      type="single"
-      variant="tile"
-      size="icon"
-      className="w-full"
+    <SlidingSegmentedTabs
       value={value}
       onValueChange={(next) => {
         if (isBackgroundType(next)) {
           onChange(next)
         }
       }}
-    >
-      <ToggleGroupItem
-        value="color"
-        size="icon"
-        className="flex-1"
-        aria-label="Solid color"
-      >
-        <Palette className="size-3.5" />
-      </ToggleGroupItem>
-      <ToggleGroupItem
-        value="gradient"
-        size="icon"
-        className="flex-1"
-        aria-label="Gradient"
-      >
-        <Blend className="size-3.5" />
-      </ToggleGroupItem>
-      <ToggleGroupItem
-        value="image"
-        size="icon"
-        className="flex-1"
-        aria-label="Image"
-      >
-        <ImageIcon className="size-3.5" />
-      </ToggleGroupItem>
-      <ToggleGroupItem
-        value="transparent"
-        size="icon"
-        className="flex-1"
-        aria-label="Transparent"
-      >
-        <SquareDashed className="size-3.5" />
-      </ToggleGroupItem>
-    </ToggleGroup>
+      items={BACKGROUND_TYPE_ITEMS}
+    />
   )
 }
 

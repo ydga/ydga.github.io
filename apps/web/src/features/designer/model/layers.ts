@@ -46,6 +46,8 @@ export type TextLayer = {
   textUnderline?: boolean
   /** CSS `text-decoration-line: line-through` when true. */
   textStrikethrough?: boolean
+  /** CSS `text-transform`: `"uppercase"` | `"lowercase"` | `"none"` (default). */
+  textTransform?: "none" | "uppercase" | "lowercase"
   /** When false, text may draw outside the box (editor + export). Default true. */
   clip?: boolean
   /**
@@ -77,6 +79,7 @@ export type TextLayerUpdatePatch = Partial<
     | "verticalAlign"
     | "textUnderline"
     | "textStrikethrough"
+    | "textTransform"
     | "clip"
     | "maintainBoundsAspect"
   >

@@ -6,7 +6,6 @@ import {
 import { GuidesSettingsSection } from "@/features/designer/components/settings/guides-settings-section"
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
-import { Separator } from "@workspace/ui/components/separator"
 import { panelSectionClassName } from "@workspace/ui/components/settings/settings-field-styles"
 
 type PageSettingsPanelProps = {
@@ -23,15 +22,12 @@ export function PageSettingsPanel({
   return (
     <div className={panelSectionClassName}>
       <CanvasSettingsSection settings={settings} dispatch={dispatch} />
-      <Separator />
       <BackgroundSettingsSection
         settings={settings}
         dispatch={dispatch}
         onImageUpload={onImageUpload}
       />
-      <Separator />
       <PresetsSection settings={settings} dispatch={dispatch} />
-      <Separator />
       <GuidesSettingsSection settings={settings} dispatch={dispatch} />
     </div>
   )
