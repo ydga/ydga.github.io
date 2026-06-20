@@ -188,7 +188,7 @@ export function verticalTextOffsetTrimPx(
 
 /**
  * Bounding box in trim pixels (same rules as export draw).
- * When `softWrap` is false (`hug`), lines break only at newline characters and
+ * When `softWrap` is false (`auto-width`), lines break only at newline characters and
  * both width and height follow that content (width is not capped by `maxWrapWidthPx`).
  */
 export function measureTextLayerContentBox(

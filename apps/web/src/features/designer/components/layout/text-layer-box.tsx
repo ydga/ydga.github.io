@@ -29,7 +29,10 @@ import {
   resolveTextLayerFontFamily,
   resolveTextLayerFontSizePx,
   resolveTextLayerFontWeight,
+  resolveTextLayerLetterSpacingCss,
   resolveTextLayerLineHeightUnit,
+  resolveTextLayerMaintainBoundsAspect,
+  resolveTextLayerOpacity,
   resolveTextLayerSizing,
   resolveTextLayerTextAlign,
   resolveTextLayerTextDecorationLine,
@@ -239,6 +242,72 @@ function applyResize(
   return applyCornerResize(handle, px, py, start, trimW, trimH)
 }
 
+/**
+ * When bounds aspect is locked, edge handles reuse {@link applyCornerResize} so
+ * sizing, trim clamps, and `k = min(rawW/sw, rawH/sh)` match corners. The moving
+ * edge’s primary axis (width for e/w, height for n/s) drives the gesture; the
+ * other coordinate is filled in along the start rect’s diagonal so mid-edge
+ * drags do not skew scale the way a raw corner mapping would.
+ */
+function applyEdgeResizeUniformScale(
+  handle: "n" | "s" | "e" | "w",
+  px: number,
+  py: number,
+  start: { x: number; y: number; w: number; h: number },
+  trimW: number,
+  trimH: number
+): { x: number; y: number; w: number; h: number } {
+  const { x: sx, y: sy, w: sw, h: sh } = start
+  if (sw <= 0 || sh <= 0 || !Number.isFinite(sw) || !Number.isFinite(sh)) {
+    return {
+      x: sx,
+      y: sy,
+      w: Math.max(MIN_W_TRIM, sw),
+      h: Math.max(MIN_H_TRIM, sh),
+    }
+  }
+
+  const right = sx + sw
+  const bottom = sy + sh
+
+  switch (handle) {
+    case "e": {
+      const cy = sy + ((px - sx) * sh) / sw
+      return applyCornerResize("se", px, cy, start, trimW, trimH)
+    }
+    case "s": {
+      const cx = sx + ((py - sy) * sw) / sh
+      return applyCornerResize("se", cx, py, start, trimW, trimH)
+    }
+    case "w": {
+      const cy = bottom - ((right - px) * sh) / sw
+      return applyCornerResize("nw", px, cy, start, trimW, trimH)
+    }
+    case "n": {
+      const cx = sx + ((bottom - py) * sw) / sh
+      return applyCornerResize("ne", cx, py, start, trimW, trimH)
+    }
+  }
+}
+
+function applyResizeWithAspectLock(
+  handle: ResizeHandle,
+  px: number,
+  py: number,
+  start: { x: number; y: number; w: number; h: number },
+  trimW: number,
+  trimH: number,
+  uniformScale: boolean
+): { x: number; y: number; w: number; h: number } {
+  if (!uniformScale) {
+    return applyResize(handle, px, py, start, trimW, trimH)
+  }
+  if (handle === "n" || handle === "s" || handle === "e" || handle === "w") {
+    return applyEdgeResizeUniformScale(handle, px, py, start, trimW, trimH)
+  }
+  return applyCornerResize(handle, px, py, start, trimW, trimH)
+}
+
 export function TextLayerBox({
   layer,
   displayScale,
@@ -263,10 +332,16 @@ export function TextLayerBox({
 
   const boxHeightTrim = layer.height
   const sizing = resolveTextLayerSizing(layer)
+  const uniformResizeRef = useRef(false)
+  const uniformScale =
+    resolveTextLayerMaintainBoundsAspect(layer) && sizing === "fixed"
+  useLayoutEffect(() => {
+    uniformResizeRef.current = uniformScale
+  })
   const chromeActive = isSelected
   const clipToBounds = resolveTextLayerClip(layer)
 
-  const softWrapForDisplay = sizing === "fixed"
+  const softWrapForDisplay = sizing === "fixed" || sizing === "auto-height"
   const dragStripScreenPx = Math.max(10, 10 * displayScale)
 
   const textVerticalOffsetTrim = useMemo(() => {
@@ -355,27 +430,33 @@ export function TextLayerBox({
   }, [layer.id, onTextLayerBeginTypingHandled, textLayerIdToBeginTyping])
 
   useLayoutEffect(() => {
-    if (sizing !== "hug") {
+    if (sizing === "fixed") {
       return
     }
 
-    const maxWrap = Math.max(MIN_W_TRIM, trimWidthPx - layer.x)
     const maxH = Math.max(MIN_H_TRIM, trimHeightPx - layer.y)
-    const measured = measureTextLayerContentBox(
-      layer,
-      sizing === "hug" ? Number.POSITIVE_INFINITY : maxWrap,
-      sizing !== "hug"
-    )
-    const width =
-      sizing === "hug" ? measured.width : Math.min(measured.width, maxWrap)
-    const height =
-      sizing === "hug" ? measured.height : Math.min(measured.height, maxH)
 
-    if (
-      Math.abs(width - layer.width) > 0.5 ||
-      Math.abs(height - layer.height) > 0.5
-    ) {
-      onUpdate({ width, height })
+    if (sizing === "auto-width") {
+      const measured = measureTextLayerContentBox(
+        layer,
+        Number.POSITIVE_INFINITY,
+        false
+      )
+      const width = measured.width
+      const height = measured.height
+      if (
+        Math.abs(width - layer.width) > 0.5 ||
+        Math.abs(height - layer.height) > 0.5
+      ) {
+        onUpdate({ width, height })
+      }
+      return
+    }
+
+    const measured = measureTextLayerContentBox(layer, layer.width, true)
+    const height = Math.min(measured.height, maxH)
+    if (Math.abs(height - layer.height) > 0.5) {
+      onUpdate({ height })
     }
   }, [
     layer.color,
@@ -460,7 +541,7 @@ export function TextLayerBox({
         return
       }
 
-      const next = applyResize(
+      const next = applyResizeWithAspectLock(
         session.handle,
         px,
         py,
@@ -471,7 +552,8 @@ export function TextLayerBox({
           h: session.startH,
         },
         trimWidthPx,
-        trimHeightPx
+        trimHeightPx,
+        uniformResizeRef.current
       )
 
       let nx = clamp(next.x, 0, trimWidthPx - next.w)
@@ -569,7 +651,7 @@ export function TextLayerBox({
     event.preventDefault()
     setTextEditing(false)
     onSelect()
-    if (resolveTextLayerSizing(layer) === "hug") {
+    if (resolveTextLayerSizing(layer) !== "fixed") {
       onUpdate({ textSizing: "fixed" })
     }
     dragRef.current = {
@@ -629,6 +711,7 @@ export function TextLayerBox({
         width,
         height,
         zIndex,
+        opacity: resolveTextLayerOpacity(layer),
       }}
       aria-label={
         isSelected
@@ -696,7 +779,7 @@ export function TextLayerBox({
           "absolute right-0 left-0 z-[25] box-border w-full resize-none border-0 bg-transparent px-0.5 py-0 outline-none focus-visible:ring-0",
           !clipToBounds &&
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-          sizing === "hug" && "whitespace-pre"
+          sizing === "auto-width" && "whitespace-pre"
         )}
         style={{
           top: 0,
@@ -714,6 +797,7 @@ export function TextLayerBox({
           color,
           textAlign: resolveTextLayerTextAlign(layer),
           textDecorationLine: resolveTextLayerTextDecorationLine(layer),
+          letterSpacing: resolveTextLayerLetterSpacingCss(layer),
           // Match canvas `textBaseline: "top"` + `verticalTextOffsetTrimPx`: no extra rem padding
           // (asymmetric pb used to pull middle alignment off center).
           paddingTop: `${textVerticalOffsetTrim * displayScale}px`,

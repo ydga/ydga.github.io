@@ -10,6 +10,8 @@ import {
   resolveTextLayerColor,
   resolveTextLayerCanvasFont,
   resolveTextLayerFontSizePx,
+  resolveTextLayerLetterSpacingCss,
+  resolveTextLayerOpacity,
   resolveTextLayerSizing,
   resolveTextLayerStrikethrough,
   resolveTextLayerTextAlign,
@@ -117,12 +119,17 @@ export function drawTextLayersOnContext(
 
     context.font = resolveTextLayerCanvasFont(layer)
     context.fillStyle = fill
+    context.globalAlpha = resolveTextLayerOpacity(layer)
+    // `letterSpacing` is supported in all modern browsers (Chrome 94+, Safari 17+, Firefox 95+).
+    ;(
+      context as CanvasRenderingContext2D & { letterSpacing?: string }
+    ).letterSpacing = resolveTextLayerLetterSpacingCss(layer)
 
     const x = trimOffsetPx + layer.x
     const y = trimOffsetPx + layer.y
     const maxWidth = Math.max(32, layer.width)
     const clipH = Math.max(MIN_H_TRIM, layer.height)
-    const softWrap = resolveTextLayerSizing(layer) === "fixed"
+    const softWrap = resolveTextLayerSizing(layer) !== "auto-width"
     const shouldClip = resolveTextLayerClip(layer)
     const textAlign = resolveTextLayerTextAlign(layer)
     const verticalAlign = resolveTextLayerVerticalAlign(layer)

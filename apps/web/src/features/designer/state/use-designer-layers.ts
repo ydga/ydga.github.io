@@ -51,7 +51,7 @@ export function useDesignerLayers() {
       fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
       color: DEFAULT_TEXT_COLOR,
       lineHeightUnit: "auto",
-      textSizing: explicitBounds ? "fixed" : "hug",
+      textSizing: explicitBounds ? "fixed" : "auto-width",
     }
 
     setLayers((prev) => {

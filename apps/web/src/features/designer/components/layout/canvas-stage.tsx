@@ -465,9 +465,9 @@ export function CanvasStage({
       <div
         aria-hidden
         className={cn(
-          "pointer-events-none absolute inset-0 shadow-lg ring-1 transition-shadow",
+          "pointer-events-none absolute inset-0 shadow-lg ring-1 transition-shadow ring-inset",
           isPageSelected
-            ? "ring-2 ring-primary/40"
+            ? "ring-black/10 dark:ring-white/10"
             : "ring-foreground/10 group-hover/frame-chrome:ring-foreground/20"
         )}
       />

@@ -111,10 +111,10 @@ export function BottomStageBar({
                       aria-selected={isActive}
                       aria-label={label}
                       className={cn(
-                        "shrink-0 px-2.5 font-medium tabular-nums",
+                        "shrink-0 px-2.5 font-medium tabular-nums ring-1 transition-shadow ring-inset",
                         isActive
-                          ? "bg-active text-active-foreground hover:bg-active/90"
-                          : "text-muted-foreground"
+                          ? "bg-active text-active-foreground ring-black/10 hover:bg-active/90 dark:ring-white/10"
+                          : "text-muted-foreground ring-transparent"
                       )}
                       onClick={() => onSelectFrame(frame.id)}
                     >

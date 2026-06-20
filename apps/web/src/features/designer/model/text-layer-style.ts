@@ -1,5 +1,6 @@
 import type {
   TextLayer,
+  TextLayerLetterSpacingUnit,
   TextLayerLineHeightUnit,
 } from "@/features/designer/model/layers"
 
@@ -48,7 +49,7 @@ export const MAX_TEXT_LINE_HEIGHT_EM = 6
 export const MIN_TEXT_LINE_HEIGHT_PX = 1
 export const MAX_TEXT_LINE_HEIGHT_PX = 2000
 
-export type TextLayerSizing = "hug" | "fixed"
+export type TextLayerSizing = "auto-width" | "auto-height" | "fixed"
 
 export const TEXT_LAYER_FONT_PRESETS: ReadonlyArray<{
   label: string
@@ -129,7 +130,14 @@ export function resolveTextLayerColor(layer: TextLayer): string {
 }
 
 export function resolveTextLayerSizing(layer: TextLayer): TextLayerSizing {
-  return layer.textSizing === "hug" ? "hug" : "fixed"
+  const raw = layer.textSizing
+  if (raw === "hug" || raw === "auto-width") {
+    return "auto-width"
+  }
+  if (raw === "auto-height") {
+    return "auto-height"
+  }
+  return "fixed"
 }
 
 export function resolveTextLayerLineHeightUnit(
@@ -228,6 +236,38 @@ export function resolveTextLayerStrikethrough(layer: TextLayer): boolean {
 /** When true (default), text is clipped to the layer bounds in preview and export. */
 export function resolveTextLayerClip(layer: TextLayer): boolean {
   return layer.clip !== false
+}
+
+export function resolveTextLayerMaintainBoundsAspect(
+  layer: TextLayer
+): boolean {
+  return layer.maintainBoundsAspect === true
+}
+
+/** Layer opacity as a 0–1 fraction (CSS-ready). Default is 1 (fully opaque). */
+export function resolveTextLayerOpacity(layer: TextLayer): number {
+  const v = layer.opacity
+  if (v == null || !Number.isFinite(v)) return 1
+  return Math.min(1, Math.max(0, v / 100))
+}
+
+export function resolveTextLayerLetterSpacingUnit(
+  layer: TextLayer
+): TextLayerLetterSpacingUnit {
+  return layer.letterSpacingUnit === "em" ? "em" : "px"
+}
+
+/** Resolved letter-spacing value in its stored unit. 0 means no spacing. */
+export function resolveTextLayerLetterSpacingValue(layer: TextLayer): number {
+  const v = layer.letterSpacing
+  return v != null && Number.isFinite(v) ? v : 0
+}
+
+/** CSS `letter-spacing` string (`"0px"`, `"2px"`, `"0.05em"`, …). */
+export function resolveTextLayerLetterSpacingCss(layer: TextLayer): string {
+  const unit = resolveTextLayerLetterSpacingUnit(layer)
+  const v = resolveTextLayerLetterSpacingValue(layer)
+  return `${v}${unit}`
 }
 
 /** Value for CSS `text-decoration-line` (editor preview). */

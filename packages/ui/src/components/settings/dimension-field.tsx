@@ -39,6 +39,10 @@ type DimensionFieldProps = {
   onHeightChange: (value: number) => void
   className?: string
   disabled?: boolean
+  /** Overrides `disabled` for the width control only. */
+  disabledWidth?: boolean
+  /** Overrides `disabled` for the height control only. */
+  disabledHeight?: boolean
 }
 
 type DimensionInputProps = {
@@ -142,15 +146,19 @@ export function DimensionField({
   onHeightChange,
   className,
   disabled,
+  disabledWidth,
+  disabledHeight,
 }: DimensionFieldProps) {
   const unitLabel = unit ?? null
   const wMin = minWidth ?? min
   const hMin = minHeight ?? min
   const wMax = maxWidth ?? max
   const hMax = maxHeight ?? max
+  const widthDisabled = disabledWidth ?? disabled
+  const heightDisabled = disabledHeight ?? disabled
 
   return (
-    <div className={cn("flex min-w-0 flex-1 items-center gap-1.5", className)}>
+    <div className={cn("flex min-w-0 flex-1 items-center gap-2", className)}>
       <DimensionInput
         label="W"
         tooltip="Width"
@@ -160,7 +168,7 @@ export function DimensionField({
         step={step}
         ariaLabel="Width"
         onChange={onWidthChange}
-        disabled={disabled}
+        disabled={widthDisabled}
       />
       <DimensionInput
         label="H"
@@ -171,7 +179,7 @@ export function DimensionField({
         step={step}
         ariaLabel="Height"
         onChange={onHeightChange}
-        disabled={disabled}
+        disabled={heightDisabled}
       />
       {unitLabel ? (
         <span className="shrink-0 text-xs font-medium text-muted-foreground">

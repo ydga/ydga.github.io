@@ -1,4 +1,5 @@
 import { cn } from "@workspace/ui/lib/utils"
+import { settingsLabelClassName } from "@workspace/ui/components/settings/settings-field-styles"
 
 type SettingSectionProps = {
   title: string
@@ -13,7 +14,7 @@ export function SettingSection({
 }: SettingSectionProps) {
   return (
     <section className={cn("flex flex-col gap-3", className)}>
-      <h3 className="text-xs font-medium text-foreground">{title}</h3>
+      <h3 className={settingsLabelClassName}>{title}</h3>
       {children}
     </section>
   )
