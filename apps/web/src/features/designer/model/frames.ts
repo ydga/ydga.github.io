@@ -51,20 +51,6 @@ export function frameHasElements(frame: DesignerFrame, layers: Layer[]) {
   return frame.settings.background.imageSrc !== null
 }
 
-export function syncCanvasToolForFrameElements(
-  hasElements: boolean,
-  actions: {
-    selectPointerTool: () => void
-    selectTextTool: () => void
-  }
-) {
-  if (hasElements) {
-    actions.selectPointerTool()
-  } else {
-    actions.selectTextTool()
-  }
-}
-
 export function moveFrame(
   frames: DesignerFrame[],
   frameId: string,

@@ -9,6 +9,7 @@ import {
   settingsInlineLabelClassName,
   settingsInputGroupClasses,
   settingsControlLineHeightClassName,
+  settingsLabelClassName,
   settingsNumberFieldClassName,
   settingsNumericTextClassName,
 } from "./settings-field-styles"
@@ -37,6 +38,8 @@ type DimensionFieldProps = {
   step?: number
   onWidthChange: (value: number) => void
   onHeightChange: (value: number) => void
+  /** Row label above width/height inputs. Pass `null` when a parent section already uses it. */
+  label?: string | null
   className?: string
   disabled?: boolean
   /** Overrides `disabled` for the width control only. */
@@ -144,6 +147,7 @@ export function DimensionField({
   step = 1,
   onWidthChange,
   onHeightChange,
+  label = "Dimensions",
   className,
   disabled,
   disabledWidth,
@@ -158,34 +162,37 @@ export function DimensionField({
   const heightDisabled = disabledHeight ?? disabled
 
   return (
-    <div className={cn("flex min-w-0 flex-1 items-center gap-2", className)}>
-      <DimensionInput
-        label="W"
-        tooltip="Width"
-        value={width}
-        min={wMin}
-        max={wMax}
-        step={step}
-        ariaLabel="Width"
-        onChange={onWidthChange}
-        disabled={widthDisabled}
-      />
-      <DimensionInput
-        label="H"
-        tooltip="Height"
-        value={height}
-        min={hMin}
-        max={hMax}
-        step={step}
-        ariaLabel="Height"
-        onChange={onHeightChange}
-        disabled={heightDisabled}
-      />
-      {unitLabel ? (
-        <span className="shrink-0 text-xs font-medium text-muted-foreground">
-          {unitLabel}
-        </span>
-      ) : null}
+    <div className={cn("flex flex-col gap-2", className)}>
+      {label ? <span className={settingsLabelClassName}>{label}</span> : null}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <DimensionInput
+          label="W"
+          tooltip="Width"
+          value={width}
+          min={wMin}
+          max={wMax}
+          step={step}
+          ariaLabel="Width"
+          onChange={onWidthChange}
+          disabled={widthDisabled}
+        />
+        <DimensionInput
+          label="H"
+          tooltip="Height"
+          value={height}
+          min={hMin}
+          max={hMax}
+          step={step}
+          ariaLabel="Height"
+          onChange={onHeightChange}
+          disabled={heightDisabled}
+        />
+        {unitLabel ? (
+          <span className="shrink-0 text-xs font-medium text-muted-foreground">
+            {unitLabel}
+          </span>
+        ) : null}
+      </div>
     </div>
   )
 }

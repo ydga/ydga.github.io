@@ -7,6 +7,8 @@ import {
   type CanvasTool,
   type PanelMode,
   type Selection,
+  type ShapeVariant,
+  type ToolbarTool,
   type ZoomMode,
 } from "@/features/designer/model/ui-types"
 
@@ -23,9 +25,10 @@ export function useDesignerUi() {
     DEFAULT_FRAME_ID
   )
   const [panelOpen, setPanelOpen] = useState(true)
-  const [panelMode, setPanelMode] = useState<PanelMode>("document")
+  const [panelMode, setPanelMode] = useState<PanelMode>("layers")
+  const [toolbarTool, setToolbarTool] = useState<ToolbarTool>("pointer")
   const [canvasTool, setCanvasToolState] = useState<CanvasTool>("select")
-  const [textToolEngaged, setTextToolEngaged] = useState(false)
+  const [shapeVariant, setShapeVariant] = useState<ShapeVariant>("square")
   const [zoomMode, setZoomMode] = useState<ZoomMode>("fit")
   const [manualZoom, setManualZoom] = useState(1)
   const [fitScale, setFitScaleState] = useState(1)
@@ -61,28 +64,54 @@ export function useDesignerUi() {
     []
   )
 
+  const selectToolbarTool = useCallback(
+    (tool: ToolbarTool, pageId: string = DEFAULT_FRAME_ID) => {
+      setToolbarTool(tool)
+
+      if (tool === "pointer") {
+        setCanvasToolState("select")
+        return
+      }
+
+      if (tool === "text") {
+        setCanvasToolState("text")
+        return
+      }
+
+      if (tool === "shape") {
+        setCanvasToolState("shape")
+        return
+      }
+
+      setCanvasToolState("select")
+      setPanelMode(tool)
+      setPanelOpen(true)
+
+      if (tool === "document") {
+        setFrameEngagedId(pageId)
+        setSelection({ kind: "page", pageId })
+      }
+    },
+    []
+  )
+
   const selectTextTool = useCallback(() => {
-    setTextToolEngaged(true)
-    setCanvasToolState("text")
-  }, [])
+    selectToolbarTool("text")
+  }, [selectToolbarTool])
+
+  const selectShapeTool = useCallback(
+    (variant?: ShapeVariant) => {
+      if (variant) {
+        setShapeVariant(variant)
+      }
+      selectToolbarTool("shape")
+    },
+    [selectToolbarTool]
+  )
 
   const selectPointerTool = useCallback(() => {
-    setTextToolEngaged(false)
-    setCanvasToolState("select")
-  }, [])
-
-  /** Switch to select for editing without leaving the text tool active in the toolbar. */
-  const pauseTextPlacement = useCallback(() => {
-    setCanvasToolState("select")
-  }, [])
-
-  const toggleCanvasTool = useCallback((tool: CanvasTool) => {
-    setCanvasToolState((current) => {
-      const next = current === tool ? "select" : tool
-      setTextToolEngaged(next === "text")
-      return next
-    })
-  }, [])
+    selectToolbarTool("pointer")
+  }, [selectToolbarTool])
 
   const selectPageAndOpen = useCallback((pageId: string = DEFAULT_FRAME_ID) => {
     setFrameEngagedId(pageId)
@@ -108,16 +137,23 @@ export function useDesignerUi() {
     setManualZoom(clampZoom(value))
   }, [])
 
-  /** Keep the context panel in sync with canvas element selection. */
+  /** Keep the context panel in sync with toolbar tool and canvas selection. */
   useEffect(() => {
-    if (selection.kind !== "element") {
-      return
-    }
     queueMicrotask(() => {
+      if (toolbarTool === "pointer") {
+        setPanelMode(selection.kind === "page" ? "layers" : "document")
+        setPanelOpen(true)
+        return
+      }
+
+      if (selection.kind !== "element") {
+        return
+      }
+
       setPanelMode("document")
       setPanelOpen(true)
     })
-  }, [selection])
+  }, [toolbarTool, selection])
 
   const zoomFit = useCallback(() => {
     setZoomMode("fit")
@@ -130,12 +166,14 @@ export function useDesignerUi() {
     selectElement,
     toggleElementSelection,
     selectPageAndOpen,
+    toolbarTool,
+    selectToolbarTool,
     canvasTool,
-    textToolEngaged,
-    toggleCanvasTool,
+    shapeVariant,
+    setShapeVariant,
     selectTextTool,
+    selectShapeTool,
     selectPointerTool,
-    pauseTextPlacement,
     panelOpen,
     setPanelOpen,
     panelMode,

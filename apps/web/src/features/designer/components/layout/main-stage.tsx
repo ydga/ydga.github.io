@@ -5,9 +5,10 @@ import { CanvasViewport } from "@/features/designer/components/layout/canvas-vie
 import { CanvasToolbar } from "@/features/designer/components/layout/canvas-toolbar"
 import { FloatingChrome } from "@/features/designer/components/layout/floating-chrome"
 import { frameHasElements } from "@/features/designer/model/frames"
+import { getLayersForFrame } from "@/features/designer/model/layers"
 import type {
   Layer,
-  TextLayer,
+  ShapeLayerUpdatePatch,
   TextLayerUpdatePatch,
 } from "@/features/designer/model/layers"
 import type { DesignerFrames } from "@/features/designer/state/use-designer-frames"
@@ -28,8 +29,16 @@ type MainStageProps = {
     trimWidth?: number,
     trimHeight?: number
   ) => void
+  onPlaceShape: (
+    trimX: number,
+    trimY: number,
+    trimWidth: number,
+    trimHeight: number
+  ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
+  onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
   onSelectTextLayer: (layerId: string) => void
+  onSelectShapeLayer: (layerId: string) => void
   textLayerIdToBeginTyping: string | null
   onTextLayerBeginTypingHandled: () => void
 }
@@ -44,8 +53,11 @@ export function MainStage({
   onDuplicateFrame,
   onRemoveFrame,
   onPlaceText,
+  onPlaceShape,
   onUpdateTextLayer,
+  onUpdateShapeLayer,
   onSelectTextLayer,
+  onSelectShapeLayer,
   textLayerIdToBeginTyping,
   onTextLayerBeginTypingHandled,
 }: MainStageProps) {
@@ -56,12 +68,13 @@ export function MainStage({
     frames.frames.find((frame) => frame.id === frames.activeFrameId) ??
     frames.frames[0]!
 
-  const activeFrameTextLayers = useMemo(() => {
-    return layers.filter(
-      (layer): layer is TextLayer =>
-        layer.kind === "text" && layer.frameId === activeFrame.id
-    )
+  const activeFrameLayers = useMemo(() => {
+    return getLayersForFrame(layers, activeFrame.id)
   }, [layers, activeFrame.id])
+
+  const activeFrameTextLayers = useMemo(() => {
+    return activeFrameLayers.filter((layer) => layer.kind === "text")
+  }, [activeFrameLayers])
 
   function handleCanvasPageSelect(frameId: string) {
     onSelectFrame(frameId)
@@ -79,6 +92,7 @@ export function MainStage({
         position="top-right"
         variant="frosted"
         fitChromeRef={toolbarChromeRef}
+        innerClassName="overflow-visible"
       >
         <CanvasToolbar ui={ui} />
       </FloatingChrome>
@@ -98,12 +112,17 @@ export function MainStage({
         toolbarChromeRef={toolbarChromeRef}
         bottomChromeRef={bottomChromeRef}
         canvasTool={ui.canvasTool}
+        shapeVariant={ui.shapeVariant}
         selection={ui.selection}
         frameEngagedId={ui.frameEngagedId}
+        frameLayers={activeFrameLayers}
         textLayers={activeFrameTextLayers}
         onPlaceText={onPlaceText}
+        onPlaceShape={onPlaceShape}
         onUpdateTextLayer={onUpdateTextLayer}
+        onUpdateShapeLayer={onUpdateShapeLayer}
         onSelectTextLayer={onSelectTextLayer}
+        onSelectShapeLayer={onSelectShapeLayer}
         textLayerIdToBeginTyping={textLayerIdToBeginTyping}
         onTextLayerBeginTypingHandled={onTextLayerBeginTypingHandled}
       />

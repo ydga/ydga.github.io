@@ -1,6 +1,8 @@
 /** How {@link TextLayer.lineHeight} is interpreted: `em` relative to font size, trim-space `px`, or `auto` (browser/canvas metrics). */
 export type TextLayerLineHeightUnit = "px" | "em" | "auto"
 
+import type { BackgroundSettings } from "@/features/designer/model/types"
+
 /** How {@link TextLayer.letterSpacing} is stored: trim-space `px` or `em` (relative to font size). */
 export type TextLayerLetterSpacingUnit = "px" | "em"
 
@@ -38,6 +40,8 @@ export type TextLayer = {
   verticalAlign?: "top" | "middle" | "bottom"
   /** Layer opacity 0–100 (default 100 = fully opaque). */
   opacity?: number
+  /** When false, layer is hidden on canvas and export. Default true. */
+  visible?: boolean
   /** Letter spacing value (in `letterSpacingUnit`; default 0 px). */
   letterSpacing?: number
   /** Unit for {@link TextLayer.letterSpacing}. Defaults to `"px"`. */
@@ -72,6 +76,7 @@ export type TextLayerUpdatePatch = Partial<
     | "lineHeight"
     | "lineHeightUnit"
     | "opacity"
+    | "visible"
     | "letterSpacing"
     | "letterSpacingUnit"
     | "textSizing"
@@ -85,7 +90,44 @@ export type TextLayerUpdatePatch = Partial<
   >
 >
 
-export type Layer = TextLayer
+export type ShapeLayer = {
+  id: string
+  frameId: string
+  kind: "shape"
+  name: string
+  shapeType: ShapeType
+  x: number
+  y: number
+  width: number
+  height: number
+  /** Fill for closed shapes; solid, gradient, image, or transparent. Ignored for lines. */
+  fill?: BackgroundSettings | string
+  /** Stroke color; primary color for lines. */
+  stroke?: string
+  /** Stroke width in trim-space pixels. */
+  strokeWidth?: number
+  /** Layer opacity 0–100 (default 100 = fully opaque). */
+  opacity?: number
+  /** When false, layer is hidden on canvas and export. Default true. */
+  visible?: boolean
+}
+
+export type ShapeLayerUpdatePatch = Partial<
+  Pick<
+    ShapeLayer,
+    | "x"
+    | "y"
+    | "width"
+    | "height"
+    | "fill"
+    | "stroke"
+    | "strokeWidth"
+    | "opacity"
+    | "visible"
+  >
+>
+
+export type Layer = TextLayer | ShapeLayer
 
 const TEXT_LAYER_LABEL_MAX = 28
 
@@ -103,6 +145,10 @@ export function textLayerDisplayName(text: string) {
 
 export function isTextLayer(layer: Layer): layer is TextLayer {
   return layer.kind === "text"
+}
+
+export function isShapeLayer(layer: Layer): layer is ShapeLayer {
+  return layer.kind === "shape"
 }
 
 export function getLayersForFrame(layers: Layer[], frameId: string) {

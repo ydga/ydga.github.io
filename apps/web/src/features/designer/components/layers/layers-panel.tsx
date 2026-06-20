@@ -1,7 +1,13 @@
 import { Layers } from "lucide-react"
 
 import { LayerList } from "@/features/designer/components/layers/layer-list"
-import { getLayersForFrame, type Layer } from "@/features/designer/model/layers"
+import {
+  getLayersForFrame,
+  type Layer,
+  type ShapeLayerUpdatePatch,
+  type TextLayerUpdatePatch,
+} from "@/features/designer/model/layers"
+import { resolveLayerVisible } from "@/features/designer/model/shape-layer-style"
 import type { DesignerUi } from "@/features/designer/state/use-designer-ui"
 
 type LayersPanelProps = {
@@ -9,6 +15,9 @@ type LayersPanelProps = {
   frameId: string
   layers: Layer[]
   onReorder: (frameId: string, fromIndex: number, toIndex: number) => void
+  onUpdateLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
+  onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
+  onRemoveLayer: (layerId: string) => void
 }
 
 export function LayersPanel({
@@ -16,6 +25,9 @@ export function LayersPanel({
   frameId,
   layers,
   onReorder,
+  onUpdateLayer,
+  onUpdateShapeLayer,
+  onRemoveLayer,
 }: LayersPanelProps) {
   const frameLayers = getLayersForFrame(layers, frameId)
   const selectedLayerId =
@@ -37,32 +49,52 @@ export function LayersPanel({
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-[11px] text-muted-foreground">
-        Top of the list draws above layers below.
-      </p>
-      <LayerList
-        layers={frameLayers}
-        onReorder={(fromIndex, toIndex) =>
-          onReorder(frameId, fromIndex, toIndex)
-        }
-        selectedLayerId={selectedLayerId}
-        onSelectLayer={(layerId) => {
-          const willDeselect =
-            ui.selection.kind === "element" &&
-            ui.selection.pageId === frameId &&
-            ui.selection.elementId === layerId
+    <LayerList
+      layers={frameLayers}
+      onReorder={(fromIndex, toIndex) => onReorder(frameId, fromIndex, toIndex)}
+      selectedLayerId={selectedLayerId}
+      onSelectLayer={(layerId) => {
+        const willDeselect =
+          ui.selection.kind === "element" &&
+          ui.selection.pageId === frameId &&
+          ui.selection.elementId === layerId
 
-          ui.toggleElementSelection(frameId, layerId)
+        ui.toggleElementSelection(frameId, layerId)
 
-          if (willDeselect) {
-            const active = document.activeElement
-            if (active instanceof HTMLElement) {
-              active.blur()
-            }
+        if (willDeselect) {
+          const active = document.activeElement
+          if (active instanceof HTMLElement) {
+            active.blur()
           }
-        }}
-      />
-    </div>
+        }
+      }}
+      onToggleVisibility={(layerId) => {
+        const layer = frameLayers.find((item) => item.id === layerId)
+        if (!layer) {
+          return
+        }
+
+        if (layer.kind === "text") {
+          onUpdateLayer(layerId, {
+            visible: !resolveLayerVisible(layer),
+          })
+          return
+        }
+
+        onUpdateShapeLayer(layerId, {
+          visible: !resolveLayerVisible(layer),
+        })
+      }}
+      onRemoveLayer={(layerId) => {
+        if (
+          ui.selection.kind === "element" &&
+          ui.selection.elementId === layerId
+        ) {
+          ui.selectPage(frameId)
+        }
+
+        onRemoveLayer(layerId)
+      }}
+    />
   )
 }

@@ -251,6 +251,11 @@ export function resolveTextLayerOpacity(layer: TextLayer): number {
   return Math.min(1, Math.max(0, v / 100))
 }
 
+/** Whether the layer is shown on canvas and export. Default true. */
+export function resolveTextLayerVisible(layer: TextLayer): boolean {
+  return layer.visible !== false
+}
+
 export function resolveTextLayerLetterSpacingUnit(
   layer: TextLayer
 ): TextLayerLetterSpacingUnit {

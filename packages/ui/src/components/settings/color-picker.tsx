@@ -216,6 +216,9 @@ type ColorPickerFieldProps = {
   className?: string
   swatchClassName?: string
   onOpenChange?: (open: boolean) => void
+  triggerVariant?: "swatch" | "line"
+  /** Preview thickness for `triggerVariant="line"` (trim-space px). */
+  lineWidth?: number
 }
 
 export function ColorPickerField({
@@ -227,6 +230,8 @@ export function ColorPickerField({
   className,
   swatchClassName,
   onOpenChange,
+  triggerVariant = "swatch",
+  lineWidth = 2,
 }: ColorPickerFieldProps) {
   const normalizedValue = normalizeHexColor(value)
   const [recentColors, setRecentColors] = useState<string[]>(loadRecentColors)
@@ -246,6 +251,8 @@ export function ColorPickerField({
     saveRecentColors(next)
   }
 
+  const previewLineHeight = Math.max(1, Math.min(lineWidth, 6))
+
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <Popover modal={false} onOpenChange={handleOpenChange}>
@@ -253,12 +260,28 @@ export function ColorPickerField({
           <button
             type="button"
             aria-label={swatchLabel}
-            className={cn(settingsColorSwatchTriggerClassName, swatchClassName)}
+            className={cn(
+              settingsColorSwatchTriggerClassName,
+              triggerVariant === "line" &&
+                "flex items-center justify-center px-1",
+              swatchClassName
+            )}
           >
-            <span
-              className="pointer-events-none absolute inset-0"
-              style={{ backgroundColor: normalizedValue }}
-            />
+            {triggerVariant === "line" ? (
+              <span
+                aria-hidden
+                className="block w-full"
+                style={{
+                  height: previewLineHeight,
+                  backgroundColor: normalizedValue,
+                }}
+              />
+            ) : (
+              <span
+                className="pointer-events-none absolute inset-0"
+                style={{ backgroundColor: normalizedValue }}
+              />
+            )}
           </button>
         </PopoverTrigger>
         <PopoverContent

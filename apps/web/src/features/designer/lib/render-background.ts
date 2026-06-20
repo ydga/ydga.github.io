@@ -136,6 +136,39 @@ export async function renderBackground(
   }
 }
 
+export async function renderBackgroundInRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  background: BackgroundSettings
+): Promise<void> {
+  context.save()
+  context.translate(x, y)
+  await renderBackground(context, width, height, background)
+  context.restore()
+}
+
+export async function renderBackgroundInClip(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  background: BackgroundSettings,
+  clipPath: () => void
+): Promise<void> {
+  if (background.type === "transparent") {
+    return
+  }
+
+  context.save()
+  context.beginPath()
+  clipPath()
+  context.clip()
+  await renderBackground(context, width, height, background)
+  context.restore()
+}
+
 export function getBackgroundFallbackColor(background: BackgroundSettings) {
   if (background.type === "transparent") {
     return null

@@ -8,6 +8,8 @@ import { getExportDimensions } from "@/features/designer/lib/dimensions"
 import { shouldShowBleedPreview } from "@/features/designer/lib/render-background"
 import type { DesignerFrame } from "@/features/designer/model/frames"
 import type {
+  Layer,
+  ShapeLayerUpdatePatch,
   TextLayer,
   TextLayerUpdatePatch,
 } from "@/features/designer/model/layers"
@@ -15,6 +17,7 @@ import {
   ZOOM_WHEEL_SENSITIVITY,
   type CanvasTool,
   type Selection,
+  type ShapeVariant,
   type ZoomMode,
 } from "@/features/designer/model/ui-types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
@@ -35,8 +38,10 @@ type CanvasViewportProps = {
   toolbarChromeRef: React.RefObject<HTMLElement | null>
   bottomChromeRef: React.RefObject<HTMLElement | null>
   canvasTool: CanvasTool
+  shapeVariant: ShapeVariant
   selection: Selection
   frameEngagedId: string | null
+  frameLayers: Layer[]
   textLayers: TextLayer[]
   onPlaceText: (
     trimX: number,
@@ -44,8 +49,16 @@ type CanvasViewportProps = {
     trimWidth?: number,
     trimHeight?: number
   ) => void
+  onPlaceShape: (
+    trimX: number,
+    trimY: number,
+    trimWidth: number,
+    trimHeight: number
+  ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
+  onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
   onSelectTextLayer: (layerId: string) => void
+  onSelectShapeLayer: (layerId: string) => void
   textLayerIdToBeginTyping: string | null
   onTextLayerBeginTypingHandled: () => void
 }
@@ -65,12 +78,17 @@ export function CanvasViewport({
   toolbarChromeRef,
   bottomChromeRef,
   canvasTool,
+  shapeVariant,
   selection,
   frameEngagedId,
+  frameLayers,
   textLayers,
   onPlaceText,
+  onPlaceShape,
   onUpdateTextLayer,
+  onUpdateShapeLayer,
   onSelectTextLayer,
+  onSelectShapeLayer,
   textLayerIdToBeginTyping,
   onTextLayerBeginTypingHandled,
 }: CanvasViewportProps) {
@@ -95,13 +113,12 @@ export function CanvasViewport({
   const {
     pan,
     isDragging,
-    canPan,
     onPointerDown,
     onPointerMove,
     onPointerUp,
     onPointerCancel,
   } = useStagePan({
-    enabled: !isFitZoom && canvasTool !== "text",
+    enabled: !isFitZoom && canvasTool !== "text" && canvasTool !== "shape",
     resetKey: `${activeFrame.id}:${isFitZoom ? "fit" : "manual"}`,
   })
 
@@ -151,7 +168,9 @@ export function CanvasViewport({
           anyTextLayerAllowsPaintOverflow
             ? "overflow-visible"
             : "overflow-hidden",
-          canPan && (isDragging ? "cursor-grabbing" : "cursor-grab")
+          canvasTool !== "text" &&
+            canvasTool !== "shape" &&
+            (isDragging ? "cursor-grabbing" : "cursor-default")
         )}
         style={{ padding: safeAreaInset }}
         onPointerDown={onPointerDown}
@@ -197,11 +216,16 @@ export function CanvasViewport({
               }
               frameId={activeFrame.id}
               canvasTool={canvasTool}
+              shapeVariant={shapeVariant}
               selection={selection}
+              frameLayers={frameLayers}
               textLayers={textLayers}
               onPlaceText={onPlaceText}
+              onPlaceShape={onPlaceShape}
               onUpdateTextLayer={onUpdateTextLayer}
+              onUpdateShapeLayer={onUpdateShapeLayer}
               onSelectTextLayer={onSelectTextLayer}
+              onSelectShapeLayer={onSelectShapeLayer}
               textLayerIdToBeginTyping={textLayerIdToBeginTyping}
               onTextLayerBeginTypingHandled={onTextLayerBeginTypingHandled}
             />

@@ -15,6 +15,7 @@ import {
   snapTextLayerBoxTrimPx,
 } from "@/features/designer/lib/guide-snap"
 import { normalizeBackgroundGradient } from "@/features/designer/lib/gradient-stops"
+import { backgroundSettingsReducer } from "@/features/designer/lib/background-settings-reducer"
 import { getPreviewGuideGeometry } from "@/features/designer/lib/print-zones"
 import {
   paintBackgroundFallback,
@@ -23,18 +24,34 @@ import {
   shouldShowBleedPreview,
 } from "@/features/designer/lib/render-background"
 import { TextLayerBox } from "@/features/designer/components/layout/text-layer-box"
+import { ShapeLayerBox } from "@/features/designer/components/layout/shape-layer-box"
 import type {
+  Layer,
+  ShapeLayerUpdatePatch,
   TextLayer,
   TextLayerUpdatePatch,
 } from "@/features/designer/model/layers"
+import {
+  resolveShapeLayerFillBackground,
+  resolveShapeLayerVisible,
+} from "@/features/designer/model/shape-layer-style"
+import { resolveTextLayerVisible } from "@/features/designer/model/text-layer-style"
+import type { ShapeVariant } from "@/features/designer/model/ui-types"
 import { cn } from "@workspace/ui/lib/utils"
 
 const MIN_PLACE_TEXT_W = 48
 const MIN_PLACE_TEXT_H = 36
+const MIN_PLACE_SHAPE_W = 8
+const MIN_PLACE_SHAPE_H = 8
 const TEXT_PLACE_TAP_TRIM_PX = 4
 /** Defaults for tap-to-place text; keep aligned with `useDesignerLayers` `addTextLayer`. */
 const DEFAULT_NEW_TEXT_W_TRIM = 200
 const DEFAULT_NEW_TEXT_H_TRIM = 72
+/** Defaults for tap-to-place shapes. */
+const DEFAULT_NEW_SHAPE_W_TRIM = 80
+const DEFAULT_NEW_SHAPE_H_TRIM = 80
+const DEFAULT_NEW_LINE_W_TRIM = 120
+const DEFAULT_NEW_LINE_H_TRIM = 4
 
 type PlacementPreview = {
   x: number
@@ -81,12 +98,45 @@ function clampPlacementRect(
   return { x, y, w, h }
 }
 
+function placementRectFromDrag(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  trimW: number,
+  trimH: number,
+  square: boolean
+): PlacementPreview {
+  if (!square) {
+    return clampPlacementRect(x0, y0, x1, y1, trimW, trimH)
+  }
+
+  const dx = x1 - x0
+  const dy = y1 - y0
+  const size = Math.max(Math.abs(dx), Math.abs(dy), 1)
+  const sx = dx === 0 ? 1 : Math.sign(dx)
+  const sy = dy === 0 ? 1 : Math.sign(dy)
+
+  return clampPlacementRect(
+    x0,
+    y0,
+    x0 + sx * size,
+    y0 + sy * size,
+    trimW,
+    trimH
+  )
+}
+
 function isNonElementFrameTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
     return false
   }
 
   if (target.closest("[data-designer-text-box]")) {
+    return false
+  }
+
+  if (target.closest("[data-designer-shape-box]")) {
     return false
   }
 
@@ -109,7 +159,9 @@ type CanvasStageProps = {
   onGradientEndChange?: (x: number, y: number) => void
   frameId: string
   canvasTool: CanvasTool
+  shapeVariant: ShapeVariant
   selection: Selection
+  frameLayers: Layer[]
   textLayers: TextLayer[]
   onPlaceText: (
     trimX: number,
@@ -117,8 +169,16 @@ type CanvasStageProps = {
     trimWidth?: number,
     trimHeight?: number
   ) => void
+  onPlaceShape: (
+    trimX: number,
+    trimY: number,
+    trimWidth: number,
+    trimHeight: number
+  ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
+  onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
   onSelectTextLayer: (layerId: string) => void
+  onSelectShapeLayer: (layerId: string) => void
   textLayerIdToBeginTyping: string | null
   onTextLayerBeginTypingHandled: () => void
 }
@@ -135,19 +195,25 @@ export function CanvasStage({
   onGradientEndChange,
   frameId,
   canvasTool,
+  shapeVariant,
   selection,
+  frameLayers,
   textLayers,
   onPlaceText,
+  onPlaceShape,
   onUpdateTextLayer,
+  onUpdateShapeLayer,
   onSelectTextLayer,
+  onSelectShapeLayer,
   textLayerIdToBeginTyping,
   onTextLayerBeginTypingHandled,
 }: CanvasStageProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const frameRef = useRef<HTMLDivElement | null>(null)
+  const shapeGradientBoundsRef = useRef<HTMLDivElement | null>(null)
   const textAreaRefs = useRef(new Map<string, HTMLTextAreaElement | null>())
-  /** Clicks that immediately follow text placement would otherwise bubble here and clear the new text selection. */
-  const suppressFrameClickAfterTextPlaceRef = useRef(false)
+  /** Clicks that immediately follow placement would otherwise bubble here and clear the new selection. */
+  const suppressFrameClickAfterPlaceRef = useRef(false)
   const suppressFrameClickTimerRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null)
@@ -195,14 +261,14 @@ export function CanvasStage({
     [registerCanvas]
   )
 
-  function armSuppressFrameClickAfterTextPlace() {
-    suppressFrameClickAfterTextPlaceRef.current = true
+  function armSuppressFrameClickAfterPlace() {
+    suppressFrameClickAfterPlaceRef.current = true
     if (suppressFrameClickTimerRef.current != null) {
       clearTimeout(suppressFrameClickTimerRef.current)
     }
     suppressFrameClickTimerRef.current = setTimeout(() => {
       suppressFrameClickTimerRef.current = null
-      suppressFrameClickAfterTextPlaceRef.current = false
+      suppressFrameClickAfterPlaceRef.current = false
     }, 400)
   }
 
@@ -264,18 +330,104 @@ export function CanvasStage({
     trimWidthPx,
   ])
 
-  const selectedTextId =
+  const selectedElementId =
     selection.kind === "element" &&
     selection.pageId === frameId &&
-    textLayers.some((layer) => layer.id === selection.elementId)
+    frameLayers.some((layer) => layer.id === selection.elementId)
       ? selection.elementId
       : null
 
-  const getFrameElement = useCallback(() => frameRef.current, [])
+  const selectedShapeLayer = useMemo(() => {
+    if (!selectedElementId) {
+      return null
+    }
+
+    const layer = frameLayers.find((entry) => entry.id === selectedElementId)
+    return layer?.kind === "shape" ? layer : null
+  }, [frameLayers, selectedElementId])
+
+  const normalizedShapeFill = useMemo(() => {
+    if (!selectedShapeLayer) {
+      return null
+    }
+
+    const fill = resolveShapeLayerFillBackground(selectedShapeLayer)
+    if (fill.type !== "gradient") {
+      return null
+    }
+
+    return normalizeBackgroundGradient(fill)
+  }, [selectedShapeLayer])
+
+  const updateSelectedShapeFill = useCallback(
+    (patch: ShapeLayerUpdatePatch) => {
+      if (!selectedShapeLayer) {
+        return
+      }
+
+      onUpdateShapeLayer(selectedShapeLayer.id, patch)
+    },
+    [onUpdateShapeLayer, selectedShapeLayer]
+  )
+
+  const handleShapeGradientStopsChange = useCallback(
+    (stops: GradientStop[]) => {
+      if (!selectedShapeLayer) {
+        return
+      }
+
+      const fill = resolveShapeLayerFillBackground(selectedShapeLayer)
+      updateSelectedShapeFill({
+        fill: backgroundSettingsReducer(fill, {
+          type: "set-background-gradient-stops",
+          value: stops,
+        }),
+      })
+    },
+    [selectedShapeLayer, updateSelectedShapeFill]
+  )
+
+  const handleShapeGradientStartChange = useCallback(
+    (x: number, y: number) => {
+      if (!selectedShapeLayer) {
+        return
+      }
+
+      const fill = resolveShapeLayerFillBackground(selectedShapeLayer)
+      updateSelectedShapeFill({
+        fill: backgroundSettingsReducer(fill, {
+          type: "set-background-gradient-axis-start",
+          value: { x, y },
+        }),
+      })
+    },
+    [selectedShapeLayer, updateSelectedShapeFill]
+  )
+
+  const handleShapeGradientEndChange = useCallback(
+    (x: number, y: number) => {
+      if (!selectedShapeLayer) {
+        return
+      }
+
+      const fill = resolveShapeLayerFillBackground(selectedShapeLayer)
+      updateSelectedShapeFill({
+        fill: backgroundSettingsReducer(fill, {
+          type: "set-background-gradient-axis-end",
+          value: { x, y },
+        }),
+      })
+    },
+    [selectedShapeLayer, updateSelectedShapeFill]
+  )
+
+  const showShapeGradientControls = normalizedShapeFill != null
+
+  const isPlacementTool = canvasTool === "text" || canvasTool === "shape"
 
   const handleFramePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      if (canvasTool !== "text" || event.button !== 0) {
+      if (!isPlacementTool || event.button !== 0) {
         return
       }
 
@@ -324,13 +476,14 @@ export function CanvasStage({
           ev.clientY,
           displayScale
         )
-        const r = clampPlacementRect(
+        const r = placementRectFromDrag(
           session.x0,
           session.y0,
           pt.x,
           pt.y,
           trimWidthPx,
-          trimHeightPx
+          trimHeightPx,
+          canvasTool === "shape" && ev.shiftKey
         )
         setPlacementPreview(r)
       }
@@ -361,51 +514,72 @@ export function CanvasStage({
         const dy = Math.abs(pt.y - session.y0)
 
         if (dx < TEXT_PLACE_TAP_TRIM_PX && dy < TEXT_PLACE_TAP_TRIM_PX) {
-          if (snapGuides) {
-            const s = snapTextLayerBoxTrimPx(
-              session.x0,
-              session.y0,
-              DEFAULT_NEW_TEXT_W_TRIM,
-              DEFAULT_NEW_TEXT_H_TRIM,
-              snapGuides.xs,
-              snapGuides.ys,
-              SNAP_THRESHOLD_TRIM_PX,
-              trimWidthPx,
-              trimHeightPx
-            )
-            onPlaceText(s.x, s.y)
+          if (canvasTool === "text") {
+            if (snapGuides) {
+              const s = snapTextLayerBoxTrimPx(
+                session.x0,
+                session.y0,
+                DEFAULT_NEW_TEXT_W_TRIM,
+                DEFAULT_NEW_TEXT_H_TRIM,
+                snapGuides.xs,
+                snapGuides.ys,
+                SNAP_THRESHOLD_TRIM_PX,
+                trimWidthPx,
+                trimHeightPx
+              )
+              onPlaceText(s.x, s.y)
+            } else {
+              onPlaceText(session.x0, session.y0)
+            }
           } else {
-            onPlaceText(session.x0, session.y0)
+            const defaultW =
+              shapeVariant === "line"
+                ? DEFAULT_NEW_LINE_W_TRIM
+                : DEFAULT_NEW_SHAPE_W_TRIM
+            const defaultH =
+              shapeVariant === "line"
+                ? DEFAULT_NEW_LINE_H_TRIM
+                : DEFAULT_NEW_SHAPE_H_TRIM
+            onPlaceShape(session.x0, session.y0, defaultW, defaultH)
           }
         } else {
-          const r = clampPlacementRect(
+          const r = placementRectFromDrag(
             session.x0,
             session.y0,
             pt.x,
             pt.y,
             trimWidthPx,
-            trimHeightPx
+            trimHeightPx,
+            canvasTool === "shape" && ev.shiftKey
           )
-          const w = Math.max(MIN_PLACE_TEXT_W, r.w)
-          const h = Math.max(MIN_PLACE_TEXT_H, r.h)
-          if (snapGuides) {
-            const s = snapTextLayerBoxTrimPx(
-              r.x,
-              r.y,
-              w,
-              h,
-              snapGuides.xs,
-              snapGuides.ys,
-              SNAP_THRESHOLD_TRIM_PX,
-              trimWidthPx,
-              trimHeightPx
-            )
-            onPlaceText(s.x, s.y, w, h)
+          const minW =
+            canvasTool === "text" ? MIN_PLACE_TEXT_W : MIN_PLACE_SHAPE_W
+          const minH =
+            canvasTool === "text" ? MIN_PLACE_TEXT_H : MIN_PLACE_SHAPE_H
+          const w = Math.max(minW, r.w)
+          const h = Math.max(minH, r.h)
+          if (canvasTool === "text") {
+            if (snapGuides) {
+              const s = snapTextLayerBoxTrimPx(
+                r.x,
+                r.y,
+                w,
+                h,
+                snapGuides.xs,
+                snapGuides.ys,
+                SNAP_THRESHOLD_TRIM_PX,
+                trimWidthPx,
+                trimHeightPx
+              )
+              onPlaceText(s.x, s.y, w, h)
+            } else {
+              onPlaceText(r.x, r.y, w, h)
+            }
           } else {
-            onPlaceText(r.x, r.y, w, h)
+            onPlaceShape(r.x, r.y, w, h)
           }
         }
-        armSuppressFrameClickAfterTextPlace()
+        armSuppressFrameClickAfterPlace()
       }
 
       window.addEventListener("pointermove", onMove)
@@ -415,12 +589,17 @@ export function CanvasStage({
     [
       canvasTool,
       displayScale,
+      isPlacementTool,
+      onPlaceShape,
       onPlaceText,
+      shapeVariant,
       snapGuides,
       trimHeightPx,
       trimWidthPx,
     ]
   )
+
+  const getFrameElement = useCallback(() => frameRef.current, [])
 
   return (
     <div
@@ -430,7 +609,9 @@ export function CanvasStage({
       tabIndex={0}
       className={cn(
         "group/frame-chrome relative block shrink-0 outline-none",
-        canvasTool === "text" ? "cursor-crosshair" : "cursor-inherit",
+        canvasTool === "text" || canvasTool === "shape"
+          ? "cursor-crosshair"
+          : "cursor-default",
         showBleedPreview || anyTextLayerAllowsPaintOverflow
           ? "overflow-visible"
           : "overflow-hidden"
@@ -438,8 +619,8 @@ export function CanvasStage({
       style={{ width: trimDisplayWidth, height: trimDisplayHeight }}
       onPointerDown={handleFramePointerDown}
       onClick={(event) => {
-        if (suppressFrameClickAfterTextPlaceRef.current) {
-          suppressFrameClickAfterTextPlaceRef.current = false
+        if (suppressFrameClickAfterPlaceRef.current) {
+          suppressFrameClickAfterPlaceRef.current = false
           if (suppressFrameClickTimerRef.current != null) {
             clearTimeout(suppressFrameClickTimerRef.current)
             suppressFrameClickTimerRef.current = null
@@ -449,7 +630,7 @@ export function CanvasStage({
           return
         }
 
-        if (canvasTool === "text") {
+        if (isPlacementTool) {
           return
         }
 
@@ -466,8 +647,8 @@ export function CanvasStage({
         }
       }}
       onDoubleClick={(event) => {
-        if (suppressFrameClickAfterTextPlaceRef.current) {
-          suppressFrameClickAfterTextPlaceRef.current = false
+        if (suppressFrameClickAfterPlaceRef.current) {
+          suppressFrameClickAfterPlaceRef.current = false
           if (suppressFrameClickTimerRef.current != null) {
             clearTimeout(suppressFrameClickTimerRef.current)
             suppressFrameClickTimerRef.current = null
@@ -477,7 +658,7 @@ export function CanvasStage({
           return
         }
 
-        if (canvasTool === "text") {
+        if (isPlacementTool) {
           return
         }
 
@@ -488,7 +669,7 @@ export function CanvasStage({
         onSelectPage()
       }}
       onKeyDown={(event) => {
-        if (canvasTool === "text") {
+        if (isPlacementTool) {
           return
         }
         if (event.key === "Enter" || event.key === " ") {
@@ -526,7 +707,7 @@ export function CanvasStage({
         )}
       />
       <GuidesOverlay settings={settings} displayScale={displayScale} />
-      {placementPreview && canvasTool === "text" ? (
+      {placementPreview && isPlacementTool ? (
         <div
           aria-hidden
           className="pointer-events-none absolute z-[14] border border-dashed border-[#7c3aed]"
@@ -539,9 +720,33 @@ export function CanvasStage({
         />
       ) : null}
       <div className="pointer-events-none absolute inset-0 z-[25] overflow-visible">
-        {textLayers.map((layer, index) => {
-          const isSelected = selectedTextId === layer.id
-          const z = 10 + (textLayers.length - index)
+        {frameLayers.map((layer, index) => {
+          const z = 10 + (frameLayers.length - index)
+
+          if (layer.kind === "shape") {
+            if (!resolveShapeLayerVisible(layer)) {
+              return null
+            }
+
+            return (
+              <ShapeLayerBox
+                key={layer.id}
+                layer={layer}
+                displayScale={displayScale}
+                trimWidthPx={trimWidthPx}
+                trimHeightPx={trimHeightPx}
+                isSelected={selectedElementId === layer.id}
+                zIndex={z}
+                getFrameElement={getFrameElement}
+                onUpdate={(patch) => onUpdateShapeLayer(layer.id, patch)}
+                onSelect={() => onSelectShapeLayer(layer.id)}
+              />
+            )
+          }
+
+          if (layer.kind !== "text" || !resolveTextLayerVisible(layer)) {
+            return null
+          }
 
           return (
             <TextLayerBox
@@ -552,7 +757,7 @@ export function CanvasStage({
               trimHeightPx={trimHeightPx}
               snapGuideXs={snapGuides?.xs ?? null}
               snapGuideYs={snapGuides?.ys ?? null}
-              isSelected={isSelected}
+              isSelected={selectedElementId === layer.id}
               zIndex={z}
               getFrameElement={getFrameElement}
               textLayerIdToBeginTyping={textLayerIdToBeginTyping}
@@ -569,6 +774,32 @@ export function CanvasStage({
             />
           )
         })}
+        {showShapeGradientControls &&
+        selectedShapeLayer &&
+        normalizedShapeFill ? (
+          <div
+            ref={shapeGradientBoundsRef}
+            className="pointer-events-none absolute z-[30]"
+            style={{
+              left: selectedShapeLayer.x * displayScale,
+              top: selectedShapeLayer.y * displayScale,
+              width: selectedShapeLayer.width * displayScale,
+              height: selectedShapeLayer.height * displayScale,
+            }}
+          >
+            <GradientCanvasOverlay
+              boundsRef={shapeGradientBoundsRef}
+              stops={normalizedShapeFill.gradientStops}
+              startX={normalizedShapeFill.gradientStartX}
+              startY={normalizedShapeFill.gradientStartY}
+              endX={normalizedShapeFill.gradientEndX}
+              endY={normalizedShapeFill.gradientEndY}
+              onStopsChange={handleShapeGradientStopsChange}
+              onStartChange={handleShapeGradientStartChange}
+              onEndChange={handleShapeGradientEndChange}
+            />
+          </div>
+        ) : null}
       </div>
       {showGradientControls ? (
         <GradientCanvasOverlay

@@ -44,6 +44,7 @@ export function CanvasSettingsSection({
       <div className="flex flex-col gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <DimensionField
+            label={null}
             width={width}
             height={height}
             unit={settings.unit}

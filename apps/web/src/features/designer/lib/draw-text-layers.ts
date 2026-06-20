@@ -18,6 +18,7 @@ import {
   resolveTextLayerTextAlign,
   resolveTextLayerUnderline,
   resolveTextLayerVerticalAlign,
+  resolveTextLayerVisible,
 } from "@/features/designer/model/text-layer-style"
 
 const MIN_H_TRIM = 36
@@ -115,6 +116,10 @@ export function drawTextLayersOnContext(
   const ordered = [...layers].reverse()
 
   for (const layer of ordered) {
+    if (!resolveTextLayerVisible(layer)) {
+      continue
+    }
+
     const fontSizePx = resolveTextLayerFontSizePx(layer)
     const fill = resolveTextLayerColor(layer)
 

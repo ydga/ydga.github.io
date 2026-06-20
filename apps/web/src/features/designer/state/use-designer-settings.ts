@@ -18,11 +18,7 @@ import {
   clampDimension,
   convertDimension,
 } from "@/features/designer/lib/dimensions"
-import {
-  normalizeBackgroundGradient,
-  normalizeGradientStops,
-  sortGradientStops,
-} from "@/features/designer/lib/gradient-stops"
+import { backgroundSettingsReducer } from "@/features/designer/lib/background-settings-reducer"
 import { intentToUnit } from "@/features/designer/lib/document-intent"
 
 export type DesignerAction =
@@ -146,95 +142,18 @@ export function designerReducer(
             },
       }
     }
-    case "set-background-type": {
-      const nextBackground =
-        action.value === "gradient"
-          ? normalizeBackgroundGradient({
-              ...settings.background,
-              type: action.value,
-            })
-          : { ...settings.background, type: action.value }
-
-      return {
-        ...settings,
-        background: nextBackground,
-      }
-    }
+    case "set-background-type":
     case "set-background-color":
-      return {
-        ...settings,
-        background: { ...settings.background, color: action.value },
-      }
-    case "set-background-gradient-end": {
-      const currentStops =
-        settings.background.gradientStops ??
-        normalizeBackgroundGradient(settings.background).gradientStops
-
-      return {
-        ...settings,
-        background: {
-          ...settings.background,
-          gradientEnd: action.value,
-          gradientStops: normalizeGradientStops(
-            currentStops.map((stop, index, stops) =>
-              index === stops.length - 1
-                ? { ...stop, color: action.value }
-                : stop
-            )
-          ),
-        },
-      }
-    }
+    case "set-background-gradient-end":
     case "set-background-gradient-stops":
-      return {
-        ...settings,
-        background: normalizeBackgroundGradient({
-          ...settings.background,
-          gradientStops: normalizeGradientStops(action.value),
-          gradientEnd:
-            sortGradientStops(normalizeGradientStops(action.value)).at(-1)
-              ?.color ?? settings.background.gradientEnd,
-        }),
-      }
     case "set-background-gradient-axis-start":
-      return {
-        ...settings,
-        background: normalizeBackgroundGradient({
-          ...settings.background,
-          gradientStartX: action.value.x,
-          gradientStartY: action.value.y,
-        }),
-      }
     case "set-background-gradient-axis-end":
-      return {
-        ...settings,
-        background: normalizeBackgroundGradient({
-          ...settings.background,
-          gradientEndX: action.value.x,
-          gradientEndY: action.value.y,
-        }),
-      }
     case "set-background-gradient-angle":
-      return {
-        ...settings,
-        background: {
-          ...settings.background,
-          gradientAngle: normalizeGradientAngle(action.value),
-        },
-      }
     case "set-background-image":
-      return {
-        ...settings,
-        background: {
-          ...settings.background,
-          type: "image",
-          imageSrc: action.value,
-        },
-      }
     case "set-background-fit":
       return {
         ...settings,
-        background: { ...settings.background, fit: action.value },
+        background: backgroundSettingsReducer(settings.background, action),
       }
     case "set-bleed-enabled":
       if (settings.unit === "px") {
@@ -310,15 +229,6 @@ export function designerReducer(
     default:
       return settings
   }
-}
-
-function normalizeGradientAngle(value: number) {
-  if (!Number.isFinite(value)) {
-    return 0
-  }
-
-  const wrapped = value % 360
-  return wrapped < 0 ? wrapped + 360 : wrapped
 }
 
 export function useDesignerSettings() {

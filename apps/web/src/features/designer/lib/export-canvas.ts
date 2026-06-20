@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf"
 
 import { drawExportGuides } from "@/features/designer/lib/draw-export-guides"
+import { drawShapeLayersOnContext } from "@/features/designer/lib/draw-shape-layers"
 import { drawTextLayersOnContext } from "@/features/designer/lib/draw-text-layers"
 import {
   isPrintDocument,
@@ -12,7 +13,7 @@ import {
   type PageExportOverrides,
 } from "@/features/designer/lib/export-settings"
 import { renderBackground } from "@/features/designer/lib/render-background"
-import type { TextLayer } from "@/features/designer/model/layers"
+import type { Layer } from "@/features/designer/model/layers"
 import type { CanvasSettings } from "@/features/designer/model/types"
 
 const JPEG_QUALITY = 0.92
@@ -22,18 +23,31 @@ export type ExportJob = {
   settings: CanvasSettings
   overrides: PageExportOverrides
   sourceCanvas: HTMLCanvasElement | null
-  textLayers: TextLayer[]
+  layers: Layer[]
 }
 
-function sanitizeFilename(name: string) {
-  const trimmed = name.trim() || "Untitled"
-  return trimmed.replace(/[^\w\- ]+/g, "").replace(/\s+/g, "-")
+function drawFrameLayersOnContext(
+  context: CanvasRenderingContext2D,
+  layers: Layer[],
+  trimOffsetPx: number
+) {
+  const ordered = [...layers].reverse()
+
+  return ordered.reduce<Promise<void>>(async (chain, layer) => {
+    await chain
+
+    if (layer.kind === "shape") {
+      await drawShapeLayersOnContext(context, [layer], trimOffsetPx)
+    } else if (layer.kind === "text") {
+      drawTextLayersOnContext(context, [layer], trimOffsetPx)
+    }
+  }, Promise.resolve())
 }
 
 export async function renderExportCanvas(
   settings: CanvasSettings,
   sourceCanvas: HTMLCanvasElement | null,
-  textLayers: TextLayer[]
+  layers: Layer[]
 ): Promise<HTMLCanvasElement> {
   const exportDimensions = getExportDimensions(settings)
   const { exportWidthPx, exportHeightPx, bleedPx } = exportDimensions
@@ -64,8 +78,8 @@ export async function renderExportCanvas(
     )
   }
 
-  if (textLayers.length > 0) {
-    drawTextLayersOnContext(context, textLayers, bleedPx)
+  if (layers.length > 0) {
+    await drawFrameLayersOnContext(context, layers, bleedPx)
   }
 
   drawExportGuides(context, settings, settings.export.burnIn)
@@ -73,11 +87,16 @@ export async function renderExportCanvas(
   return canvas
 }
 
+function sanitizeFilename(name: string) {
+  const trimmed = name.trim() || "Untitled"
+  return trimmed.replace(/[^\w\- ]+/g, "").replace(/\s+/g, "-")
+}
+
 export async function downloadExport(
   settings: CanvasSettings,
   sourceCanvas: HTMLCanvasElement | null,
   pageName: string,
-  textLayers: TextLayer[] = []
+  layers: Layer[] = []
 ) {
   await downloadExports([
     {
@@ -89,7 +108,7 @@ export async function downloadExport(
         dpi: settings.dpi,
       },
       sourceCanvas,
-      textLayers,
+      layers,
     },
   ])
 }
@@ -100,7 +119,7 @@ export async function downloadExports(jobs: ExportJob[]) {
     const exportCanvas = await renderExportCanvas(
       settings,
       job.sourceCanvas,
-      job.textLayers
+      job.layers
     )
     const exportDimensions = getExportDimensions(settings)
     const baseName = sanitizeFilename(job.pageName)

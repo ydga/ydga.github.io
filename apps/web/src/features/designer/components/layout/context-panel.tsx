@@ -10,14 +10,20 @@ import {
   getPanelTitle,
 } from "@/features/designer/components/layout/panel-title"
 import { TextLayerSettingsPanel } from "@/features/designer/components/settings/text-layer-settings-panel"
+import { ShapeLayerSettingsPanel } from "@/features/designer/components/settings/shape-layer-settings-panel"
 import { ExportSettingsPanel } from "@/features/designer/components/settings/export-settings-panel"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
 import type {
   Layer,
+  ShapeLayer,
+  ShapeLayerUpdatePatch,
   TextLayer,
   TextLayerUpdatePatch,
 } from "@/features/designer/model/layers"
-import type { Selection } from "@/features/designer/model/ui-types"
+import {
+  resolveContextPanelMode,
+  type Selection,
+} from "@/features/designer/model/ui-types"
 import type { DesignerFrames } from "@/features/designer/state/use-designer-frames"
 import type { DesignerUi } from "@/features/designer/state/use-designer-ui"
 import { PanelIconTileButton } from "@workspace/ui/components/settings/panel-icon-tile-button"
@@ -38,6 +44,9 @@ type ContextPanelProps = {
   activeFrameId: string
   onReorderLayers: (frameId: string, fromIndex: number, toIndex: number) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
+  onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
+  onRemoveLayer: (layerId: string) => void
+  onShapeFillImageUpload: (layerId: string, file: File | null) => void
 }
 
 function getSelectedTextLayer(
@@ -53,6 +62,19 @@ function getSelectedTextLayer(
   return found?.kind === "text" ? found : null
 }
 
+function getSelectedShapeLayer(
+  selection: Selection,
+  layers: Layer[],
+  activeFrameId: string
+): ShapeLayer | null {
+  if (selection.kind !== "element" || selection.pageId !== activeFrameId) {
+    return null
+  }
+
+  const found = layers.find((l) => l.id === selection.elementId)
+  return found?.kind === "shape" ? found : null
+}
+
 export function ContextPanel({
   ui,
   frames,
@@ -62,10 +84,24 @@ export function ContextPanel({
   activeFrameId,
   onReorderLayers,
   onUpdateTextLayer,
+  onUpdateShapeLayer,
+  onRemoveLayer,
+  onShapeFillImageUpload,
 }: ContextPanelProps) {
-  const { selection, panelMode } = ui
+  const { selection, panelMode, toolbarTool } = ui
+  const contextPanelMode = resolveContextPanelMode(
+    toolbarTool,
+    panelMode,
+    selection
+  )
 
   const selectedTextLayer = getSelectedTextLayer(
+    selection,
+    layers,
+    activeFrameId
+  )
+
+  const selectedShapeLayer = getSelectedShapeLayer(
     selection,
     layers,
     activeFrameId
@@ -74,15 +110,17 @@ export function ContextPanel({
   const { trimWidthPx, trimHeightPx } = getExportDimensions(frames.settings)
 
   const title =
-    panelMode === "export"
+    contextPanelMode === "export"
       ? "Export"
-      : panelMode === "layers"
+      : contextPanelMode === "layers"
         ? "Layers"
         : selection.kind === "page"
           ? getFramePanelTitle(frames.frameName)
           : selectedTextLayer != null
             ? "Text"
-            : getPanelTitle(selection)
+            : selectedShapeLayer != null
+              ? "Shape"
+              : getPanelTitle(selection)
 
   return (
     <aside
@@ -105,7 +143,7 @@ export function ContextPanel({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          {panelMode === "export" ? (
+          {contextPanelMode === "export" ? (
             <ExportSettingsPanel
               frames={frames.frames}
               activeFrameId={frames.activeFrameId}
@@ -120,12 +158,15 @@ export function ContextPanel({
                 panelPaddingClassName
               )}
             >
-              {panelMode === "layers" ? (
+              {contextPanelMode === "layers" ? (
                 <LayersPanel
                   ui={ui}
                   frameId={activeFrameId}
                   layers={layers}
                   onReorder={onReorderLayers}
+                  onUpdateLayer={onUpdateTextLayer}
+                  onUpdateShapeLayer={onUpdateShapeLayer}
+                  onRemoveLayer={onRemoveLayer}
                 />
               ) : selection.kind === "page" ? (
                 <PageSettingsPanel
@@ -140,6 +181,18 @@ export function ContextPanel({
                   trimHeightPx={trimHeightPx}
                   onUpdate={(patch) =>
                     onUpdateTextLayer(selectedTextLayer.id, patch)
+                  }
+                />
+              ) : selectedShapeLayer ? (
+                <ShapeLayerSettingsPanel
+                  layer={selectedShapeLayer}
+                  trimWidthPx={trimWidthPx}
+                  trimHeightPx={trimHeightPx}
+                  onUpdate={(patch) =>
+                    onUpdateShapeLayer(selectedShapeLayer.id, patch)
+                  }
+                  onFillImageUpload={(file) =>
+                    onShapeFillImageUpload(selectedShapeLayer.id, file)
                   }
                 />
               ) : (
