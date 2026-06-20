@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { GripVertical } from "lucide-react"
+import { Type } from "lucide-react"
 
 import type { Layer } from "@/features/designer/model/layers"
 import { cn } from "@workspace/ui/lib/utils"
@@ -48,8 +48,8 @@ export function LayerList({
             role="option"
             aria-selected={isSelected}
             className={cn(
-              "rounded-xl border border-transparent bg-muted/40 transition-colors",
-              isSelected && "border-ring bg-active/40",
+              "rounded-xl border border-transparent transition-colors",
+              isSelected ? "bg-active" : "bg-muted/40",
               isDropTarget && "border-dashed border-ring",
               isDragging && "opacity-50"
             )}
@@ -72,7 +72,12 @@ export function LayerList({
                 type="button"
                 draggable
                 aria-label={`Reorder ${layer.name}`}
-                className="flex size-6 shrink-0 cursor-grab items-center justify-center rounded-full text-muted-foreground hover:bg-muted active:cursor-grabbing"
+                className={cn(
+                  "flex size-6 shrink-0 cursor-grab items-center justify-center rounded-md active:cursor-grabbing",
+                  isSelected
+                    ? "text-active-foreground hover:bg-active-foreground/10"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = "move"
                   event.dataTransfer.setData("text/plain", layer.id)
@@ -80,12 +85,15 @@ export function LayerList({
                 }}
                 onDragEnd={resetDragState}
               >
-                <GripVertical className="size-3.5" aria-hidden />
+                <Type className="size-3.5" aria-hidden />
               </button>
 
               <button
                 type="button"
-                className="min-w-0 flex-1 truncate px-1 py-0.5 text-left text-xs font-medium"
+                className={cn(
+                  "min-w-0 flex-1 truncate px-1 py-0.5 text-left text-xs font-medium",
+                  isSelected ? "text-active-foreground" : ""
+                )}
                 onClick={() => onSelectLayer?.(layer.id)}
               >
                 {layer.name}

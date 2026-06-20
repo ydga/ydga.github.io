@@ -466,13 +466,10 @@ export function CanvasStage({
         aria-hidden
         className={cn(
           "pointer-events-none absolute inset-0 shadow-lg transition-shadow ring-inset",
-          isPageSelected
-            ? settings.background.type === "transparent"
-              ? "ring-1 ring-foreground/15"
-              : ""
-            : settings.background.type === "transparent"
+          !isPageSelected &&
+            (settings.background.type === "transparent"
               ? "ring-1 ring-foreground/20 group-hover/frame-chrome:ring-foreground/30"
-              : "ring-1 ring-foreground/10 group-hover/frame-chrome:ring-foreground/20"
+              : "ring-1 ring-foreground/10 group-hover/frame-chrome:ring-foreground/20")
         )}
       />
       <GuidesOverlay settings={settings} displayScale={displayScale} />
