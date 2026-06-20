@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react"
 
 import {
+  computeFrameRemoval,
   createFrameFromSource,
   createInitialFrame,
   DEFAULT_FRAME_ID,
@@ -129,34 +130,22 @@ export function useDesignerFrames() {
         imageUrlRefs.current.delete(frameId)
       }
 
-      let nextActiveId = resolvedActiveFrameId
+      let nextActiveId = activeFrameId
 
       setFrames((current) => {
-        if (current.length <= 1) {
+        const result = computeFrameRemoval(current, frameId, activeFrameId)
+        if (!result) {
           return current
         }
 
-        const index = current.findIndex((frame) => frame.id === frameId)
-        if (index === -1) {
-          return current
-        }
-
-        const next = current.filter((frame) => frame.id !== frameId)
-
-        if (resolvedActiveFrameId === frameId) {
-          nextActiveId = next[Math.max(0, index - 1)]!.id
-        }
-
-        return next
+        nextActiveId = result.nextActiveId
+        return result.nextFrames
       })
 
-      if (nextActiveId !== resolvedActiveFrameId) {
-        setActiveFrameId(nextActiveId)
-      }
-
+      setActiveFrameId(nextActiveId)
       return nextActiveId
     },
-    [resolvedActiveFrameId]
+    [activeFrameId]
   )
 
   const moveFrame = useCallback((frameId: string, direction: "up" | "down") => {

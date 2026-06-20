@@ -63,14 +63,6 @@ export function MainStage({
     )
   }, [layers, activeFrame.id])
 
-  const isTextLayerSelected = useMemo(() => {
-    const sel = ui.selection
-    if (sel.kind !== "element") {
-      return false
-    }
-    return activeFrameTextLayers.some((l) => l.id === sel.elementId)
-  }, [activeFrameTextLayers, ui.selection])
-
   function handleCanvasPageSelect(frameId: string) {
     onSelectFrame(frameId)
     ui.selectPageAndOpen(frameId)
@@ -88,7 +80,7 @@ export function MainStage({
         variant="frosted"
         fitChromeRef={toolbarChromeRef}
       >
-        <CanvasToolbar ui={ui} isTextLayerSelected={isTextLayerSelected} />
+        <CanvasToolbar ui={ui} />
       </FloatingChrome>
 
       <CanvasViewport
@@ -101,11 +93,13 @@ export function MainStage({
         onFitScaleChange={ui.setFitScale}
         onZoomScaleChange={ui.setZoomScale}
         onSelectFrame={handleCanvasPageSelect}
+        onDeselectFrameElement={(frameId) => ui.selectPage(frameId)}
         dispatch={frames.dispatch}
         toolbarChromeRef={toolbarChromeRef}
         bottomChromeRef={bottomChromeRef}
         canvasTool={ui.canvasTool}
         selection={ui.selection}
+        frameEngagedId={ui.frameEngagedId}
         textLayers={activeFrameTextLayers}
         onPlaceText={onPlaceText}
         onUpdateTextLayer={onUpdateTextLayer}

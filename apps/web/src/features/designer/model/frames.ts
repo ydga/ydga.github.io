@@ -51,6 +51,20 @@ export function frameHasElements(frame: DesignerFrame, layers: Layer[]) {
   return frame.settings.background.imageSrc !== null
 }
 
+export function syncCanvasToolForFrameElements(
+  hasElements: boolean,
+  actions: {
+    selectPointerTool: () => void
+    selectTextTool: () => void
+  }
+) {
+  if (hasElements) {
+    actions.selectPointerTool()
+  } else {
+    actions.selectTextTool()
+  }
+}
+
 export function moveFrame(
   frames: DesignerFrame[],
   frameId: string,
@@ -92,5 +106,29 @@ export function resolveActiveFrameId(
 
   return frames.some((frame) => frame.id === activeFrameId)
     ? activeFrameId
-    : frames[0].id
+    : frames[frames.length - 1]!.id
+}
+
+export function computeFrameRemoval(
+  frames: DesignerFrame[],
+  frameIdToRemove: string,
+  currentActiveId: string
+): { nextFrames: DesignerFrame[]; nextActiveId: string } | null {
+  if (frames.length <= 1) {
+    return null
+  }
+
+  const index = frames.findIndex((frame) => frame.id === frameIdToRemove)
+  if (index === -1) {
+    return null
+  }
+
+  const nextFrames = frames.filter((frame) => frame.id !== frameIdToRemove)
+  const activeId = resolveActiveFrameId(frames, currentActiveId)
+  const nextActiveId =
+    activeId === frameIdToRemove
+      ? nextFrames[Math.max(0, index - 1)]!.id
+      : activeId
+
+  return { nextFrames, nextActiveId }
 }

@@ -722,6 +722,7 @@ export function TextLayerBox({
           : undefined
       }
       onDoubleClick={(event) => {
+        event.stopPropagation()
         if (!isSelected) {
           return
         }
@@ -854,6 +855,14 @@ export function TextLayerBox({
             event.stopPropagation()
             setTextEditing(false)
             event.currentTarget.blur()
+            return
+          }
+          if (
+            textEditing &&
+            (event.key === "Delete" || event.key === "Backspace") &&
+            layer.text.length > 0
+          ) {
+            event.stopPropagation()
             return
           }
           // Parent frame uses `role="button"`; without this, Enter / Space bubble and

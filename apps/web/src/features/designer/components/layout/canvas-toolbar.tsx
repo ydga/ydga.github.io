@@ -1,4 +1,4 @@
-import { Download, Frame, Layers, Type } from "lucide-react"
+import { Download, Frame, Layers, MousePointer2, Type } from "lucide-react"
 
 import type { DesignerUi } from "@/features/designer/state/use-designer-ui"
 import type { PanelMode } from "@/features/designer/model/ui-types"
@@ -22,18 +22,12 @@ const TOOLBAR_ITEMS = [
 
 type CanvasToolbarProps = {
   ui: DesignerUi
-  /** True when a text layer on the active frame is selected (toolbar highlights Text while still in select mode). */
-  isTextLayerSelected?: boolean
 }
 
-export function CanvasToolbar({
-  ui,
-  isTextLayerSelected = false,
-}: CanvasToolbarProps) {
-  const textPlacementMode = ui.canvasTool === "text"
-  const textToolNavActive = textPlacementMode || isTextLayerSelected
-  /** Only one toolbar row “active” at a time: suppress Frame/Layers/Export while placing text or with a text layer selected. */
-  const panelNavSuppressed = textPlacementMode || isTextLayerSelected
+export function CanvasToolbar({ ui }: CanvasToolbarProps) {
+  const pointerToolActive = ui.canvasTool === "select"
+  const textToolActive = ui.canvasTool === "text"
+  const panelNavSuppressed = textToolActive
   const activeIndex = panelNavSuppressed
     ? null
     : getToolbarActiveIndex(ui.panelOpen, ui.panelMode)
@@ -47,14 +41,32 @@ export function CanvasToolbar({
       <Tooltip>
         <TooltipTrigger asChild>
           <NavIconButton
-            active={textToolNavActive}
-            aria-label="Text tool"
-            aria-pressed={textToolNavActive}
+            active={pointerToolActive}
+            aria-label="Pointer tool"
+            aria-pressed={pointerToolActive}
             className={cn(
-              textToolNavActive &&
+              pointerToolActive &&
                 "bg-primary hover:bg-primary/90 hover:text-primary-foreground"
             )}
-            onClick={() => ui.setCanvasTool("text")}
+            onClick={() => ui.selectPointerTool()}
+          >
+            <MousePointer2 aria-hidden />
+          </NavIconButton>
+        </TooltipTrigger>
+        <TooltipContent side="left">Pointer</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <NavIconButton
+            active={textToolActive}
+            aria-label="Text tool"
+            aria-pressed={textToolActive}
+            className={cn(
+              textToolActive &&
+                "bg-primary hover:bg-primary/90 hover:text-primary-foreground"
+            )}
+            onClick={() => ui.selectTextTool()}
           >
             <Type aria-hidden />
           </NavIconButton>
@@ -80,7 +92,7 @@ export function CanvasToolbar({
                     aria-label={label}
                     aria-pressed={active}
                     onClick={() => {
-                      ui.setCanvasTool("select")
+                      ui.selectPointerTool()
                       if (view === "document") {
                         ui.selectPageAndOpen(ui.selection.pageId)
                       } else {

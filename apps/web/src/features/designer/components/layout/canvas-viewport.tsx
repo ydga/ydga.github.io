@@ -30,11 +30,13 @@ type CanvasViewportProps = {
   onFitScaleChange: (scale: number) => void
   onZoomScaleChange: (scale: number) => void
   onSelectFrame: (frameId: string) => void
+  onDeselectFrameElement: (frameId: string) => void
   dispatch: DesignerDispatch
   toolbarChromeRef: React.RefObject<HTMLElement | null>
   bottomChromeRef: React.RefObject<HTMLElement | null>
   canvasTool: CanvasTool
   selection: Selection
+  frameEngagedId: string | null
   textLayers: TextLayer[]
   onPlaceText: (
     trimX: number,
@@ -58,11 +60,13 @@ export function CanvasViewport({
   onFitScaleChange,
   onZoomScaleChange,
   onSelectFrame,
+  onDeselectFrameElement,
   dispatch,
   toolbarChromeRef,
   bottomChromeRef,
   canvasTool,
   selection,
+  frameEngagedId,
   textLayers,
   onPlaceText,
   onUpdateTextLayer,
@@ -139,11 +143,6 @@ export function CanvasViewport({
     <div
       ref={viewportRef}
       className="relative min-h-0 flex-1 overflow-hidden bg-stage-canvas"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onSelectFrame(activeFrame.id)
-        }
-      }}
     >
       <div
         ref={stageRef}
@@ -178,8 +177,9 @@ export function CanvasViewport({
               settings={activeFrame.settings}
               registerCanvas={getCanvasRef(activeFrame.id)}
               displayScale={displayScale}
-              isPageSelected={selection.pageId === activeFrame.id}
+              isPageSelected={frameEngagedId === activeFrame.id}
               onSelectPage={() => onSelectFrame(activeFrame.id)}
+              onDeselectElement={() => onDeselectFrameElement(activeFrame.id)}
               onGradientStopsChange={(value) =>
                 dispatch({ type: "set-background-gradient-stops", value })
               }

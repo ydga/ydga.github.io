@@ -19,9 +19,13 @@ export function useDesignerUi() {
     kind: "page",
     pageId: DEFAULT_FRAME_ID,
   })
+  const [frameEngagedId, setFrameEngagedId] = useState<string | null>(
+    DEFAULT_FRAME_ID
+  )
   const [panelOpen, setPanelOpen] = useState(true)
   const [panelMode, setPanelMode] = useState<PanelMode>("document")
-  const [canvasTool, setCanvasTool] = useState<CanvasTool>("select")
+  const [canvasTool, setCanvasToolState] = useState<CanvasTool>("select")
+  const [textToolEngaged, setTextToolEngaged] = useState(false)
   const [zoomMode, setZoomMode] = useState<ZoomMode>("fit")
   const [manualZoom, setManualZoom] = useState(1)
   const [fitScale, setFitScaleState] = useState(1)
@@ -37,6 +41,7 @@ export function useDesignerUi() {
   }, [])
 
   const selectElement = useCallback((pageId: string, elementId: string) => {
+    setFrameEngagedId(null)
     setSelection({ kind: "element", pageId, elementId })
   }, [])
 
@@ -56,11 +61,31 @@ export function useDesignerUi() {
     []
   )
 
+  const selectTextTool = useCallback(() => {
+    setTextToolEngaged(true)
+    setCanvasToolState("text")
+  }, [])
+
+  const selectPointerTool = useCallback(() => {
+    setTextToolEngaged(false)
+    setCanvasToolState("select")
+  }, [])
+
+  /** Switch to select for editing without leaving the text tool active in the toolbar. */
+  const pauseTextPlacement = useCallback(() => {
+    setCanvasToolState("select")
+  }, [])
+
   const toggleCanvasTool = useCallback((tool: CanvasTool) => {
-    setCanvasTool((current) => (current === tool ? "select" : tool))
+    setCanvasToolState((current) => {
+      const next = current === tool ? "select" : tool
+      setTextToolEngaged(next === "text")
+      return next
+    })
   }, [])
 
   const selectPageAndOpen = useCallback((pageId: string = DEFAULT_FRAME_ID) => {
+    setFrameEngagedId(pageId)
     setSelection({ kind: "page", pageId })
     setPanelMode("document")
     setPanelOpen(true)
@@ -100,13 +125,17 @@ export function useDesignerUi() {
 
   return {
     selection,
+    frameEngagedId,
     selectPage,
     selectElement,
     toggleElementSelection,
     selectPageAndOpen,
     canvasTool,
+    textToolEngaged,
     toggleCanvasTool,
-    setCanvasTool,
+    selectTextTool,
+    selectPointerTool,
+    pauseTextPlacement,
     panelOpen,
     setPanelOpen,
     panelMode,

@@ -81,12 +81,29 @@ function clampPlacementRect(
   return { x, y, w, h }
 }
 
+function isNonElementFrameTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  if (target.closest("[data-designer-text-box]")) {
+    return false
+  }
+
+  if (target.closest("[data-designer-gradient-overlay]")) {
+    return false
+  }
+
+  return true
+}
+
 type CanvasStageProps = {
   settings: CanvasSettings
   registerCanvas?: (node: HTMLCanvasElement | null) => void
   displayScale: number
   isPageSelected: boolean
   onSelectPage: () => void
+  onDeselectElement?: () => void
   onGradientStopsChange?: (stops: GradientStop[]) => void
   onGradientStartChange?: (x: number, y: number) => void
   onGradientEndChange?: (x: number, y: number) => void
@@ -112,6 +129,7 @@ export function CanvasStage({
   displayScale,
   isPageSelected,
   onSelectPage,
+  onDeselectElement,
   onGradientStopsChange,
   onGradientStartChange,
   onGradientEndChange,
@@ -128,7 +146,7 @@ export function CanvasStage({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const frameRef = useRef<HTMLDivElement | null>(null)
   const textAreaRefs = useRef(new Map<string, HTMLTextAreaElement | null>())
-  /** Clicks that immediately follow text placement would otherwise bubble here and call `onSelectPage`, clearing the new text selection. */
+  /** Clicks that immediately follow text placement would otherwise bubble here and clear the new text selection. */
   const suppressFrameClickAfterTextPlaceRef = useRef(false)
   const suppressFrameClickTimerRef = useRef<ReturnType<
     typeof setTimeout
@@ -430,9 +448,44 @@ export function CanvasStage({
           event.stopPropagation()
           return
         }
-        if (canvasTool !== "text") {
-          onSelectPage()
+
+        if (canvasTool === "text") {
+          return
         }
+
+        if (!isNonElementFrameTarget(event.target)) {
+          return
+        }
+
+        if (
+          selection.kind === "element" &&
+          selection.pageId === frameId &&
+          onDeselectElement
+        ) {
+          onDeselectElement()
+        }
+      }}
+      onDoubleClick={(event) => {
+        if (suppressFrameClickAfterTextPlaceRef.current) {
+          suppressFrameClickAfterTextPlaceRef.current = false
+          if (suppressFrameClickTimerRef.current != null) {
+            clearTimeout(suppressFrameClickTimerRef.current)
+            suppressFrameClickTimerRef.current = null
+          }
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
+
+        if (canvasTool === "text") {
+          return
+        }
+
+        if (!isNonElementFrameTarget(event.target)) {
+          return
+        }
+
+        onSelectPage()
       }}
       onKeyDown={(event) => {
         if (canvasTool === "text") {
@@ -443,7 +496,7 @@ export function CanvasStage({
           onSelectPage()
         }
       }}
-      aria-label="Select frame"
+      aria-label="Frame canvas — double-click empty area to select frame"
     >
       <canvas
         ref={setCanvasRef}

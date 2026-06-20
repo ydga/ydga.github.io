@@ -2,21 +2,42 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { ContextPanel } from "@/features/designer/components/layout/context-panel"
 import { MainStage } from "@/features/designer/components/layout/main-stage"
+import {
+  frameHasElements,
+  syncCanvasToolForFrameElements,
+} from "@/features/designer/model/frames"
 import { useDesignerFrames } from "@/features/designer/state/use-designer-frames"
 import { useDesignerLayers } from "@/features/designer/state/use-designer-layers"
 import { useDesignerUi } from "@/features/designer/state/use-designer-ui"
 import { useFrameNameSync } from "@/features/designer/state/use-page-name-sync"
 
-function shouldLetFieldHandleDeleteKey(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false
+function shouldLetFieldHandleDeleteKey(event: KeyboardEvent): boolean {
+  const candidates = [event.target, document.activeElement]
+
+  for (const candidate of candidates) {
+    if (!(candidate instanceof HTMLTextAreaElement)) {
+      continue
+    }
+
+    if (!candidate.closest("[data-designer-text-box]")) {
+      continue
+    }
+
+    if (candidate.dataset.designerTextEditing !== "true") {
+      continue
+    }
+
+    // Empty while editing: let the shell remove the text layer on Delete/Backspace.
+    if (candidate.value.length === 0) {
+      return false
+    }
+
+    return true
   }
 
-  if (
-    target instanceof HTMLTextAreaElement &&
-    target.dataset.designerTextEditing === "true"
-  ) {
-    return true
+  const target = event.target
+  if (!(target instanceof HTMLElement)) {
+    return false
   }
 
   if (target instanceof HTMLInputElement) {
@@ -70,6 +91,38 @@ export function DesignerShell() {
     syncFrameNameFromSettings: frames.syncFrameNameFromSettings,
   })
 
+  const activeFrame =
+    frames.frames.find((frame) => frame.id === frames.activeFrameId) ??
+    frames.frames[0]!
+
+  const activeFrameHasElements = frameHasElements(activeFrame, layers.layers)
+
+  const syncToolForActiveFrame = useCallback(() => {
+    syncCanvasToolForFrameElements(activeFrameHasElements, {
+      selectPointerTool: ui.selectPointerTool,
+      selectTextTool: ui.selectTextTool,
+    })
+  }, [activeFrameHasElements, ui.selectPointerTool, ui.selectTextTool])
+
+  const initialToolSyncedRef = useRef(false)
+  const lastFrameIdRef = useRef(frames.activeFrameId)
+
+  useEffect(() => {
+    if (!initialToolSyncedRef.current) {
+      initialToolSyncedRef.current = true
+      syncToolForActiveFrame()
+      lastFrameIdRef.current = frames.activeFrameId
+      return
+    }
+
+    if (lastFrameIdRef.current === frames.activeFrameId) {
+      return
+    }
+
+    lastFrameIdRef.current = frames.activeFrameId
+    syncToolForActiveFrame()
+  }, [frames.activeFrameId, syncToolForActiveFrame])
+
   useEffect(() => {
     if (
       ui.selection.kind === "page" &&
@@ -86,7 +139,7 @@ export function DesignerShell() {
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        ui.setCanvasTool("select")
+        ui.selectPointerTool()
       }
     }
 
@@ -94,7 +147,7 @@ export function DesignerShell() {
     return () => {
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [ui.canvasTool, ui.setCanvasTool])
+  }, [ui.canvasTool, ui.selectPointerTool])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -106,22 +159,40 @@ export function DesignerShell() {
         return
       }
 
-      if (shouldLetFieldHandleDeleteKey(event.target)) {
+      if (shouldLetFieldHandleDeleteKey(event)) {
         return
       }
 
       event.preventDefault()
 
       const { pageId, elementId } = ui.selection
+      const nextLayers = layers.layers.filter((layer) => layer.id !== elementId)
+      const frame =
+        frames.frames.find((item) => item.id === pageId) ?? activeFrame
+
       layers.removeLayer(elementId)
       ui.selectPage(pageId)
+
+      syncCanvasToolForFrameElements(frameHasElements(frame, nextLayers), {
+        selectPointerTool: ui.selectPointerTool,
+        selectTextTool: ui.selectTextTool,
+      })
     }
 
     window.addEventListener("keydown", onKeyDown)
     return () => {
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [layers.removeLayer, ui.selection, ui.selectPage])
+  }, [
+    activeFrame,
+    frames.frames,
+    layers.layers,
+    layers.removeLayer,
+    ui.selection,
+    ui.selectPage,
+    ui.selectPointerTool,
+    ui.selectTextTool,
+  ])
 
   const handlePlaceText = useCallback(
     (trimX: number, trimY: number, trimWidth?: number, trimHeight?: number) => {
@@ -135,7 +206,7 @@ export function DesignerShell() {
       ui.selectElement(frames.activeFrameId, id)
       setTextLayerIdToBeginTyping(id)
       queueMicrotask(() => {
-        ui.setCanvasTool("select")
+        ui.selectPointerTool()
       })
     },
     [frames.activeFrameId, layers, ui]
@@ -144,6 +215,7 @@ export function DesignerShell() {
   const handleSelectTextLayer = useCallback(
     (layerId: string) => {
       ui.selectElement(frames.activeFrameId, layerId)
+      ui.selectPointerTool()
     },
     [frames.activeFrameId, ui]
   )
@@ -174,7 +246,7 @@ export function DesignerShell() {
           onRemoveFrame={(frameId) => {
             layers.removeLayersForFrame(frameId)
             const nextActiveId = frames.removeFrame(frameId)
-            ui.selectPage(nextActiveId)
+            ui.selectPageAndOpen(nextActiveId)
           }}
           onPlaceText={handlePlaceText}
           onUpdateTextLayer={layers.updateTextLayer}
