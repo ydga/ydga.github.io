@@ -25,6 +25,7 @@ export function useDesignerUi() {
     DEFAULT_FRAME_ID
   )
   const [panelOpen, setPanelOpen] = useState(true)
+  const [panelPinned, setPanelPinned] = useState(true)
   const [panelMode, setPanelMode] = useState<PanelMode>("layers")
   const [toolbarTool, setToolbarTool] = useState<ToolbarTool>("pointer")
   const [canvasTool, setCanvasToolState] = useState<CanvasTool>("select")
@@ -120,14 +121,14 @@ export function useDesignerUi() {
     setPanelOpen(true)
   }, [])
 
-  /** Switches panel mode and opens the panel. Collapsing is only via `togglePanel` (sidebar control). */
+  /** Switches panel mode and opens the panel. Pinning is only via `togglePanelPin` (sidebar control). */
   const togglePanelView = useCallback((view: PanelMode) => {
     setPanelMode(view)
     setPanelOpen(true)
   }, [])
 
-  const togglePanel = useCallback(() => {
-    setPanelOpen((open) => !open)
+  const togglePanelPin = useCallback(() => {
+    setPanelPinned((pinned) => !pinned)
   }, [])
 
   const effectiveScale = zoomMode === "fit" ? fitScale : manualZoom
@@ -142,7 +143,9 @@ export function useDesignerUi() {
     queueMicrotask(() => {
       if (toolbarTool === "pointer") {
         setPanelMode(selection.kind === "page" ? "layers" : "document")
-        setPanelOpen(true)
+        if (panelPinned) {
+          setPanelOpen(true)
+        }
         return
       }
 
@@ -151,9 +154,15 @@ export function useDesignerUi() {
       }
 
       setPanelMode("document")
-      setPanelOpen(true)
+      if (panelPinned) {
+        setPanelOpen(true)
+      }
     })
-  }, [toolbarTool, selection])
+  }, [toolbarTool, selection, panelPinned])
+
+  const isPanelVisible = panelPinned
+    ? panelOpen
+    : selection.kind === "element"
 
   const zoomFit = useCallback(() => {
     setZoomMode("fit")
@@ -176,10 +185,12 @@ export function useDesignerUi() {
     selectPointerTool,
     panelOpen,
     setPanelOpen,
+    panelPinned,
+    isPanelVisible,
     panelMode,
     setPanelMode,
     togglePanelView,
-    togglePanel,
+    togglePanelPin,
     zoomMode,
     manualZoom,
     fitScale,
