@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf"
 
 import { drawExportGuides } from "@/features/designer/lib/draw-export-guides"
+import { drawImageLayersOnContext } from "@/features/designer/lib/draw-image-layers"
 import { drawShapeLayersOnContext } from "@/features/designer/lib/draw-shape-layers"
 import { drawTextLayersOnContext } from "@/features/designer/lib/draw-text-layers"
 import {
@@ -38,6 +39,8 @@ function drawFrameLayersOnContext(
 
     if (layer.kind === "shape") {
       await drawShapeLayersOnContext(context, [layer], trimOffsetPx)
+    } else if (layer.kind === "image") {
+      await drawImageLayersOnContext(context, [layer], trimOffsetPx)
     } else if (layer.kind === "text") {
       drawTextLayersOnContext(context, [layer], trimOffsetPx)
     }

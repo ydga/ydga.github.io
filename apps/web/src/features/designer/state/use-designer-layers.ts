@@ -5,6 +5,8 @@ import {
   removeLayersForFrame,
   reorderFrameLayers,
   textLayerDisplayName,
+  type ImageLayer,
+  type ImageLayerUpdatePatch,
   type Layer,
   type ShapeLayer,
   type ShapeType,
@@ -13,6 +15,10 @@ import {
   type ShapeLayerUpdatePatch,
 } from "@/features/designer/model/layers"
 import { backgroundSettingsReducer } from "@/features/designer/lib/background-settings-reducer"
+import {
+  imageLayerDisplayName,
+  resolveImageLayerFill,
+} from "@/features/designer/model/image-layer-style"
 import {
   resolveShapeLayerFillBackground,
   shapeLayerDisplayName,
@@ -42,9 +48,18 @@ export type NewShapeLayerInput = {
   height: number
 }
 
+export type NewImageLayerInput = {
+  frameId: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export function useDesignerLayers() {
   const [layers, setLayers] = useState<Layer[]>([])
   const shapeFillImageUrlRefs = useRef<Map<string, string>>(new Map())
+  const imageLayerUrlRefs = useRef<Map<string, string>>(new Map())
 
   const revokeShapeFillImage = useCallback((layerId: string) => {
     const existingUrl = shapeFillImageUrlRefs.current.get(layerId)
@@ -54,13 +69,24 @@ export function useDesignerLayers() {
     }
   }, [])
 
-  const revokeShapeFillImagesForLayers = useCallback(
-    (layerIds: Iterable<string>) => {
-      for (const layerId of layerIds) {
-        revokeShapeFillImage(layerId)
+  const revokeImageLayerFile = useCallback((layerId: string) => {
+    const existingUrl = imageLayerUrlRefs.current.get(layerId)
+    if (existingUrl) {
+      URL.revokeObjectURL(existingUrl)
+      imageLayerUrlRefs.current.delete(layerId)
+    }
+  }, [])
+
+  const revokeLayerAssets = useCallback(
+    (layer: Layer) => {
+      if (layer.kind === "shape") {
+        revokeShapeFillImage(layer.id)
+      }
+      if (layer.kind === "image") {
+        revokeImageLayerFile(layer.id)
       }
     },
-    [revokeShapeFillImage]
+    [revokeImageLayerFile, revokeShapeFillImage]
   )
 
   const addTextLayer = useCallback((input: NewTextLayerInput) => {
@@ -130,6 +156,33 @@ export function useDesignerLayers() {
     return id
   }, [])
 
+  const addImageLayer = useCallback((input: NewImageLayerInput) => {
+    const id = crypto.randomUUID()
+
+    const layer: ImageLayer = {
+      id,
+      frameId: input.frameId,
+      kind: "image",
+      name: imageLayerDisplayName(),
+      x: input.x,
+      y: input.y,
+      width: input.width,
+      height: input.height,
+    }
+
+    setLayers((prev) => {
+      const firstIdx = prev.findIndex((l) => l.frameId === input.frameId)
+      if (firstIdx === -1) {
+        return [...prev, layer]
+      }
+      const next = [...prev]
+      next.splice(firstIdx, 0, layer)
+      return next
+    })
+
+    return id
+  }, [])
+
   const updateTextLayer = useCallback(
     (layerId: string, patch: TextLayerUpdatePatch) => {
       setLayers((current) =>
@@ -155,6 +208,24 @@ export function useDesignerLayers() {
       setLayers((current) =>
         current.map((layer) => {
           if (layer.id !== layerId || layer.kind !== "shape") {
+            return layer
+          }
+
+          return {
+            ...layer,
+            ...patch,
+          }
+        })
+      )
+    },
+    []
+  )
+
+  const updateImageLayer = useCallback(
+    (layerId: string, patch: ImageLayerUpdatePatch) => {
+      setLayers((current) =>
+        current.map((layer) => {
+          if (layer.id !== layerId || layer.kind !== "image") {
             return layer
           }
 
@@ -213,27 +284,66 @@ export function useDesignerLayers() {
     [revokeShapeFillImage]
   )
 
+  const setImageLayerFile = useCallback(
+    (layerId: string, file: File | null) => {
+      revokeImageLayerFile(layerId)
+
+      setLayers((current) =>
+        current.map((layer) => {
+          if (layer.id !== layerId || layer.kind !== "image") {
+            return layer
+          }
+
+          if (!file) {
+            return {
+              ...layer,
+              fill: backgroundSettingsReducer(resolveImageLayerFill(layer), {
+                type: "set-background-image",
+                value: null,
+              }),
+            }
+          }
+
+          const objectUrl = URL.createObjectURL(file)
+          imageLayerUrlRefs.current.set(layerId, objectUrl)
+
+          return {
+            ...layer,
+            fill: backgroundSettingsReducer(resolveImageLayerFill(layer), {
+              type: "set-background-image",
+              value: objectUrl,
+            }),
+          }
+        })
+      )
+    },
+    [revokeImageLayerFile]
+  )
+
   const removeLayersForFrameId = useCallback(
     (frameId: string) => {
       setLayers((current) => {
-        const removedIds = current
-          .filter(
-            (layer) => layer.frameId === frameId && layer.kind === "shape"
-          )
-          .map((layer) => layer.id)
-        revokeShapeFillImagesForLayers(removedIds)
+        const removed = current.filter((layer) => layer.frameId === frameId)
+        for (const layer of removed) {
+          revokeLayerAssets(layer)
+        }
         return removeLayersForFrame(current, frameId)
       })
     },
-    [revokeShapeFillImagesForLayers]
+    [revokeLayerAssets]
   )
 
   const removeLayer = useCallback(
     (layerId: string) => {
-      revokeShapeFillImage(layerId)
-      setLayers((current) => current.filter((layer) => layer.id !== layerId))
+      setLayers((current) => {
+        const layer = current.find((entry) => entry.id === layerId)
+        if (layer) {
+          revokeLayerAssets(layer)
+        }
+        return current.filter((entry) => entry.id !== layerId)
+      })
     },
-    [revokeShapeFillImage]
+    [revokeLayerAssets]
   )
 
   const getFrameLayers = useCallback(
@@ -245,12 +355,15 @@ export function useDesignerLayers() {
     layers,
     addTextLayer,
     addShapeLayer,
+    addImageLayer,
     updateTextLayer,
     updateShapeLayer,
+    updateImageLayer,
     reorderLayers,
     removeLayersForFrame: removeLayersForFrameId,
     removeLayer,
     setShapeFillImage,
+    setImageLayerFile,
     getFrameLayers,
   }
 }

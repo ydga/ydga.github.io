@@ -1,4 +1,4 @@
-import { Pin, PinOff } from "lucide-react"
+import { PanelRight } from "lucide-react"
 
 import { LayersPanel } from "@/features/designer/components/layers/layers-panel"
 import {
@@ -11,9 +11,12 @@ import {
 } from "@/features/designer/components/layout/panel-title"
 import { TextLayerSettingsPanel } from "@/features/designer/components/settings/text-layer-settings-panel"
 import { ShapeLayerSettingsPanel } from "@/features/designer/components/settings/shape-layer-settings-panel"
+import { ImageLayerSettingsPanel } from "@/features/designer/components/settings/image-layer-settings-panel"
 import { ExportSettingsPanel } from "@/features/designer/components/settings/export-settings-panel"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
 import type {
+  ImageLayer,
+  ImageLayerUpdatePatch,
   Layer,
   ShapeLayer,
   ShapeLayerUpdatePatch,
@@ -35,6 +38,51 @@ import {
 } from "@workspace/ui/components/settings/settings-field-styles"
 import { cn } from "@workspace/ui/lib/utils"
 
+function SidebarPanelIcon({
+  pinned,
+  className,
+}: {
+  pinned: boolean
+  className?: string
+}) {
+  if (!pinned) {
+    return <PanelRight className={className} aria-hidden />
+  }
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden
+      className={className}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect
+        x="3"
+        y="3"
+        width="18"
+        height="18"
+        rx="2"
+        className="stroke-current"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M15 3v18"
+        className="stroke-current"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M15 5h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4V5Z"
+        className="fill-current"
+      />
+    </svg>
+  )
+}
+
 type ContextPanelProps = {
   layout: "docked" | "floating"
   ui: DesignerUi
@@ -46,8 +94,10 @@ type ContextPanelProps = {
   onReorderLayers: (frameId: string, fromIndex: number, toIndex: number) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
+  onUpdateImageLayer: (layerId: string, patch: ImageLayerUpdatePatch) => void
   onRemoveLayer: (layerId: string) => void
   onShapeFillImageUpload: (layerId: string, file: File | null) => void
+  onImageLayerFileUpload: (layerId: string, file: File | null) => void
 }
 
 function getSelectedTextLayer(
@@ -76,6 +126,19 @@ function getSelectedShapeLayer(
   return found?.kind === "shape" ? found : null
 }
 
+function getSelectedImageLayer(
+  selection: Selection,
+  layers: Layer[],
+  activeFrameId: string
+): ImageLayer | null {
+  if (selection.kind !== "element" || selection.pageId !== activeFrameId) {
+    return null
+  }
+
+  const found = layers.find((l) => l.id === selection.elementId)
+  return found?.kind === "image" ? found : null
+}
+
 export function ContextPanel({
   layout,
   ui,
@@ -87,8 +150,10 @@ export function ContextPanel({
   onReorderLayers,
   onUpdateTextLayer,
   onUpdateShapeLayer,
+  onUpdateImageLayer,
   onRemoveLayer,
   onShapeFillImageUpload,
+  onImageLayerFileUpload,
 }: ContextPanelProps) {
   const { selection, panelMode, toolbarTool, frameEngagedId } = ui
   const contextPanelMode = resolveContextPanelMode(
@@ -110,6 +175,12 @@ export function ContextPanel({
     activeFrameId
   )
 
+  const selectedImageLayer = getSelectedImageLayer(
+    selection,
+    layers,
+    activeFrameId
+  )
+
   const { trimWidthPx, trimHeightPx } = getExportDimensions(frames.settings)
 
   const title =
@@ -123,7 +194,9 @@ export function ContextPanel({
             ? "Text"
             : selectedShapeLayer != null
               ? "Shape"
-              : getPanelTitle(selection)
+              : selectedImageLayer != null
+                ? "Image"
+                : getPanelTitle(selection)
 
   const isFloating = layout === "floating"
 
@@ -156,11 +229,10 @@ export function ContextPanel({
             aria-pressed={ui.panelPinned}
             onClick={() => ui.togglePanelPin()}
           >
-            {ui.panelPinned ? (
-              <Pin className={panelIconClassName} />
-            ) : (
-              <PinOff className={panelIconClassName} />
-            )}
+            <SidebarPanelIcon
+              pinned={ui.panelPinned}
+              className={panelIconClassName}
+            />
           </PanelIconTileButton>
         </div>
 
@@ -188,6 +260,7 @@ export function ContextPanel({
                   onReorder={onReorderLayers}
                   onUpdateLayer={onUpdateTextLayer}
                   onUpdateShapeLayer={onUpdateShapeLayer}
+                  onUpdateImageLayer={onUpdateImageLayer}
                   onRemoveLayer={onRemoveLayer}
                 />
               ) : selection.kind === "page" ? (
@@ -215,6 +288,18 @@ export function ContextPanel({
                   }
                   onFillImageUpload={(file) =>
                     onShapeFillImageUpload(selectedShapeLayer.id, file)
+                  }
+                />
+              ) : selectedImageLayer ? (
+                <ImageLayerSettingsPanel
+                  layer={selectedImageLayer}
+                  trimWidthPx={trimWidthPx}
+                  trimHeightPx={trimHeightPx}
+                  onUpdate={(patch) =>
+                    onUpdateImageLayer(selectedImageLayer.id, patch)
+                  }
+                  onImageUpload={(file) =>
+                    onImageLayerFileUpload(selectedImageLayer.id, file)
                   }
                 />
               ) : (

@@ -1,17 +1,15 @@
 import { useRef, useState } from "react"
 
 import type {
-  ShapeLayer,
-  ShapeLayerUpdatePatch,
+  ImageLayer,
+  ImageLayerUpdatePatch,
 } from "@/features/designer/model/layers"
 import { backgroundSettingsToStyle } from "@/features/designer/lib/background-style"
 import {
-  isShapeFillTransparent,
-  resolveShapeLayerFillBackground,
-  resolveShapeLayerOpacity,
-  resolveShapeLayerStroke,
-  resolveShapeLayerStrokeWidth,
-} from "@/features/designer/model/shape-layer-style"
+  imageLayerHasImage,
+  resolveImageLayerFill,
+  resolveImageLayerOpacity,
+} from "@/features/designer/model/image-layer-style"
 import {
   SNAP_THRESHOLD_TRIM_PX,
   snapLayerBoxTrimPx,
@@ -46,8 +44,8 @@ type DragSession =
       startH: number
     }
 
-type ShapeLayerBoxProps = {
-  layer: ShapeLayer
+type ImageLayerBoxProps = {
+  layer: ImageLayer
   displayScale: number
   trimWidthPx: number
   trimHeightPx: number
@@ -58,7 +56,7 @@ type ShapeLayerBoxProps = {
   isSelected: boolean
   zIndex: number
   getFrameElement: () => HTMLElement | null
-  onUpdate: (patch: ShapeLayerUpdatePatch) => void
+  onUpdate: (patch: ImageLayerUpdatePatch) => void
   onSelect: () => void
 }
 
@@ -124,189 +122,15 @@ function applyCornerResize(
   trimW: number,
   trimH: number
 ): { x: number; y: number; w: number; h: number } {
-  const { x: sx, y: sy, w: sw, h: sh } = start
-  const right = sx + sw
-  const bottom = sy + sh
-
-  switch (handle) {
-    case "se": {
-      const w = clamp(px - sx, MIN_W_TRIM, trimW - sx)
-      const h = clamp(py - sy, MIN_H_TRIM, trimH - sy)
-      return { x: sx, y: sy, w, h }
-    }
-    case "nw": {
-      const newLeft = clamp(px, 0, right - MIN_W_TRIM)
-      const newTop = clamp(py, 0, bottom - MIN_H_TRIM)
-      return { x: newLeft, y: newTop, w: right - newLeft, h: bottom - newTop }
-    }
-    case "ne": {
-      const w = clamp(px - sx, MIN_W_TRIM, trimW - sx)
-      const newTop = clamp(py, 0, bottom - MIN_H_TRIM)
-      return { x: sx, y: newTop, w, h: bottom - newTop }
-    }
-    case "sw": {
-      const newLeft = clamp(px, 0, right - MIN_W_TRIM)
-      const h = clamp(py - sy, MIN_H_TRIM, trimH - sy)
-      return { x: newLeft, y: sy, w: right - newLeft, h }
-    }
-  }
-}
-
-function applyResize(
-  handle: ResizeHandle,
-  px: number,
-  py: number,
-  start: { x: number; y: number; w: number; h: number },
-  trimW: number,
-  trimH: number
-): { x: number; y: number; w: number; h: number } {
-  if (handle === "n" || handle === "s" || handle === "e" || handle === "w") {
-    return applyEdgeResize(handle, px, py, start, trimW, trimH)
-  }
-  return applyCornerResize(handle, px, py, start, trimW, trimH)
-}
-
-function ShapeFillBackground({
-  layer,
-  width,
-  height,
-  opacity,
-}: {
-  layer: ShapeLayer
-  width: number
-  height: number
-  opacity: number
-}) {
-  if (isShapeFillTransparent(layer)) {
-    return null
-  }
-
-  const fill = resolveShapeLayerFillBackground(layer)
-  const clipId = `shape-fill-clip-${layer.id}`
-
-  return (
-    <>
-      <defs>
-        <clipPath id={clipId}>
-          {layer.shapeType === "square" ? (
-            <rect x={0} y={0} width={width} height={height} />
-          ) : null}
-          {layer.shapeType === "circle" ? (
-            <ellipse
-              cx={width / 2}
-              cy={height / 2}
-              rx={width / 2}
-              ry={height / 2}
-            />
-          ) : null}
-          {layer.shapeType === "triangle" ? (
-            <polygon points={`${width / 2},0 ${width},${height} 0,${height}`} />
-          ) : null}
-        </clipPath>
-      </defs>
-      <g clipPath={`url(#${clipId})`} opacity={opacity}>
-        <foreignObject x={0} y={0} width={width} height={height}>
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              ...backgroundSettingsToStyle(fill),
-            }}
-          />
-        </foreignObject>
-      </g>
-    </>
-  )
-}
-
-function ShapePreview({
-  layer,
-  width,
-  height,
-}: {
-  layer: ShapeLayer
-  width: number
-  height: number
-}) {
-  const stroke = resolveShapeLayerStroke(layer)
-  const strokeWidth = resolveShapeLayerStrokeWidth(layer)
-  const opacity = resolveShapeLayerOpacity(layer)
-
-  const sw = strokeWidth
-
-  switch (layer.shapeType) {
-    case "square":
-      return (
-        <>
-          <ShapeFillBackground
-            layer={layer}
-            width={width}
-            height={height}
-            opacity={opacity}
-          />
-          <rect
-            x={sw / 2}
-            y={sw / 2}
-            width={Math.max(0, width - sw)}
-            height={Math.max(0, height - sw)}
-            fill="none"
-            stroke={stroke !== "transparent" && sw > 0 ? stroke : undefined}
-            strokeWidth={stroke !== "transparent" && sw > 0 ? sw : 0}
-          />
-        </>
-      )
-    case "circle":
-      return (
-        <>
-          <ShapeFillBackground
-            layer={layer}
-            width={width}
-            height={height}
-            opacity={opacity}
-          />
-          <ellipse
-            cx={width / 2}
-            cy={height / 2}
-            rx={Math.max(0, width / 2 - sw / 2)}
-            ry={Math.max(0, height / 2 - sw / 2)}
-            fill="none"
-            stroke={stroke !== "transparent" && sw > 0 ? stroke : undefined}
-            strokeWidth={stroke !== "transparent" && sw > 0 ? sw : 0}
-          />
-        </>
-      )
-    case "triangle":
-      return (
-        <>
-          <ShapeFillBackground
-            layer={layer}
-            width={width}
-            height={height}
-            opacity={opacity}
-          />
-          <polygon
-            points={`${width / 2},${sw / 2} ${width - sw / 2},${height - sw / 2} ${sw / 2},${height - sw / 2}`}
-            fill="none"
-            stroke={stroke !== "transparent" && sw > 0 ? stroke : undefined}
-            strokeWidth={stroke !== "transparent" && sw > 0 ? sw : 0}
-            strokeLinejoin="round"
-          />
-        </>
-      )
-    case "line":
-      return (
-        <line
-          x1={0}
-          y1={0}
-          x2={width}
-          y2={height}
-          stroke={stroke}
-          strokeWidth={sw}
-          strokeLinecap="round"
-          opacity={opacity}
-        />
-      )
-  }
+  const edge =
+    handle === "nw" || handle === "sw"
+      ? applyEdgeResize("w", px, py, start, trimW, trimH)
+      : applyEdgeResize("e", px, py, start, trimW, trimH)
+  const vertical =
+    handle === "nw" || handle === "ne"
+      ? applyEdgeResize("n", px, py, edge, trimW, trimH)
+      : applyEdgeResize("s", px, py, edge, trimW, trimH)
+  return vertical
 }
 
 const HANDLES: Array<{
@@ -356,7 +180,7 @@ const HANDLES: Array<{
   },
 ]
 
-export function ShapeLayerBox({
+export function ImageLayerBox({
   layer,
   displayScale,
   trimWidthPx,
@@ -370,7 +194,7 @@ export function ShapeLayerBox({
   getFrameElement,
   onUpdate,
   onSelect,
-}: ShapeLayerBoxProps) {
+}: ImageLayerBoxProps) {
   const dragSessionRef = useRef<DragSession | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
@@ -378,6 +202,9 @@ export function ShapeLayerBox({
   const top = layer.y * displayScale
   const width = layer.width * displayScale
   const height = layer.height * displayScale
+  const fill = resolveImageLayerFill(layer)
+  const opacity = resolveImageLayerOpacity(layer)
+  const hasImage = imageLayerHasImage(layer)
 
   function applySnap(
     x: number,
@@ -449,28 +276,60 @@ export function ShapeLayerBox({
     if (session.kind === "move") {
       const dx = pt.x - session.trimStartX
       const dy = pt.y - session.trimStartY
-      const x = clamp(session.startX + dx, 0, trimWidthPx - session.startW)
-      const y = clamp(session.startY + dy, 0, trimHeightPx - session.startH)
+      let x = clamp(
+        session.startX + dx,
+        0,
+        Math.max(0, trimWidthPx - session.startW)
+      )
+      let y = clamp(
+        session.startY + dy,
+        0,
+        Math.max(0, trimHeightPx - session.startH)
+      )
       const snapped = applySnap(x, y, session.startW, session.startH)
       onUpdate({ x: snapped.x, y: snapped.y })
       return
     }
 
-    const next = applyResize(
-      session.handle,
-      pt.x,
-      pt.y,
-      {
-        x: session.startX,
-        y: session.startY,
-        w: session.startW,
-        h: session.startH,
-      },
-      trimWidthPx,
-      trimHeightPx
-    )
+    const next =
+      session.handle === "n" ||
+      session.handle === "s" ||
+      session.handle === "e" ||
+      session.handle === "w"
+        ? applyEdgeResize(
+            session.handle,
+            pt.x,
+            pt.y,
+            {
+              x: session.startX,
+              y: session.startY,
+              w: session.startW,
+              h: session.startH,
+            },
+            trimWidthPx,
+            trimHeightPx
+          )
+        : applyCornerResize(
+            session.handle,
+            pt.x,
+            pt.y,
+            {
+              x: session.startX,
+              y: session.startY,
+              w: session.startW,
+              h: session.startH,
+            },
+            trimWidthPx,
+            trimHeightPx
+          )
+
     const snapped = applySnap(next.x, next.y, next.w, next.h)
-    onUpdate(snapped)
+    onUpdate({
+      x: snapped.x,
+      y: snapped.y,
+      width: snapped.w,
+      height: snapped.h,
+    })
   }
 
   function onPointerUp(ev: PointerEvent) {
@@ -535,12 +394,12 @@ export function ShapeLayerBox({
 
   return (
     <div
-      data-designer-shape-box
+      data-designer-image-box
       className={cn(
-        "pointer-events-auto absolute touch-none",
+        "pointer-events-auto absolute touch-none overflow-hidden",
         isSelected && !isDragging && "cursor-move"
       )}
-      style={{ left, top, width, height, zIndex }}
+      style={{ left, top, width, height, zIndex, opacity }}
       onPointerDown={(event) => {
         event.stopPropagation()
         onSelect()
@@ -549,12 +408,13 @@ export function ShapeLayerBox({
         }
       }}
     >
-      <svg
-        className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-        aria-hidden
-      >
-        <ShapePreview layer={layer} width={width} height={height} />
-      </svg>
+      <div
+        className={cn(
+          "h-full w-full",
+          !hasImage && "border border-dashed border-muted-foreground/40"
+        )}
+        style={hasImage ? backgroundSettingsToStyle(fill) : undefined}
+      />
 
       {isSelected ? (
         <>

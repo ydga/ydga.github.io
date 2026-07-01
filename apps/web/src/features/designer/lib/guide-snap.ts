@@ -1,4 +1,5 @@
 import type { Layer } from "@/features/designer/model/layers"
+import { resolveImageLayerVisible } from "@/features/designer/model/image-layer-style"
 import { resolveShapeLayerVisible } from "@/features/designer/model/shape-layer-style"
 import { resolveTextLayerVisible } from "@/features/designer/model/text-layer-style"
 import type { CanvasSettings } from "@/features/designer/model/types"
@@ -37,6 +38,10 @@ export function guideSnapActiveForText(settings: CanvasSettings): boolean {
 function isLayerVisibleForSnap(layer: Layer): boolean {
   if (layer.kind === "text") {
     return resolveTextLayerVisible(layer)
+  }
+
+  if (layer.kind === "image") {
+    return resolveImageLayerVisible(layer)
   }
 
   if (layer.kind === "shape") {

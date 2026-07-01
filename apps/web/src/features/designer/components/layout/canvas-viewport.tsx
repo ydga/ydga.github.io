@@ -8,6 +8,7 @@ import { getExportDimensions } from "@/features/designer/lib/dimensions"
 import { shouldShowBleedPreview } from "@/features/designer/lib/render-background"
 import type { DesignerFrame } from "@/features/designer/model/frames"
 import type {
+  ImageLayerUpdatePatch,
   Layer,
   ShapeLayerUpdatePatch,
   TextLayer,
@@ -56,10 +57,18 @@ type CanvasViewportProps = {
     trimWidth: number,
     trimHeight: number
   ) => void
+  onPlaceImage: (
+    trimX: number,
+    trimY: number,
+    trimWidth: number,
+    trimHeight: number
+  ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
+  onUpdateImageLayer: (layerId: string, patch: ImageLayerUpdatePatch) => void
   onSelectTextLayer: (layerId: string) => void
   onSelectShapeLayer: (layerId: string) => void
+  onSelectImageLayer: (layerId: string) => void
   textLayerIdToBeginTyping: string | null
   onTextLayerBeginTypingHandled: () => void
 }
@@ -87,10 +96,13 @@ export function CanvasViewport({
   textLayers,
   onPlaceText,
   onPlaceShape,
+  onPlaceImage,
   onUpdateTextLayer,
   onUpdateShapeLayer,
+  onUpdateImageLayer,
   onSelectTextLayer,
   onSelectShapeLayer,
+  onSelectImageLayer,
   textLayerIdToBeginTyping,
   onTextLayerBeginTypingHandled,
 }: CanvasViewportProps) {
@@ -113,7 +125,10 @@ export function CanvasViewport({
 
   const isFitZoom = zoomMode === "fit"
   const canPanCanvas =
-    !isFitZoom && canvasTool !== "text" && canvasTool !== "shape"
+    !isFitZoom &&
+    canvasTool !== "text" &&
+    canvasTool !== "shape" &&
+    canvasTool !== "image"
   const {
     pan,
     isDragging,
@@ -177,7 +192,11 @@ export function CanvasViewport({
   }, [canPanCanvas, onZoomScaleChange, viewportRef])
 
   function handleStageClick(event: React.MouseEvent) {
-    if (canvasTool === "text" || canvasTool === "shape") {
+    if (
+      canvasTool === "text" ||
+      canvasTool === "shape" ||
+      canvasTool === "image"
+    ) {
       return
     }
 
@@ -204,7 +223,7 @@ export function CanvasViewport({
       <div
         ref={stageRef}
         className={cn(
-          "absolute inset-0 touch-none overscroll-none bg-transparent ring-1 ring-inset ring-foreground/10",
+          "absolute inset-0 touch-none overscroll-none bg-transparent",
           anyTextLayerAllowsPaintOverflow
             ? "overflow-visible"
             : "overflow-hidden",
@@ -264,10 +283,13 @@ export function CanvasViewport({
               textLayers={textLayers}
               onPlaceText={onPlaceText}
               onPlaceShape={onPlaceShape}
+              onPlaceImage={onPlaceImage}
               onUpdateTextLayer={onUpdateTextLayer}
               onUpdateShapeLayer={onUpdateShapeLayer}
+              onUpdateImageLayer={onUpdateImageLayer}
               onSelectTextLayer={onSelectTextLayer}
               onSelectShapeLayer={onSelectShapeLayer}
+              onSelectImageLayer={onSelectImageLayer}
               textLayerIdToBeginTyping={textLayerIdToBeginTyping}
               onTextLayerBeginTypingHandled={onTextLayerBeginTypingHandled}
             />

@@ -26,12 +26,17 @@ import {
 } from "@/features/designer/lib/render-background"
 import { TextLayerBox } from "@/features/designer/components/layout/text-layer-box"
 import { ShapeLayerBox } from "@/features/designer/components/layout/shape-layer-box"
+import { ImageLayerBox } from "@/features/designer/components/layout/image-layer-box"
 import type {
+  ImageLayerUpdatePatch,
   Layer,
   ShapeLayerUpdatePatch,
   TextLayer,
   TextLayerUpdatePatch,
 } from "@/features/designer/model/layers"
+import {
+  resolveImageLayerVisible,
+} from "@/features/designer/model/image-layer-style"
 import {
   resolveShapeLayerFillBackground,
   resolveShapeLayerVisible,
@@ -51,6 +56,8 @@ const DEFAULT_NEW_TEXT_H_TRIM = 72
 /** Defaults for tap-to-place shapes. */
 const DEFAULT_NEW_SHAPE_W_TRIM = 80
 const DEFAULT_NEW_SHAPE_H_TRIM = 80
+const DEFAULT_NEW_IMAGE_W_TRIM = 200
+const DEFAULT_NEW_IMAGE_H_TRIM = 150
 const DEFAULT_NEW_LINE_W_TRIM = 120
 const DEFAULT_NEW_LINE_H_TRIM = 4
 
@@ -141,6 +148,10 @@ function isNonElementFrameTarget(target: EventTarget | null) {
     return false
   }
 
+  if (target.closest("[data-designer-image-box]")) {
+    return false
+  }
+
   if (target.closest("[data-designer-gradient-overlay]")) {
     return false
   }
@@ -177,10 +188,18 @@ type CanvasStageProps = {
     trimWidth: number,
     trimHeight: number
   ) => void
+  onPlaceImage: (
+    trimX: number,
+    trimY: number,
+    trimWidth: number,
+    trimHeight: number
+  ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
+  onUpdateImageLayer: (layerId: string, patch: ImageLayerUpdatePatch) => void
   onSelectTextLayer: (layerId: string) => void
   onSelectShapeLayer: (layerId: string) => void
+  onSelectImageLayer: (layerId: string) => void
   textLayerIdToBeginTyping: string | null
   onTextLayerBeginTypingHandled: () => void
 }
@@ -204,10 +223,13 @@ export function CanvasStage({
   textLayers,
   onPlaceText,
   onPlaceShape,
+  onPlaceImage,
   onUpdateTextLayer,
   onUpdateShapeLayer,
+  onUpdateImageLayer,
   onSelectTextLayer,
   onSelectShapeLayer,
+  onSelectImageLayer,
   textLayerIdToBeginTyping,
   onTextLayerBeginTypingHandled,
 }: CanvasStageProps) {
@@ -434,7 +456,8 @@ export function CanvasStage({
 
   const showShapeGradientControls = normalizedShapeFill != null
 
-  const isPlacementTool = canvasTool === "text" || canvasTool === "shape"
+  const isPlacementTool =
+    canvasTool === "text" || canvasTool === "shape" || canvasTool === "image"
 
   const handleFramePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -494,7 +517,7 @@ export function CanvasStage({
           pt.y,
           trimWidthPx,
           trimHeightPx,
-          canvasTool === "shape" && ev.shiftKey
+          (canvasTool === "shape" || canvasTool === "image") && ev.shiftKey
         )
         setPlacementPreview(r)
       }
@@ -542,6 +565,13 @@ export function CanvasStage({
             } else {
               onPlaceText(session.x0, session.y0)
             }
+          } else if (canvasTool === "image") {
+            onPlaceImage(
+              session.x0,
+              session.y0,
+              DEFAULT_NEW_IMAGE_W_TRIM,
+              DEFAULT_NEW_IMAGE_H_TRIM
+            )
           } else {
             const defaultW =
               shapeVariant === "line"
@@ -561,7 +591,7 @@ export function CanvasStage({
             pt.y,
             trimWidthPx,
             trimHeightPx,
-            canvasTool === "shape" && ev.shiftKey
+            (canvasTool === "shape" || canvasTool === "image") && ev.shiftKey
           )
           const minW =
             canvasTool === "text" ? MIN_PLACE_TEXT_W : MIN_PLACE_SHAPE_W
@@ -586,6 +616,8 @@ export function CanvasStage({
             } else {
               onPlaceText(r.x, r.y, w, h)
             }
+          } else if (canvasTool === "image") {
+            onPlaceImage(r.x, r.y, w, h)
           } else {
             onPlaceShape(r.x, r.y, w, h)
           }
@@ -601,6 +633,7 @@ export function CanvasStage({
       canvasTool,
       displayScale,
       isPlacementTool,
+      onPlaceImage,
       onPlaceShape,
       onPlaceText,
       shapeVariant,
@@ -627,7 +660,9 @@ export function CanvasStage({
       tabIndex={0}
       className={cn(
         "group/frame-chrome relative block shrink-0 outline-none",
-        canvasTool === "text" || canvasTool === "shape"
+        canvasTool === "text" ||
+          canvasTool === "shape" ||
+          canvasTool === "image"
           ? "cursor-crosshair"
           : "cursor-default",
         showBleedPreview || anyTextLayerAllowsPaintOverflow
@@ -773,6 +808,30 @@ export function CanvasStage({
                 getFrameElement={getFrameElement}
                 onUpdate={(patch) => onUpdateShapeLayer(layer.id, patch)}
                 onSelect={() => onSelectShapeLayer(layer.id)}
+              />
+            )
+          }
+
+          if (layer.kind === "image") {
+            if (!resolveImageLayerVisible(layer)) {
+              return null
+            }
+
+            return (
+              <ImageLayerBox
+                key={layer.id}
+                layer={layer}
+                displayScale={displayScale}
+                trimWidthPx={trimWidthPx}
+                trimHeightPx={trimHeightPx}
+                snapGuideXs={dragSnapGuides.xs}
+                snapGuideYs={dragSnapGuides.ys}
+                onActiveSnapGuidesChange={handleActiveSnapGuidesChange}
+                isSelected={selectedElementId === layer.id}
+                zIndex={z}
+                getFrameElement={getFrameElement}
+                onUpdate={(patch) => onUpdateImageLayer(layer.id, patch)}
+                onSelect={() => onSelectImageLayer(layer.id)}
               />
             )
           }

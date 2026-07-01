@@ -82,6 +82,11 @@ export function useDesignerUi() {
         return
       }
 
+      if (tool === "image") {
+        setCanvasToolState("image")
+        return
+      }
+
       setCanvasToolState("select")
       setPanelMode(tool)
       setPanelOpen(true)
@@ -103,6 +108,10 @@ export function useDesignerUi() {
     [selectToolbarTool]
   )
 
+  const selectImageTool = useCallback(() => {
+    selectToolbarTool("image")
+  }, [selectToolbarTool])
+
   const selectPointerTool = useCallback(() => {
     selectToolbarTool("pointer")
   }, [selectToolbarTool])
@@ -118,10 +127,10 @@ export function useDesignerUi() {
 
   const dismissFrameSettings = useCallback(() => {
     setFrameEngagedId(null)
-    if (toolbarTool === "pointer") {
+    if (toolbarTool === "pointer" && !panelPinned) {
       setPanelOpen(false)
     }
-  }, [toolbarTool])
+  }, [toolbarTool, panelPinned])
 
   /** Switches panel mode and opens the panel. Pinning is only via `togglePanelPin` (sidebar control). */
   const togglePanelView = useCallback((view: PanelMode) => {
@@ -167,6 +176,9 @@ export function useDesignerUi() {
         }
 
         setPanelMode("layers")
+        if (panelPinned) {
+          setPanelOpen(true)
+        }
         return
       }
 
@@ -181,10 +193,7 @@ export function useDesignerUi() {
     selection.kind === "page" && frameEngagedId === selection.pageId
 
   const isPanelVisible = panelPinned
-    ? panelOpen &&
-      (selection.kind === "element" ||
-        isFramePanelEngaged ||
-        toolbarTool === "export")
+    ? panelOpen
     : selection.kind === "element" ||
       isFramePanelEngaged ||
       toolbarTool === "export"
@@ -208,6 +217,7 @@ export function useDesignerUi() {
     setShapeVariant,
     selectTextTool,
     selectShapeTool,
+    selectImageTool,
     selectPointerTool,
     panelOpen,
     setPanelOpen,

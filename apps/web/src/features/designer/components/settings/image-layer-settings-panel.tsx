@@ -1,9 +1,10 @@
+"use client"
+
 import { useCallback } from "react"
 
 import { DimensionField } from "@workspace/ui/components/settings/dimension-field"
 import { FillBackgroundField } from "@/features/designer/components/settings/fill-background-field"
 import { SettingSection } from "@workspace/ui/components/settings/setting-section"
-import { ColorPickerField } from "@workspace/ui/components/settings/color-picker"
 import {
   InputGroup,
   InputGroupAddon,
@@ -25,28 +26,24 @@ import {
   settingsNumericTextClassName,
 } from "@workspace/ui/components/settings/settings-field-styles"
 import { useScrubNumber } from "@workspace/ui/components/settings/use-scrub-number"
-import { normalizeHexColor } from "@workspace/ui/lib/color-utils"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type {
-  ShapeLayer,
-  ShapeLayerUpdatePatch,
+  ImageLayer,
+  ImageLayerUpdatePatch,
 } from "@/features/designer/model/layers"
 import { backgroundSettingsReducer } from "@/features/designer/lib/background-settings-reducer"
 import {
-  DEFAULT_SHAPE_STROKE,
-  resolveShapeLayerFillBackground,
-  resolveShapeLayerOpacity,
-  resolveShapeLayerStroke,
-  resolveShapeLayerStrokeWidth,
-} from "@/features/designer/model/shape-layer-style"
+  resolveImageLayerFill,
+  resolveImageLayerOpacity,
+} from "@/features/designer/model/image-layer-style"
 
-type ShapeLayerSettingsPanelProps = {
-  layer: ShapeLayer
+type ImageLayerSettingsPanelProps = {
+  layer: ImageLayer
   trimWidthPx: number
   trimHeightPx: number
-  onUpdate: (patch: ShapeLayerUpdatePatch) => void
-  onFillImageUpload: (file: File | null) => void
+  onUpdate: (patch: ImageLayerUpdatePatch) => void
+  onImageUpload: (file: File | null) => void
 }
 
 type OpacityPercentFieldProps = {
@@ -130,72 +127,15 @@ function OpacityPercentField({
   )
 }
 
-type StrokeWidthFieldProps = {
-  value: number
-  onChange: (value: number) => void
-}
-
-function StrokeWidthField({ value, onChange }: StrokeWidthFieldProps) {
-  const onStrokeWidthScrub = useCallback(
-    (next: number) => onChange(Math.min(48, Math.max(0, Math.round(next)))),
-    [onChange]
-  )
-
-  const { isScrubbing, scrubHandlers } = useScrubNumber({
-    value,
-    onChange: onStrokeWidthScrub,
-    min: 0,
-    max: 48,
-    step: 1,
-  })
-
-  return (
-    <InputGroup
-      className={cn(
-        settingsInputGroupClasses(
-          cn(settingsControlHeightClassName, "w-16 shrink-0 cursor-ew-resize")
-        ),
-        isScrubbing && "select-none"
-      )}
-      {...scrubHandlers}
-    >
-      <InputGroupInput
-        type="number"
-        aria-label="Stroke width"
-        min={0}
-        max={48}
-        step={1}
-        value={value}
-        className={cn(
-          settingsNumberFieldClassName,
-          settingsControlHeightClassName,
-          settingsControlLineHeightClassName,
-          settingsNumericTextClassName,
-          "min-w-0 py-0 pr-2 pl-2 text-right"
-        )}
-        onChange={(event) => {
-          const parsed = Number.parseFloat(event.target.value)
-          if (!Number.isNaN(parsed)) {
-            onChange(Math.min(48, Math.max(0, Math.round(parsed))))
-          }
-        }}
-      />
-    </InputGroup>
-  )
-}
-
-export function ShapeLayerSettingsPanel({
+export function ImageLayerSettingsPanel({
   layer,
   trimWidthPx,
   trimHeightPx,
   onUpdate,
-  onFillImageUpload,
-}: ShapeLayerSettingsPanelProps) {
-  const isLine = layer.shapeType === "line"
-  const fill = resolveShapeLayerFillBackground(layer)
-  const stroke = resolveShapeLayerStroke(layer)
-  const strokeWidth = resolveShapeLayerStrokeWidth(layer)
-  const opacity = Math.round(resolveShapeLayerOpacity(layer) * 100)
+  onImageUpload,
+}: ImageLayerSettingsPanelProps) {
+  const fill = resolveImageLayerFill(layer)
+  const opacity = Math.round(resolveImageLayerOpacity(layer) * 100)
 
   const applyFillAction = useCallback(
     (action: Parameters<typeof backgroundSettingsReducer>[1]) => {
@@ -232,59 +172,19 @@ export function ShapeLayerSettingsPanel({
       </SettingSection>
 
       <SettingSection title="Appearance">
-        <div className="flex flex-col gap-3">
-          {!isLine ? (
-            <div className="flex w-full min-w-0 gap-2">
-              <FillBackgroundField
-                className="min-w-0 flex-1"
-                background={fill}
-                swatchAriaLabel="Edit shape fill"
-                transparentHelpText="No fill on export."
-                onAction={applyFillAction}
-                onImageUpload={onFillImageUpload}
-              />
-              <OpacityPercentField
-                value={opacity}
-                onChange={(next) => onUpdate({ opacity: next })}
-              />
-            </div>
-          ) : null}
-
-          <div className="flex w-full min-w-0 gap-2">
-            <ColorPickerField
-              className="min-w-0 flex-1"
-              triggerVariant="line"
-              lineWidth={strokeWidth}
-              value={stroke === "transparent" ? DEFAULT_SHAPE_STROKE : stroke}
-              swatchLabel={isLine ? "Stroke color" : "Stroke"}
-              hexLabel="Stroke color hex"
-              onChange={(value) => {
-                const nextStroke =
-                  normalizeHexColor(value) ?? DEFAULT_SHAPE_STROKE
-                onUpdate({
-                  stroke: nextStroke,
-                  ...(strokeWidth <= 0 ? { strokeWidth: 1 } : {}),
-                })
-              }}
-            />
-            <StrokeWidthField
-              value={strokeWidth}
-              onChange={(next) => {
-                onUpdate({
-                  strokeWidth: next,
-                  ...(next > 0 && stroke === "transparent"
-                    ? { stroke: DEFAULT_SHAPE_STROKE }
-                    : {}),
-                })
-              }}
-            />
-            {isLine ? (
-              <OpacityPercentField
-                value={opacity}
-                onChange={(next) => onUpdate({ opacity: next })}
-              />
-            ) : null}
-          </div>
+        <div className="flex w-full min-w-0 gap-2">
+          <FillBackgroundField
+            className="min-w-0 flex-1"
+            background={fill}
+            swatchAriaLabel="Edit image"
+            transparentHelpText="No image on export."
+            onAction={applyFillAction}
+            onImageUpload={onImageUpload}
+          />
+          <OpacityPercentField
+            value={opacity}
+            onChange={(next) => onUpdate({ opacity: next })}
+          />
         </div>
       </SettingSection>
     </div>

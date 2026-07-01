@@ -98,7 +98,11 @@ export function DesignerShell() {
   }, [frames.activeFrameId, ui.selection, ui.selectPage])
 
   useEffect(() => {
-    if (ui.canvasTool !== "text" && ui.canvasTool !== "shape") {
+    if (
+      ui.canvasTool !== "text" &&
+      ui.canvasTool !== "shape" &&
+      ui.canvasTool !== "image"
+    ) {
       return
     }
 
@@ -178,7 +182,32 @@ export function DesignerShell() {
     [frames.activeFrameId, layers, ui]
   )
 
+  const handlePlaceImage = useCallback(
+    (trimX: number, trimY: number, trimWidth: number, trimHeight: number) => {
+      const id = layers.addImageLayer({
+        frameId: frames.activeFrameId,
+        x: trimX,
+        y: trimY,
+        width: trimWidth,
+        height: trimHeight,
+      })
+      ui.selectElement(frames.activeFrameId, id)
+      queueMicrotask(() => {
+        ui.selectPointerTool()
+      })
+    },
+    [frames.activeFrameId, layers, ui]
+  )
+
   const handleSelectShapeLayer = useCallback(
+    (layerId: string) => {
+      ui.selectElement(frames.activeFrameId, layerId)
+      ui.selectPointerTool()
+    },
+    [frames.activeFrameId, ui]
+  )
+
+  const handleSelectImageLayer = useCallback(
     (layerId: string) => {
       ui.selectElement(frames.activeFrameId, layerId)
       ui.selectPointerTool()
@@ -231,10 +260,13 @@ export function DesignerShell() {
           }}
           onPlaceText={handlePlaceText}
           onPlaceShape={handlePlaceShape}
+          onPlaceImage={handlePlaceImage}
           onUpdateTextLayer={layers.updateTextLayer}
           onUpdateShapeLayer={layers.updateShapeLayer}
+          onUpdateImageLayer={layers.updateImageLayer}
           onSelectTextLayer={handleSelectTextLayer}
           onSelectShapeLayer={handleSelectShapeLayer}
+          onSelectImageLayer={handleSelectImageLayer}
         />
 
         {ui.panelPinned ? (
@@ -249,8 +281,10 @@ export function DesignerShell() {
             onReorderLayers={layers.reorderLayers}
             onUpdateTextLayer={layers.updateTextLayer}
             onUpdateShapeLayer={layers.updateShapeLayer}
+            onUpdateImageLayer={layers.updateImageLayer}
             onRemoveLayer={layers.removeLayer}
             onShapeFillImageUpload={layers.setShapeFillImage}
+            onImageLayerFileUpload={layers.setImageLayerFile}
           />
         ) : null}
       </div>
@@ -270,8 +304,10 @@ export function DesignerShell() {
                 onReorderLayers={layers.reorderLayers}
                 onUpdateTextLayer={layers.updateTextLayer}
                 onUpdateShapeLayer={layers.updateShapeLayer}
+                onUpdateImageLayer={layers.updateImageLayer}
                 onRemoveLayer={layers.removeLayer}
                 onShapeFillImageUpload={layers.setShapeFillImage}
+                onImageLayerFileUpload={layers.setImageLayerFile}
               />
             </div>
           </div>

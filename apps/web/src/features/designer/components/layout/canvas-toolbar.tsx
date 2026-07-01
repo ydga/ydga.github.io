@@ -9,6 +9,7 @@ import {
 import {
   Circle,
   Download,
+  Image,
   Minus,
   MousePointer2,
   Square,
@@ -183,6 +184,7 @@ function ShapeToolControl({
 
 export function CanvasToolbar({ ui }: CanvasToolbarProps) {
   const shapeToolIndex = 2
+  const imageToolIndex = 3
   const toolbarContainerRef = useRef<HTMLDivElement>(null)
   const shapeItemRef = useRef<HTMLDivElement>(null)
   const [showAlternates, setShowAlternates] = useState(false)
@@ -264,12 +266,24 @@ export function CanvasToolbar({ ui }: CanvasToolbarProps) {
       return shapeToolIndex
     }
 
+    if (tool === "image") {
+      return imageToolIndex
+    }
+
     const itemIndex = TOOLBAR_ITEMS.findIndex((item) => item.tool === tool)
     if (itemIndex < 0) {
       return -1
     }
 
-    return itemIndex < shapeToolIndex ? itemIndex : itemIndex + 1
+    if (itemIndex < shapeToolIndex) {
+      return itemIndex
+    }
+
+    if (itemIndex < TOOLBAR_ITEMS.findIndex((item) => item.tool === "export")) {
+      return itemIndex + 1
+    }
+
+    return itemIndex + 2
   }
 
   const activeIndex = toolbarActiveIndex(ui.toolbarTool)
@@ -285,11 +299,16 @@ export function CanvasToolbar({ ui }: CanvasToolbarProps) {
       return
     }
 
+    if (tool === "image") {
+      ui.selectImageTool()
+      return
+    }
+
     ui.selectToolbarTool(tool)
   }
 
   const beforeShape = TOOLBAR_ITEMS.slice(0, shapeToolIndex)
-  const afterShape = TOOLBAR_ITEMS.slice(shapeToolIndex)
+  const afterImage = TOOLBAR_ITEMS.slice(shapeToolIndex)
 
   function renderToolbarItem({ tool, label, icon: Icon }: ToolbarItem) {
     const active = ui.toolbarTool === tool
@@ -355,7 +374,27 @@ export function CanvasToolbar({ ui }: CanvasToolbarProps) {
             />
           </SlidingNavItem>
 
-          {afterShape.map(renderToolbarItem)}
+          <SlidingNavItem>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <NavIconButton
+                  active={ui.toolbarTool === "image"}
+                  aria-label="Image"
+                  aria-pressed={ui.toolbarTool === "image"}
+                  className={cn(
+                    ui.toolbarTool === "image" &&
+                      "text-white hover:bg-transparent hover:text-white [&_svg]:text-white hover:[&_svg]:text-white"
+                  )}
+                  onClick={() => ui.selectImageTool()}
+                >
+                  <Image aria-hidden />
+                </NavIconButton>
+              </TooltipTrigger>
+              <TooltipContent side="left">Image</TooltipContent>
+            </Tooltip>
+          </SlidingNavItem>
+
+          {afterImage.map(renderToolbarItem)}
         </SlidingNavIndicator>
       </div>
     </div>

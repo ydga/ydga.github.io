@@ -7,6 +7,7 @@ import { FloatingChrome } from "@/features/designer/components/layout/floating-c
 import { frameHasElements } from "@/features/designer/model/frames"
 import { getLayersForFrame } from "@/features/designer/model/layers"
 import type {
+  ImageLayerUpdatePatch,
   Layer,
   ShapeLayerUpdatePatch,
   TextLayerUpdatePatch,
@@ -35,10 +36,18 @@ type MainStageProps = {
     trimWidth: number,
     trimHeight: number
   ) => void
+  onPlaceImage: (
+    trimX: number,
+    trimY: number,
+    trimWidth: number,
+    trimHeight: number
+  ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
+  onUpdateImageLayer: (layerId: string, patch: ImageLayerUpdatePatch) => void
   onSelectTextLayer: (layerId: string) => void
   onSelectShapeLayer: (layerId: string) => void
+  onSelectImageLayer: (layerId: string) => void
   textLayerIdToBeginTyping: string | null
   onTextLayerBeginTypingHandled: () => void
 }
@@ -54,10 +63,13 @@ export function MainStage({
   onRemoveFrame,
   onPlaceText,
   onPlaceShape,
+  onPlaceImage,
   onUpdateTextLayer,
   onUpdateShapeLayer,
+  onUpdateImageLayer,
   onSelectTextLayer,
   onSelectShapeLayer,
+  onSelectImageLayer,
   textLayerIdToBeginTyping,
   onTextLayerBeginTypingHandled,
 }: MainStageProps) {
@@ -87,7 +99,7 @@ export function MainStage({
   }
 
   return (
-    <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[18px] bg-stage-canvas">
+    <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[18px] bg-stage-canvas ring-1 ring-inset ring-foreground/10">
       <FloatingChrome
         position="top-right"
         variant="frosted"
@@ -120,10 +132,13 @@ export function MainStage({
         textLayers={activeFrameTextLayers}
         onPlaceText={onPlaceText}
         onPlaceShape={onPlaceShape}
+        onPlaceImage={onPlaceImage}
         onUpdateTextLayer={onUpdateTextLayer}
         onUpdateShapeLayer={onUpdateShapeLayer}
+        onUpdateImageLayer={onUpdateImageLayer}
         onSelectTextLayer={onSelectTextLayer}
         onSelectShapeLayer={onSelectShapeLayer}
+        onSelectImageLayer={onSelectImageLayer}
         textLayerIdToBeginTyping={textLayerIdToBeginTyping}
         onTextLayerBeginTypingHandled={onTextLayerBeginTypingHandled}
       />
