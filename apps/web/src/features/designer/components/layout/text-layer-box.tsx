@@ -14,7 +14,8 @@ import type {
 } from "@/features/designer/model/layers"
 import {
   SNAP_THRESHOLD_TRIM_PX,
-  snapTextLayerBoxTrimPx,
+  snapLayerBoxTrimPx,
+  type ActiveSnapGuideLines,
 } from "@/features/designer/lib/guide-snap"
 import {
   measureTextLayerContentBox,
@@ -84,6 +85,7 @@ type TextLayerBoxProps = {
   /** When set, box position snaps to these trim-space Y guides while moving or resizing. */
   snapGuideYs?: readonly number[] | null
   snapThresholdTrimPx?: number
+  onActiveSnapGuidesChange?: (guides: ActiveSnapGuideLines | null) => void
   isSelected: boolean
   zIndex: number
   getFrameElement: () => HTMLElement | null
@@ -317,6 +319,7 @@ export function TextLayerBox({
   snapGuideXs,
   snapGuideYs,
   snapThresholdTrimPx = SNAP_THRESHOLD_TRIM_PX,
+  onActiveSnapGuidesChange,
   isSelected,
   zIndex,
   getFrameElement,
@@ -482,14 +485,18 @@ export function TextLayerBox({
     trimWidthPx,
   ])
 
-  const endDrag = useCallback((event: PointerEvent) => {
-    const cap = pointerCaptureRef.current
-    if (cap?.hasPointerCapture?.(event.pointerId)) {
-      cap.releasePointerCapture(event.pointerId)
-    }
-    pointerCaptureRef.current = null
-    dragRef.current = null
-  }, [])
+  const endDrag = useCallback(
+    (event: PointerEvent) => {
+      const cap = pointerCaptureRef.current
+      if (cap?.hasPointerCapture?.(event.pointerId)) {
+        cap.releasePointerCapture(event.pointerId)
+      }
+      pointerCaptureRef.current = null
+      dragRef.current = null
+      onActiveSnapGuidesChange?.(null)
+    },
+    [onActiveSnapGuidesChange]
+  )
 
   useEffect(() => {
     function onPointerMove(event: PointerEvent) {
@@ -524,7 +531,7 @@ export function TextLayerBox({
           snapGuideXs.length > 0 &&
           snapGuideYs.length > 0
         ) {
-          const snapped = snapTextLayerBoxTrimPx(
+          const snapped = snapLayerBoxTrimPx(
             x,
             y,
             session.startW,
@@ -537,6 +544,16 @@ export function TextLayerBox({
           )
           x = snapped.x
           y = snapped.y
+          onActiveSnapGuidesChange?.(
+            snapped.activeGuideXs.length > 0 || snapped.activeGuideYs.length > 0
+              ? {
+                  xs: snapped.activeGuideXs,
+                  ys: snapped.activeGuideYs,
+                }
+              : null
+          )
+        } else {
+          onActiveSnapGuidesChange?.(null)
         }
         onUpdate({ x, y })
         return
@@ -565,7 +582,7 @@ export function TextLayerBox({
         snapGuideXs.length > 0 &&
         snapGuideYs.length > 0
       ) {
-        const snapped = snapTextLayerBoxTrimPx(
+        const snapped = snapLayerBoxTrimPx(
           nx,
           ny,
           next.w,
@@ -578,6 +595,16 @@ export function TextLayerBox({
         )
         nx = snapped.x
         ny = snapped.y
+        onActiveSnapGuidesChange?.(
+          snapped.activeGuideXs.length > 0 || snapped.activeGuideYs.length > 0
+            ? {
+                xs: snapped.activeGuideXs,
+                ys: snapped.activeGuideYs,
+              }
+            : null
+        )
+      } else {
+        onActiveSnapGuidesChange?.(null)
       }
       onUpdate({
         x: nx,
@@ -607,6 +634,7 @@ export function TextLayerBox({
     displayScale,
     endDrag,
     getFrameElement,
+    onActiveSnapGuidesChange,
     onUpdate,
     snapGuideXs,
     snapGuideYs,

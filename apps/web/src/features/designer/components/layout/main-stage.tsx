@@ -108,6 +108,7 @@ export function MainStage({
         onZoomScaleChange={ui.setZoomScale}
         onSelectFrame={handleCanvasPageSelect}
         onDeselectFrameElement={(frameId) => ui.selectPage(frameId)}
+        onDismissFrameSettings={ui.dismissFrameSettings}
         dispatch={frames.dispatch}
         toolbarChromeRef={toolbarChromeRef}
         bottomChromeRef={bottomChromeRef}

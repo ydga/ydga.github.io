@@ -1,4 +1,4 @@
-import { PanelLeft } from "lucide-react"
+import { Pin, PinOff } from "lucide-react"
 
 import { LayersPanel } from "@/features/designer/components/layers/layers-panel"
 import {
@@ -36,6 +36,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 type ContextPanelProps = {
+  layout: "docked" | "floating"
   ui: DesignerUi
   frames: DesignerFrames
   getCanvasForFrame: (frameId: string) => HTMLCanvasElement | null
@@ -76,6 +77,7 @@ function getSelectedShapeLayer(
 }
 
 export function ContextPanel({
+  layout,
   ui,
   frames,
   getCanvasForFrame,
@@ -88,11 +90,12 @@ export function ContextPanel({
   onRemoveLayer,
   onShapeFillImageUpload,
 }: ContextPanelProps) {
-  const { selection, panelMode, toolbarTool } = ui
+  const { selection, panelMode, toolbarTool, frameEngagedId } = ui
   const contextPanelMode = resolveContextPanelMode(
     toolbarTool,
     panelMode,
-    selection
+    selection,
+    frameEngagedId
   )
 
   const selectedTextLayer = getSelectedTextLayer(
@@ -122,23 +125,42 @@ export function ContextPanel({
               ? "Shape"
               : getPanelTitle(selection)
 
+  const isFloating = layout === "floating"
+
   return (
     <aside
       className={cn(
-        "flex shrink-0 flex-col bg-background transition-[width,margin] duration-200 ease-out",
-        ui.panelOpen ? "w-[var(--panel-width)]" : "w-0 overflow-hidden"
+        "flex flex-col bg-background",
+        isFloating
+          ? "h-full w-full overflow-hidden"
+          : cn(
+              "shrink-0 transition-[width,margin] duration-200 ease-out",
+              ui.isPanelVisible
+                ? "w-[var(--panel-width)]"
+                : "w-0 overflow-hidden"
+            )
       )}
-      aria-hidden={!ui.panelOpen}
+      aria-hidden={!ui.isPanelVisible}
     >
-      <div className="flex h-full w-[var(--panel-width)] flex-col">
+      <div
+        className={cn(
+          "flex h-full flex-col",
+          isFloating ? "w-full" : "w-[var(--panel-width)]"
+        )}
+      >
         <div className={panelHeaderClassName}>
           <h2 className={panelTitleClassName}>{title}</h2>
           <PanelIconTileButton
             type="button"
-            aria-label="Toggle sidebar"
-            onClick={() => ui.togglePanel()}
+            aria-label={ui.panelPinned ? "Unpin sidebar" : "Pin sidebar"}
+            aria-pressed={ui.panelPinned}
+            onClick={() => ui.togglePanelPin()}
           >
-            <PanelLeft className={panelIconClassName} />
+            {ui.panelPinned ? (
+              <Pin className={panelIconClassName} />
+            ) : (
+              <PinOff className={panelIconClassName} />
+            )}
           </PanelIconTileButton>
         </div>
 

@@ -12,6 +12,11 @@ import {
   resolveShapeLayerStroke,
   resolveShapeLayerStrokeWidth,
 } from "@/features/designer/model/shape-layer-style"
+import {
+  SNAP_THRESHOLD_TRIM_PX,
+  snapLayerBoxTrimPx,
+  type ActiveSnapGuideLines,
+} from "@/features/designer/lib/guide-snap"
 import { cn } from "@workspace/ui/lib/utils"
 
 const MIN_W_TRIM = 8
@@ -46,6 +51,10 @@ type ShapeLayerBoxProps = {
   displayScale: number
   trimWidthPx: number
   trimHeightPx: number
+  snapGuideXs?: readonly number[]
+  snapGuideYs?: readonly number[]
+  snapThresholdTrimPx?: number
+  onActiveSnapGuidesChange?: (guides: ActiveSnapGuideLines | null) => void
   isSelected: boolean
   zIndex: number
   getFrameElement: () => HTMLElement | null
@@ -352,6 +361,10 @@ export function ShapeLayerBox({
   displayScale,
   trimWidthPx,
   trimHeightPx,
+  snapGuideXs,
+  snapGuideYs,
+  snapThresholdTrimPx = SNAP_THRESHOLD_TRIM_PX,
+  onActiveSnapGuidesChange,
   isSelected,
   zIndex,
   getFrameElement,
@@ -366,9 +379,55 @@ export function ShapeLayerBox({
   const width = layer.width * displayScale
   const height = layer.height * displayScale
 
+  function applySnap(
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ): { x: number; y: number; w: number; h: number } {
+    if (
+      !snapGuideXs ||
+      !snapGuideYs ||
+      snapGuideXs.length === 0 ||
+      snapGuideYs.length === 0
+    ) {
+      onActiveSnapGuidesChange?.(null)
+      return { x, y, w, h }
+    }
+
+    const snapped = snapLayerBoxTrimPx(
+      x,
+      y,
+      w,
+      h,
+      snapGuideXs,
+      snapGuideYs,
+      snapThresholdTrimPx,
+      trimWidthPx,
+      trimHeightPx
+    )
+
+    onActiveSnapGuidesChange?.(
+      snapped.activeGuideXs.length > 0 || snapped.activeGuideYs.length > 0
+        ? {
+            xs: snapped.activeGuideXs,
+            ys: snapped.activeGuideYs,
+          }
+        : null
+    )
+
+    return {
+      x: snapped.x,
+      y: snapped.y,
+      w: snapped.w,
+      h: snapped.h,
+    }
+  }
+
   function endDrag() {
     dragSessionRef.current = null
     setIsDragging(false)
+    onActiveSnapGuidesChange?.(null)
     window.removeEventListener("pointermove", onPointerMove)
     window.removeEventListener("pointerup", onPointerUp)
     window.removeEventListener("pointercancel", onPointerUp)
@@ -392,7 +451,8 @@ export function ShapeLayerBox({
       const dy = pt.y - session.trimStartY
       const x = clamp(session.startX + dx, 0, trimWidthPx - session.startW)
       const y = clamp(session.startY + dy, 0, trimHeightPx - session.startH)
-      onUpdate({ x, y })
+      const snapped = applySnap(x, y, session.startW, session.startH)
+      onUpdate({ x: snapped.x, y: snapped.y })
       return
     }
 
@@ -409,7 +469,8 @@ export function ShapeLayerBox({
       trimWidthPx,
       trimHeightPx
     )
-    onUpdate(next)
+    const snapped = applySnap(next.x, next.y, next.w, next.h)
+    onUpdate(snapped)
   }
 
   function onPointerUp(ev: PointerEvent) {

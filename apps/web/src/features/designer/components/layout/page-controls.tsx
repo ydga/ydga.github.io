@@ -20,7 +20,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 const frameNameFieldClasses =
-  "h-7 w-full min-w-0 border-transparent bg-transparent shadow-none hover:bg-muted/50 has-[[data-slot=input-group-control]:focus-visible]:border-input has-[[data-slot=input-group-control]:focus-visible]:bg-background has-[[data-slot=input-group-control]:focus-visible]:ring-[3px] has-[[data-slot=input-group-control]:focus-visible]:ring-ring/50"
+  "h-7 w-full min-w-0 border-transparent bg-transparent shadow-none hover:bg-transparent focus-within:border-transparent focus-within:bg-transparent focus-within:ring-0 has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:bg-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-0"
 
 type FrameNameFieldProps = {
   pageName: string
@@ -52,12 +52,25 @@ export function FrameNameField({
         aria-label="Frame name"
         placeholder="Untitled"
         className={cn(
-          "h-7 min-w-0 flex-1 text-left text-xs font-medium",
+          "h-7 min-w-0 flex-1 border-0 bg-transparent text-left text-xs font-medium shadow-none outline-none focus:border-transparent focus:bg-transparent focus:outline-none focus:ring-0 focus-visible:border-transparent focus-visible:bg-transparent focus-visible:outline-none focus-visible:ring-0",
           showIcon ? "px-1" : "px-2"
         )}
         onChange={(event) => onPageNameChange(event.target.value)}
         onFocus={onFocus}
-        onKeyDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          event.stopPropagation()
+
+          if (event.key !== "Enter") {
+            return
+          }
+
+          event.preventDefault()
+          const trimmed = event.currentTarget.value.trim()
+          if (trimmed !== pageName) {
+            onPageNameChange(trimmed)
+          }
+          event.currentTarget.blur()
+        }}
       />
     </InputGroup>
   )
