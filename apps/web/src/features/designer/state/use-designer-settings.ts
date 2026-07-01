@@ -56,6 +56,7 @@ export type DesignerAction =
       key: keyof ExportBurnInSettings
       value: boolean
     }
+  | { type: "set-clip-content"; value: boolean }
 
 function applyUnitChange(
   settings: CanvasSettings,
@@ -225,6 +226,11 @@ export function designerReducer(
             [action.key]: action.value,
           },
         },
+      }
+    case "set-clip-content":
+      return {
+        ...settings,
+        clipContent: action.value,
       }
     default:
       return settings

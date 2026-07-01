@@ -18,6 +18,7 @@ import {
 import { normalizeBackgroundGradient } from "@/features/designer/lib/gradient-stops"
 import { backgroundSettingsReducer } from "@/features/designer/lib/background-settings-reducer"
 import { getPreviewGuideGeometry } from "@/features/designer/lib/print-zones"
+import { frameAllowsElementOverflow } from "@/features/designer/lib/frame-content"
 import {
   paintBackgroundFallback,
   renderPreviewCanvasBackground,
@@ -253,11 +254,9 @@ export function CanvasStage({
   const canvasDisplayWidth = canvasWidthPx * displayScale
   const canvasDisplayHeight = canvasHeightPx * displayScale
   const normalizedBackground = normalizeBackgroundGradient(settings.background)
-
-  /** `overflow:hidden` on the frame would clip HTML text that paints past the layer rect when clip is off. */
-  const anyTextLayerAllowsPaintOverflow = useMemo(
-    () => textLayers.some((l) => l.clip === false),
-    [textLayers]
+  const allowElementOverflow = frameAllowsElementOverflow(
+    settings,
+    showBleedPreview
   )
   const showGradientControls =
     settings.background.type === "gradient" &&
@@ -643,9 +642,7 @@ export function CanvasStage({
         canvasTool === "text" || canvasTool === "shape"
           ? "cursor-crosshair"
           : "cursor-default",
-        showBleedPreview || anyTextLayerAllowsPaintOverflow
-          ? "overflow-visible"
-          : "overflow-hidden"
+        allowElementOverflow ? "overflow-visible" : "overflow-hidden"
       )}
       style={{ width: trimDisplayWidth, height: trimDisplayHeight }}
       onPointerDown={handleFramePointerDown}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useRef } from "react"
 
 import { CanvasStage } from "@/features/designer/components/layout/canvas-stage"
 import { FrameNameField } from "@/features/designer/components/layout/page-controls"
@@ -6,6 +6,7 @@ import { useStageFit } from "@/features/designer/hooks/use-stage-fit"
 import { useStagePan } from "@/features/designer/hooks/use-stage-pan"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
 import { shouldShowBleedPreview } from "@/features/designer/lib/render-background"
+import { frameAllowsElementOverflow } from "@/features/designer/lib/frame-content"
 import type { DesignerFrame } from "@/features/designer/model/frames"
 import type {
   ImageLayerUpdatePatch,
@@ -102,6 +103,10 @@ export function CanvasViewport({
   const displayScaleRef = useRef(displayScale)
   const exportDimensions = getExportDimensions(activeFrame.settings)
   const showBleedPreview = shouldShowBleedPreview(activeFrame.settings)
+  const allowElementOverflow = frameAllowsElementOverflow(
+    activeFrame.settings,
+    showBleedPreview
+  )
   const contentWidthPx = showBleedPreview
     ? exportDimensions.exportWidthPx
     : exportDimensions.trimWidthPx
@@ -131,11 +136,6 @@ export function CanvasViewport({
     enabled: canPanCanvas,
     resetKey: `${activeFrame.id}:${isFitZoom ? "fit" : "manual"}`,
   })
-
-  const anyTextLayerAllowsPaintOverflow = useMemo(
-    () => textLayers.some((l) => l.clip === false),
-    [textLayers]
-  )
 
   useEffect(() => {
     displayScaleRef.current = displayScale
@@ -210,9 +210,7 @@ export function CanvasViewport({
         ref={stageRef}
         className={cn(
           "absolute inset-0 touch-none overscroll-none bg-transparent",
-          anyTextLayerAllowsPaintOverflow
-            ? "overflow-visible"
-            : "overflow-hidden",
+          allowElementOverflow ? "overflow-visible" : "overflow-hidden",
           canPanCanvas &&
             (isDragging ? "cursor-grabbing" : "cursor-grab")
         )}

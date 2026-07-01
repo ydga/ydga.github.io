@@ -50,4 +50,5 @@ export const DEFAULT_CANVAS_SETTINGS: CanvasSettings = {
       thirds: false,
     },
   },
+  clipContent: false,
 }

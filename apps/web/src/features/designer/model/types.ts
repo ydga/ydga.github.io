@@ -66,6 +66,8 @@ export type CanvasSettings = {
   print: PrintZoneSettings
   guides: GuideSettings
   export: ExportSettings
+  /** When true, layers are clipped to the frame trim bounds in preview and export. */
+  clipContent?: boolean
 }
 
 export type ExportDimensions = {

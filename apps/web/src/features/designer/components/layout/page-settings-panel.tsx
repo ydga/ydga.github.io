@@ -3,6 +3,7 @@ import {
   CanvasSettingsSection,
   PresetsSection,
 } from "@/features/designer/components/settings/canvas-settings-section"
+import { FrameContentSettingsSection } from "@/features/designer/components/settings/frame-content-settings-section"
 import { GuidesSettingsSection } from "@/features/designer/components/settings/guides-settings-section"
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
@@ -22,6 +23,7 @@ export function PageSettingsPanel({
   return (
     <div className={panelSectionClassName}>
       <CanvasSettingsSection settings={settings} dispatch={dispatch} />
+      <FrameContentSettingsSection settings={settings} dispatch={dispatch} />
       <BackgroundSettingsSection
         settings={settings}
         dispatch={dispatch}
