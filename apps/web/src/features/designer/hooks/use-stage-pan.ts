@@ -116,10 +116,25 @@ export function useStagePan({ enabled, resetKey }: UseStagePanOptions) {
     })
   }, [])
 
+  const addPan = useCallback((dx: number, dy: number) => {
+    if (!enabled || (dx === 0 && dy === 0)) {
+      return
+    }
+
+    setState((current) => ({
+      ...current,
+      pan: {
+        x: current.pan.x + dx,
+        y: current.pan.y + dy,
+      },
+    }))
+  }, [enabled])
+
   return {
     pan: state.pan,
     isDragging: state.isDragging,
     canPan: enabled,
+    addPan,
     onPointerDown,
     onPointerMove,
     onPointerUp: endDrag,

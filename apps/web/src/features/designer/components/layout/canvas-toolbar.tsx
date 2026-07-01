@@ -9,7 +9,6 @@ import {
 import {
   Circle,
   Download,
-  Frame,
   Minus,
   MousePointer2,
   Square,
@@ -55,7 +54,6 @@ type ToolbarItem = {
 const TOOLBAR_ITEMS: ToolbarItem[] = [
   { tool: "pointer", label: "Pointer", icon: MousePointer2 },
   { tool: "text", label: "Text", icon: Type },
-  { tool: "document", label: "Frame", icon: Frame },
   { tool: "export", label: "Export", icon: Download },
 ]
 
@@ -284,11 +282,6 @@ export function CanvasToolbar({ ui }: CanvasToolbarProps) {
 
     if (tool === "text") {
       ui.selectTextTool()
-      return
-    }
-
-    if (tool === "document") {
-      ui.selectToolbarTool("document", ui.selection.pageId)
       return
     }
 

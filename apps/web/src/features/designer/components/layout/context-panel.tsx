@@ -90,11 +90,12 @@ export function ContextPanel({
   onRemoveLayer,
   onShapeFillImageUpload,
 }: ContextPanelProps) {
-  const { selection, panelMode, toolbarTool } = ui
+  const { selection, panelMode, toolbarTool, frameEngagedId } = ui
   const contextPanelMode = resolveContextPanelMode(
     toolbarTool,
     panelMode,
-    selection
+    selection,
+    frameEngagedId
   )
 
   const selectedTextLayer = getSelectedTextLayer(

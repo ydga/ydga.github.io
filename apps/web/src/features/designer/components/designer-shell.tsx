@@ -257,21 +257,23 @@ export function DesignerShell() {
 
       {!ui.panelPinned && ui.isPanelVisible ? (
         <div className="pointer-events-none absolute inset-y-2 right-2 z-40 flex w-[var(--panel-width)]">
-          <div className="pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden rounded-[18px] border border-border/30 bg-background shadow-xl">
-            <ContextPanel
-              layout="floating"
-              ui={ui}
-              frames={frames}
-              getCanvasForFrame={getCanvasForFrame}
-              onImageUpload={frames.setBackgroundImage}
-              layers={layers.layers}
-              activeFrameId={frames.activeFrameId}
-              onReorderLayers={layers.reorderLayers}
-              onUpdateTextLayer={layers.updateTextLayer}
-              onUpdateShapeLayer={layers.updateShapeLayer}
-              onRemoveLayer={layers.removeLayer}
-              onShapeFillImageUpload={layers.setShapeFillImage}
-            />
+          <div className="pointer-events-auto box-border min-h-0 h-full w-full p-2">
+            <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[18px] border border-border/30 bg-background shadow-xl">
+              <ContextPanel
+                layout="floating"
+                ui={ui}
+                frames={frames}
+                getCanvasForFrame={getCanvasForFrame}
+                onImageUpload={frames.setBackgroundImage}
+                layers={layers.layers}
+                activeFrameId={frames.activeFrameId}
+                onReorderLayers={layers.reorderLayers}
+                onUpdateTextLayer={layers.updateTextLayer}
+                onUpdateShapeLayer={layers.updateShapeLayer}
+                onRemoveLayer={layers.removeLayer}
+                onShapeFillImageUpload={layers.setShapeFillImage}
+              />
+            </div>
           </div>
         </div>
       ) : null}

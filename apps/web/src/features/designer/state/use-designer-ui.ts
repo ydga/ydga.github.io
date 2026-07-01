@@ -21,10 +21,8 @@ export function useDesignerUi() {
     kind: "page",
     pageId: DEFAULT_FRAME_ID,
   })
-  const [frameEngagedId, setFrameEngagedId] = useState<string | null>(
-    DEFAULT_FRAME_ID
-  )
-  const [panelOpen, setPanelOpen] = useState(true)
+  const [frameEngagedId, setFrameEngagedId] = useState<string | null>(null)
+  const [panelOpen, setPanelOpen] = useState(false)
   const [panelPinned, setPanelPinned] = useState(true)
   const [panelMode, setPanelMode] = useState<PanelMode>("layers")
   const [toolbarTool, setToolbarTool] = useState<ToolbarTool>("pointer")
@@ -87,11 +85,6 @@ export function useDesignerUi() {
       setCanvasToolState("select")
       setPanelMode(tool)
       setPanelOpen(true)
-
-      if (tool === "document") {
-        setFrameEngagedId(pageId)
-        setSelection({ kind: "page", pageId })
-      }
     },
     []
   )
@@ -115,11 +108,20 @@ export function useDesignerUi() {
   }, [selectToolbarTool])
 
   const selectPageAndOpen = useCallback((pageId: string = DEFAULT_FRAME_ID) => {
+    setToolbarTool("pointer")
+    setCanvasToolState("select")
     setFrameEngagedId(pageId)
     setSelection({ kind: "page", pageId })
     setPanelMode("document")
     setPanelOpen(true)
   }, [])
+
+  const dismissFrameSettings = useCallback(() => {
+    setFrameEngagedId(null)
+    if (toolbarTool === "pointer") {
+      setPanelOpen(false)
+    }
+  }, [toolbarTool])
 
   /** Switches panel mode and opens the panel. Pinning is only via `togglePanelPin` (sidebar control). */
   const togglePanelView = useCallback((view: PanelMode) => {
@@ -141,28 +143,51 @@ export function useDesignerUi() {
   /** Keep the context panel in sync with toolbar tool and canvas selection. */
   useEffect(() => {
     queueMicrotask(() => {
-      if (toolbarTool === "pointer") {
-        setPanelMode(selection.kind === "page" ? "layers" : "document")
+      if (toolbarTool === "export") {
+        setPanelMode("export")
         if (panelPinned) {
           setPanelOpen(true)
         }
         return
       }
 
-      if (selection.kind !== "element") {
+      if (toolbarTool === "pointer") {
+        if (selection.kind === "element") {
+          setPanelMode("document")
+          setPanelOpen(true)
+          return
+        }
+
+        if (frameEngagedId === selection.pageId) {
+          setPanelMode("document")
+          if (panelPinned) {
+            setPanelOpen(true)
+          }
+          return
+        }
+
+        setPanelMode("layers")
         return
       }
 
-      setPanelMode("document")
-      if (panelPinned) {
+      if (selection.kind === "element") {
+        setPanelMode("document")
         setPanelOpen(true)
       }
     })
-  }, [toolbarTool, selection, panelPinned])
+  }, [toolbarTool, selection, panelPinned, frameEngagedId])
+
+  const isFramePanelEngaged =
+    selection.kind === "page" && frameEngagedId === selection.pageId
 
   const isPanelVisible = panelPinned
-    ? panelOpen
-    : selection.kind === "element"
+    ? panelOpen &&
+      (selection.kind === "element" ||
+        isFramePanelEngaged ||
+        toolbarTool === "export")
+    : selection.kind === "element" ||
+      isFramePanelEngaged ||
+      toolbarTool === "export"
 
   const zoomFit = useCallback(() => {
     setZoomMode("fit")
@@ -175,6 +200,7 @@ export function useDesignerUi() {
     selectElement,
     toggleElementSelection,
     selectPageAndOpen,
+    dismissFrameSettings,
     toolbarTool,
     selectToolbarTool,
     canvasTool,
