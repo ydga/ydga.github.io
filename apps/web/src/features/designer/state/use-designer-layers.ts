@@ -15,7 +15,9 @@ import {
   type ShapeLayerUpdatePatch,
 } from "@/features/designer/model/layers"
 import { backgroundSettingsReducer } from "@/features/designer/lib/background-settings-reducer"
+import { loadImage } from "@/features/designer/lib/render-background"
 import {
+  DEFAULT_IMAGE_FILL_BACKGROUND,
   imageLayerDisplayName,
   resolveImageLayerFill,
 } from "@/features/designer/model/image-layer-style"
@@ -48,12 +50,11 @@ export type NewShapeLayerInput = {
   height: number
 }
 
-export type NewImageLayerInput = {
+export type NewImageLayerFromFileInput = {
   frameId: string
-  x: number
-  y: number
-  width: number
-  height: number
+  file: File
+  trimWidthPx: number
+  trimHeightPx: number
 }
 
 export function useDesignerLayers() {
@@ -156,32 +157,63 @@ export function useDesignerLayers() {
     return id
   }, [])
 
-  const addImageLayer = useCallback((input: NewImageLayerInput) => {
-    const id = crypto.randomUUID()
-
-    const layer: ImageLayer = {
-      id,
-      frameId: input.frameId,
-      kind: "image",
-      name: imageLayerDisplayName(),
-      x: input.x,
-      y: input.y,
-      width: input.width,
-      height: input.height,
-    }
-
-    setLayers((prev) => {
-      const firstIdx = prev.findIndex((l) => l.frameId === input.frameId)
-      if (firstIdx === -1) {
-        return [...prev, layer]
+  const addImageLayerFromFile = useCallback(
+    async (input: NewImageLayerFromFileInput): Promise<string | null> => {
+      if (!input.file.type.startsWith("image/")) {
+        return null
       }
-      const next = [...prev]
-      next.splice(firstIdx, 0, layer)
-      return next
-    })
 
-    return id
-  }, [])
+      const objectUrl = URL.createObjectURL(input.file)
+
+      try {
+        const image = await loadImage(objectUrl)
+        const width = image.naturalWidth
+        const height = image.naturalHeight
+
+        if (width <= 0 || height <= 0) {
+          URL.revokeObjectURL(objectUrl)
+          return null
+        }
+
+        const x = Math.max(0, (input.trimWidthPx - width) / 2)
+        const y = Math.max(0, (input.trimHeightPx - height) / 2)
+        const id = crypto.randomUUID()
+
+        const layer: ImageLayer = {
+          id,
+          frameId: input.frameId,
+          kind: "image",
+          name: imageLayerDisplayName(),
+          x,
+          y,
+          width,
+          height,
+          fill: backgroundSettingsReducer(DEFAULT_IMAGE_FILL_BACKGROUND, {
+            type: "set-background-image",
+            value: objectUrl,
+          }),
+        }
+
+        imageLayerUrlRefs.current.set(id, objectUrl)
+
+        setLayers((prev) => {
+          const firstIdx = prev.findIndex((l) => l.frameId === input.frameId)
+          if (firstIdx === -1) {
+            return [...prev, layer]
+          }
+          const next = [...prev]
+          next.splice(firstIdx, 0, layer)
+          return next
+        })
+
+        return id
+      } catch {
+        URL.revokeObjectURL(objectUrl)
+        return null
+      }
+    },
+    []
+  )
 
   const updateTextLayer = useCallback(
     (layerId: string, patch: TextLayerUpdatePatch) => {
@@ -355,7 +387,7 @@ export function useDesignerLayers() {
     layers,
     addTextLayer,
     addShapeLayer,
-    addImageLayer,
+    addImageLayerFromFile,
     updateTextLayer,
     updateShapeLayer,
     updateImageLayer,

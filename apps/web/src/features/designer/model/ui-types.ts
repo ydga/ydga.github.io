@@ -12,7 +12,7 @@ export type ElementSelection = {
 export type Selection = PageSelection | ElementSelection
 
 export type ZoomMode = "fit" | "manual"
-export type CanvasTool = "select" | "text" | "shape" | "image"
+export type CanvasTool = "select" | "text" | "shape"
 export type ShapeVariant = "circle" | "square" | "triangle" | "line"
 export type PanelMode = "document" | "export" | "layers"
 export type ToolbarTool = "pointer" | "text" | "shape" | "image" | "export"

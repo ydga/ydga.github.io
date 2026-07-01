@@ -57,12 +57,6 @@ type CanvasViewportProps = {
     trimWidth: number,
     trimHeight: number
   ) => void
-  onPlaceImage: (
-    trimX: number,
-    trimY: number,
-    trimWidth: number,
-    trimHeight: number
-  ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
   onUpdateImageLayer: (layerId: string, patch: ImageLayerUpdatePatch) => void
@@ -96,7 +90,6 @@ export function CanvasViewport({
   textLayers,
   onPlaceText,
   onPlaceShape,
-  onPlaceImage,
   onUpdateTextLayer,
   onUpdateShapeLayer,
   onUpdateImageLayer,
@@ -125,10 +118,7 @@ export function CanvasViewport({
 
   const isFitZoom = zoomMode === "fit"
   const canPanCanvas =
-    !isFitZoom &&
-    canvasTool !== "text" &&
-    canvasTool !== "shape" &&
-    canvasTool !== "image"
+    !isFitZoom && canvasTool !== "text" && canvasTool !== "shape"
   const {
     pan,
     isDragging,
@@ -192,11 +182,7 @@ export function CanvasViewport({
   }, [canPanCanvas, onZoomScaleChange, viewportRef])
 
   function handleStageClick(event: React.MouseEvent) {
-    if (
-      canvasTool === "text" ||
-      canvasTool === "shape" ||
-      canvasTool === "image"
-    ) {
+    if (canvasTool === "text" || canvasTool === "shape") {
       return
     }
 
@@ -283,7 +269,6 @@ export function CanvasViewport({
               textLayers={textLayers}
               onPlaceText={onPlaceText}
               onPlaceShape={onPlaceShape}
-              onPlaceImage={onPlaceImage}
               onUpdateTextLayer={onUpdateTextLayer}
               onUpdateShapeLayer={onUpdateShapeLayer}
               onUpdateImageLayer={onUpdateImageLayer}

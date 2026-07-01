@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { ContextPanel } from "@/features/designer/components/layout/context-panel"
 import { MainStage } from "@/features/designer/components/layout/main-stage"
+import { getExportDimensions } from "@/features/designer/lib/dimensions"
 import { useDesignerFrames } from "@/features/designer/state/use-designer-frames"
 import { useDesignerLayers } from "@/features/designer/state/use-designer-layers"
 import { useDesignerUi } from "@/features/designer/state/use-designer-ui"
@@ -55,6 +56,7 @@ function shouldLetFieldHandleDeleteKey(event: KeyboardEvent): boolean {
 
 export function DesignerShell() {
   const canvasRefs = useRef(new Map<string, HTMLCanvasElement | null>())
+  const imageFileInputRef = useRef<HTMLInputElement>(null)
   const frames = useDesignerFrames()
   const layers = useDesignerLayers()
   const ui = useDesignerUi()
@@ -98,11 +100,7 @@ export function DesignerShell() {
   }, [frames.activeFrameId, ui.selection, ui.selectPage])
 
   useEffect(() => {
-    if (
-      ui.canvasTool !== "text" &&
-      ui.canvasTool !== "shape" &&
-      ui.canvasTool !== "image"
-    ) {
+    if (ui.canvasTool !== "text" && ui.canvasTool !== "shape") {
       return
     }
 
@@ -182,21 +180,35 @@ export function DesignerShell() {
     [frames.activeFrameId, layers, ui]
   )
 
-  const handlePlaceImage = useCallback(
-    (trimX: number, trimY: number, trimWidth: number, trimHeight: number) => {
-      const id = layers.addImageLayer({
+  const handleRequestImageUpload = useCallback(() => {
+    imageFileInputRef.current?.click()
+  }, [])
+
+  const handleImageFileSelected = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0] ?? null
+      event.target.value = ""
+
+      if (!file?.type.startsWith("image/")) {
+        return
+      }
+
+      const { trimWidthPx, trimHeightPx } = getExportDimensions(frames.settings)
+      const id = await layers.addImageLayerFromFile({
         frameId: frames.activeFrameId,
-        x: trimX,
-        y: trimY,
-        width: trimWidth,
-        height: trimHeight,
+        file,
+        trimWidthPx,
+        trimHeightPx,
       })
+
+      if (id == null) {
+        return
+      }
+
       ui.selectElement(frames.activeFrameId, id)
-      queueMicrotask(() => {
-        ui.selectPointerTool()
-      })
+      ui.selectPointerTool()
     },
-    [frames.activeFrameId, layers, ui]
+    [frames.activeFrameId, frames.settings, layers, ui]
   )
 
   const handleSelectShapeLayer = useCallback(
@@ -227,6 +239,15 @@ export function DesignerShell() {
 
   return (
     <div className="relative h-svh overflow-hidden bg-background">
+      <input
+        ref={imageFileInputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={handleImageFileSelected}
+      />
       <div
         className={cn(
           "flex h-full min-h-0 pt-2 pb-2 pl-2",
@@ -260,7 +281,7 @@ export function DesignerShell() {
           }}
           onPlaceText={handlePlaceText}
           onPlaceShape={handlePlaceShape}
-          onPlaceImage={handlePlaceImage}
+          onRequestImageUpload={handleRequestImageUpload}
           onUpdateTextLayer={layers.updateTextLayer}
           onUpdateShapeLayer={layers.updateShapeLayer}
           onUpdateImageLayer={layers.updateImageLayer}

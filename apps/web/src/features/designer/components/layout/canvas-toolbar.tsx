@@ -78,6 +78,7 @@ function shapeVariantMeta(variant: ShapeVariant) {
 
 type CanvasToolbarProps = {
   ui: DesignerUi
+  onRequestImageUpload: () => void
 }
 
 type ShapeAlternatesPanelProps = {
@@ -182,7 +183,7 @@ function ShapeToolControl({
   )
 }
 
-export function CanvasToolbar({ ui }: CanvasToolbarProps) {
+export function CanvasToolbar({ ui, onRequestImageUpload }: CanvasToolbarProps) {
   const shapeToolIndex = 2
   const imageToolIndex = 3
   const toolbarContainerRef = useRef<HTMLDivElement>(null)
@@ -300,7 +301,7 @@ export function CanvasToolbar({ ui }: CanvasToolbarProps) {
     }
 
     if (tool === "image") {
-      ui.selectImageTool()
+      onRequestImageUpload()
       return
     }
 
@@ -378,14 +379,8 @@ export function CanvasToolbar({ ui }: CanvasToolbarProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <NavIconButton
-                  active={ui.toolbarTool === "image"}
                   aria-label="Image"
-                  aria-pressed={ui.toolbarTool === "image"}
-                  className={cn(
-                    ui.toolbarTool === "image" &&
-                      "text-white hover:bg-transparent hover:text-white [&_svg]:text-white hover:[&_svg]:text-white"
-                  )}
-                  onClick={() => ui.selectImageTool()}
+                  onClick={onRequestImageUpload}
                 >
                   <Image aria-hidden />
                 </NavIconButton>

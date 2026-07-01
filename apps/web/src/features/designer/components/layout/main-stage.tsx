@@ -36,12 +36,7 @@ type MainStageProps = {
     trimWidth: number,
     trimHeight: number
   ) => void
-  onPlaceImage: (
-    trimX: number,
-    trimY: number,
-    trimWidth: number,
-    trimHeight: number
-  ) => void
+  onRequestImageUpload: () => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
   onUpdateImageLayer: (layerId: string, patch: ImageLayerUpdatePatch) => void
@@ -63,7 +58,7 @@ export function MainStage({
   onRemoveFrame,
   onPlaceText,
   onPlaceShape,
-  onPlaceImage,
+  onRequestImageUpload,
   onUpdateTextLayer,
   onUpdateShapeLayer,
   onUpdateImageLayer,
@@ -106,7 +101,7 @@ export function MainStage({
         fitChromeRef={toolbarChromeRef}
         innerClassName="overflow-visible"
       >
-        <CanvasToolbar ui={ui} />
+        <CanvasToolbar ui={ui} onRequestImageUpload={onRequestImageUpload} />
       </FloatingChrome>
 
       <CanvasViewport
@@ -132,7 +127,6 @@ export function MainStage({
         textLayers={activeFrameTextLayers}
         onPlaceText={onPlaceText}
         onPlaceShape={onPlaceShape}
-        onPlaceImage={onPlaceImage}
         onUpdateTextLayer={onUpdateTextLayer}
         onUpdateShapeLayer={onUpdateShapeLayer}
         onUpdateImageLayer={onUpdateImageLayer}

@@ -82,11 +82,6 @@ export function useDesignerUi() {
         return
       }
 
-      if (tool === "image") {
-        setCanvasToolState("image")
-        return
-      }
-
       setCanvasToolState("select")
       setPanelMode(tool)
       setPanelOpen(true)
@@ -107,10 +102,6 @@ export function useDesignerUi() {
     },
     [selectToolbarTool]
   )
-
-  const selectImageTool = useCallback(() => {
-    selectToolbarTool("image")
-  }, [selectToolbarTool])
 
   const selectPointerTool = useCallback(() => {
     selectToolbarTool("pointer")
@@ -217,7 +208,6 @@ export function useDesignerUi() {
     setShapeVariant,
     selectTextTool,
     selectShapeTool,
-    selectImageTool,
     selectPointerTool,
     panelOpen,
     setPanelOpen,
