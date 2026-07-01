@@ -62,10 +62,6 @@ type ShapeLayerBoxProps = {
   onSelect: () => void
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max)
-}
-
 function clientToTrim(
   frameElement: HTMLElement | null,
   clientX: number,
@@ -86,9 +82,7 @@ function applyEdgeResize(
   handle: "n" | "s" | "e" | "w",
   px: number,
   py: number,
-  start: { x: number; y: number; w: number; h: number },
-  trimW: number,
-  trimH: number
+  start: { x: number; y: number; w: number; h: number }
 ): { x: number; y: number; w: number; h: number } {
   const { x: sx, y: sy, w: sw, h: sh } = start
   const right = sx + sw
@@ -96,20 +90,20 @@ function applyEdgeResize(
 
   switch (handle) {
     case "e": {
-      const w = clamp(px - sx, MIN_W_TRIM, trimW - sx)
+      const w = Math.max(MIN_W_TRIM, px - sx)
       return { x: sx, y: sy, w, h: sh }
     }
     case "w": {
-      const newLeft = clamp(px, 0, right - MIN_W_TRIM)
+      const newLeft = Math.min(px, right - MIN_W_TRIM)
       const w = right - newLeft
       return { x: newLeft, y: sy, w, h: sh }
     }
     case "s": {
-      const h = clamp(py - sy, MIN_H_TRIM, trimH - sy)
+      const h = Math.max(MIN_H_TRIM, py - sy)
       return { x: sx, y: sy, w: sw, h }
     }
     case "n": {
-      const newTop = clamp(py, 0, bottom - MIN_H_TRIM)
+      const newTop = Math.min(py, bottom - MIN_H_TRIM)
       const h = bottom - newTop
       return { x: sx, y: newTop, w: sw, h }
     }
@@ -120,9 +114,7 @@ function applyCornerResize(
   handle: "nw" | "ne" | "sw" | "se",
   px: number,
   py: number,
-  start: { x: number; y: number; w: number; h: number },
-  trimW: number,
-  trimH: number
+  start: { x: number; y: number; w: number; h: number }
 ): { x: number; y: number; w: number; h: number } {
   const { x: sx, y: sy, w: sw, h: sh } = start
   const right = sx + sw
@@ -130,23 +122,23 @@ function applyCornerResize(
 
   switch (handle) {
     case "se": {
-      const w = clamp(px - sx, MIN_W_TRIM, trimW - sx)
-      const h = clamp(py - sy, MIN_H_TRIM, trimH - sy)
+      const w = Math.max(MIN_W_TRIM, px - sx)
+      const h = Math.max(MIN_H_TRIM, py - sy)
       return { x: sx, y: sy, w, h }
     }
     case "nw": {
-      const newLeft = clamp(px, 0, right - MIN_W_TRIM)
-      const newTop = clamp(py, 0, bottom - MIN_H_TRIM)
+      const newLeft = Math.min(px, right - MIN_W_TRIM)
+      const newTop = Math.min(py, bottom - MIN_H_TRIM)
       return { x: newLeft, y: newTop, w: right - newLeft, h: bottom - newTop }
     }
     case "ne": {
-      const w = clamp(px - sx, MIN_W_TRIM, trimW - sx)
-      const newTop = clamp(py, 0, bottom - MIN_H_TRIM)
+      const w = Math.max(MIN_W_TRIM, px - sx)
+      const newTop = Math.min(py, bottom - MIN_H_TRIM)
       return { x: sx, y: newTop, w, h: bottom - newTop }
     }
     case "sw": {
-      const newLeft = clamp(px, 0, right - MIN_W_TRIM)
-      const h = clamp(py - sy, MIN_H_TRIM, trimH - sy)
+      const newLeft = Math.min(px, right - MIN_W_TRIM)
+      const h = Math.max(MIN_H_TRIM, py - sy)
       return { x: newLeft, y: sy, w: right - newLeft, h }
     }
   }
@@ -156,14 +148,12 @@ function applyResize(
   handle: ResizeHandle,
   px: number,
   py: number,
-  start: { x: number; y: number; w: number; h: number },
-  trimW: number,
-  trimH: number
+  start: { x: number; y: number; w: number; h: number }
 ): { x: number; y: number; w: number; h: number } {
   if (handle === "n" || handle === "s" || handle === "e" || handle === "w") {
-    return applyEdgeResize(handle, px, py, start, trimW, trimH)
+    return applyEdgeResize(handle, px, py, start)
   }
-  return applyCornerResize(handle, px, py, start, trimW, trimH)
+  return applyCornerResize(handle, px, py, start)
 }
 
 function ShapeFillBackground({
@@ -404,7 +394,8 @@ export function ShapeLayerBox({
       snapGuideYs,
       snapThresholdTrimPx,
       trimWidthPx,
-      trimHeightPx
+      trimHeightPx,
+      { boundToTrim: false }
     )
 
     onActiveSnapGuidesChange?.(
@@ -449,8 +440,8 @@ export function ShapeLayerBox({
     if (session.kind === "move") {
       const dx = pt.x - session.trimStartX
       const dy = pt.y - session.trimStartY
-      const x = clamp(session.startX + dx, 0, trimWidthPx - session.startW)
-      const y = clamp(session.startY + dy, 0, trimHeightPx - session.startH)
+      const x = session.startX + dx
+      const y = session.startY + dy
       const snapped = applySnap(x, y, session.startW, session.startH)
       onUpdate({ x: snapped.x, y: snapped.y })
       return
@@ -465,9 +456,7 @@ export function ShapeLayerBox({
         y: session.startY,
         w: session.startW,
         h: session.startH,
-      },
-      trimWidthPx,
-      trimHeightPx
+      }
     )
     const snapped = applySnap(next.x, next.y, next.w, next.h)
     onUpdate(snapped)

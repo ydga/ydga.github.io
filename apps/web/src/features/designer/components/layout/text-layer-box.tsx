@@ -99,10 +99,6 @@ type TextLayerBoxProps = {
   onTextLayerBeginTypingHandled: () => void
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max)
-}
-
 function clientToTrim(
   frameElement: HTMLElement | null,
   clientX: number,
@@ -124,9 +120,7 @@ function applyEdgeResize(
   handle: "n" | "s" | "e" | "w",
   px: number,
   py: number,
-  start: { x: number; y: number; w: number; h: number },
-  trimW: number,
-  trimH: number
+  start: { x: number; y: number; w: number; h: number }
 ): { x: number; y: number; w: number; h: number } {
   const { x: sx, y: sy, w: sw, h: sh } = start
   const right = sx + sw
@@ -134,20 +128,20 @@ function applyEdgeResize(
 
   switch (handle) {
     case "e": {
-      const w = clamp(px - sx, MIN_W_TRIM, trimW - sx)
+      const w = Math.max(MIN_W_TRIM, px - sx)
       return { x: sx, y: sy, w, h: sh }
     }
     case "w": {
-      const newLeft = clamp(px, 0, right - MIN_W_TRIM)
+      const newLeft = Math.min(px, right - MIN_W_TRIM)
       const w = right - newLeft
       return { x: newLeft, y: sy, w, h: sh }
     }
     case "s": {
-      const h = clamp(py - sy, MIN_H_TRIM, trimH - sy)
+      const h = Math.max(MIN_H_TRIM, py - sy)
       return { x: sx, y: sy, w: sw, h }
     }
     case "n": {
-      const newTop = clamp(py, 0, bottom - MIN_H_TRIM)
+      const newTop = Math.min(py, bottom - MIN_H_TRIM)
       const h = bottom - newTop
       return { x: sx, y: newTop, w: sw, h }
     }
@@ -162,9 +156,7 @@ function applyCornerResize(
   handle: "nw" | "ne" | "sw" | "se",
   px: number,
   py: number,
-  start: { x: number; y: number; w: number; h: number },
-  trimW: number,
-  trimH: number
+  start: { x: number; y: number; w: number; h: number }
 ): { x: number; y: number; w: number; h: number } {
   const { x: sx, y: sy, w: sw, h: sh } = start
   const right = sx + sw
@@ -181,31 +173,26 @@ function applyCornerResize(
   const kMin = Math.max(MIN_W_TRIM / sw, MIN_H_TRIM / sh)
   let rawW: number
   let rawH: number
-  let kMax: number
 
   switch (handle) {
     case "se": {
       rawW = px - sx
       rawH = py - sy
-      kMax = Math.min((trimW - sx) / sw, (trimH - sy) / sh)
       break
     }
     case "nw": {
       rawW = right - px
       rawH = bottom - py
-      kMax = Math.min(right / sw, bottom / sh)
       break
     }
     case "ne": {
       rawW = px - sx
       rawH = bottom - py
-      kMax = Math.min((trimW - sx) / sw, bottom / sh)
       break
     }
     case "sw": {
       rawW = right - px
       rawH = py - sy
-      kMax = Math.min(right / sw, (trimH - sy) / sh)
       break
     }
   }
@@ -214,7 +201,7 @@ function applyCornerResize(
   if (!Number.isFinite(k)) {
     k = kMin
   }
-  k = clamp(k, kMin, Math.max(kMin, kMax))
+  k = Math.max(kMin, k)
 
   const w = k * sw
   const h = k * sh
@@ -235,14 +222,12 @@ function applyResize(
   handle: ResizeHandle,
   px: number,
   py: number,
-  start: { x: number; y: number; w: number; h: number },
-  trimW: number,
-  trimH: number
+  start: { x: number; y: number; w: number; h: number }
 ): { x: number; y: number; w: number; h: number } {
   if (handle === "n" || handle === "s" || handle === "e" || handle === "w") {
-    return applyEdgeResize(handle, px, py, start, trimW, trimH)
+    return applyEdgeResize(handle, px, py, start)
   }
-  return applyCornerResize(handle, px, py, start, trimW, trimH)
+  return applyCornerResize(handle, px, py, start)
 }
 
 /**
@@ -256,9 +241,7 @@ function applyEdgeResizeUniformScale(
   handle: "n" | "s" | "e" | "w",
   px: number,
   py: number,
-  start: { x: number; y: number; w: number; h: number },
-  trimW: number,
-  trimH: number
+  start: { x: number; y: number; w: number; h: number }
 ): { x: number; y: number; w: number; h: number } {
   const { x: sx, y: sy, w: sw, h: sh } = start
   if (sw <= 0 || sh <= 0 || !Number.isFinite(sw) || !Number.isFinite(sh)) {
@@ -276,19 +259,19 @@ function applyEdgeResizeUniformScale(
   switch (handle) {
     case "e": {
       const cy = sy + ((px - sx) * sh) / sw
-      return applyCornerResize("se", px, cy, start, trimW, trimH)
+      return applyCornerResize("se", px, cy, start)
     }
     case "s": {
       const cx = sx + ((py - sy) * sw) / sh
-      return applyCornerResize("se", cx, py, start, trimW, trimH)
+      return applyCornerResize("se", cx, py, start)
     }
     case "w": {
       const cy = bottom - ((right - px) * sh) / sw
-      return applyCornerResize("nw", px, cy, start, trimW, trimH)
+      return applyCornerResize("nw", px, cy, start)
     }
     case "n": {
       const cx = sx + ((bottom - py) * sw) / sh
-      return applyCornerResize("ne", cx, py, start, trimW, trimH)
+      return applyCornerResize("ne", cx, py, start)
     }
   }
 }
@@ -298,17 +281,15 @@ function applyResizeWithAspectLock(
   px: number,
   py: number,
   start: { x: number; y: number; w: number; h: number },
-  trimW: number,
-  trimH: number,
   uniformScale: boolean
 ): { x: number; y: number; w: number; h: number } {
   if (!uniformScale) {
-    return applyResize(handle, px, py, start, trimW, trimH)
+    return applyResize(handle, px, py, start)
   }
   if (handle === "n" || handle === "s" || handle === "e" || handle === "w") {
-    return applyEdgeResizeUniformScale(handle, px, py, start, trimW, trimH)
+    return applyEdgeResizeUniformScale(handle, px, py, start)
   }
-  return applyCornerResize(handle, px, py, start, trimW, trimH)
+  return applyCornerResize(handle, px, py, start)
 }
 
 export function TextLayerBox({
@@ -515,16 +496,8 @@ export function TextLayerBox({
       if (session.kind === "move") {
         const dx = px - session.trimStartX
         const dy = py - session.trimStartY
-        let x = clamp(
-          session.startX + dx,
-          0,
-          Math.max(0, trimWidthPx - session.startW)
-        )
-        let y = clamp(
-          session.startY + dy,
-          0,
-          Math.max(0, trimHeightPx - session.startH)
-        )
+        let x = session.startX + dx
+        let y = session.startY + dy
         if (
           snapGuideXs &&
           snapGuideYs &&
@@ -540,7 +513,8 @@ export function TextLayerBox({
             snapGuideYs,
             snapThresholdTrimPx,
             trimWidthPx,
-            trimHeightPx
+            trimHeightPx,
+            { boundToTrim: false }
           )
           x = snapped.x
           y = snapped.y
@@ -569,13 +543,11 @@ export function TextLayerBox({
           w: session.startW,
           h: session.startH,
         },
-        trimWidthPx,
-        trimHeightPx,
         uniformResizeRef.current
       )
 
-      let nx = clamp(next.x, 0, trimWidthPx - next.w)
-      let ny = clamp(next.y, 0, trimHeightPx - next.h)
+      let nx = next.x
+      let ny = next.y
       if (
         snapGuideXs &&
         snapGuideYs &&
@@ -591,7 +563,8 @@ export function TextLayerBox({
           snapGuideYs,
           snapThresholdTrimPx,
           trimWidthPx,
-          trimHeightPx
+          trimHeightPx,
+          { boundToTrim: false }
         )
         nx = snapped.x
         ny = snapped.y

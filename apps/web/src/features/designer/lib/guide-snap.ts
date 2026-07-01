@@ -183,8 +183,8 @@ export function snapBoxAxisTrimPxWithActive(
   size: number,
   guides: readonly number[],
   threshold: number,
-  minPos: number,
-  maxRight: number
+  minPos: number | null,
+  maxRight: number | null
 ): { pos: number; activeGuide: number | null } {
   if (guides.length === 0 || !Number.isFinite(size) || size <= 0) {
     return { pos, activeGuide: null }
@@ -196,7 +196,10 @@ export function snapBoxAxisTrimPxWithActive(
 
   for (const g of guides) {
     for (const posPrime of [g, g - size, g - size / 2]) {
-      if (posPrime < minPos || posPrime + size > maxRight) {
+      if (minPos != null && posPrime < minPos) {
+        continue
+      }
+      if (maxRight != null && posPrime + size > maxRight) {
         continue
       }
       const dist = Math.abs(pos - posPrime)
@@ -220,10 +223,30 @@ export function snapLayerBoxTrimPx(
   guidesY: readonly number[],
   threshold: number,
   trimW: number,
-  trimH: number
+  trimH: number,
+  options?: { boundToTrim?: boolean }
 ): SnapLayerBoxResult {
-  const xSnap = snapBoxAxisTrimPxWithActive(x, w, guidesX, threshold, 0, trimW)
-  const ySnap = snapBoxAxisTrimPxWithActive(y, h, guidesY, threshold, 0, trimH)
+  const boundToTrim = options?.boundToTrim !== false
+  const minPos = boundToTrim ? 0 : null
+  const maxX = boundToTrim ? trimW : null
+  const maxY = boundToTrim ? trimH : null
+
+  const xSnap = snapBoxAxisTrimPxWithActive(
+    x,
+    w,
+    guidesX,
+    threshold,
+    minPos,
+    maxX
+  )
+  const ySnap = snapBoxAxisTrimPxWithActive(
+    y,
+    h,
+    guidesY,
+    threshold,
+    minPos,
+    maxY
+  )
 
   return {
     x: xSnap.pos,
@@ -244,7 +267,8 @@ export function snapTextLayerBoxTrimPx(
   guidesY: readonly number[],
   threshold: number,
   trimW: number,
-  trimH: number
+  trimH: number,
+  options?: { boundToTrim?: boolean }
 ): { x: number; y: number; w: number; h: number } {
   const snapped = snapLayerBoxTrimPx(
     x,
@@ -255,7 +279,8 @@ export function snapTextLayerBoxTrimPx(
     guidesY,
     threshold,
     trimW,
-    trimH
+    trimH,
+    options
   )
 
   return {

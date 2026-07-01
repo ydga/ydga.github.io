@@ -60,10 +60,6 @@ type ImageLayerBoxProps = {
   onSelect: () => void
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max)
-}
-
 function clientToTrim(
   frameElement: HTMLElement | null,
   clientX: number,
@@ -84,9 +80,7 @@ function applyEdgeResize(
   handle: "n" | "s" | "e" | "w",
   px: number,
   py: number,
-  start: { x: number; y: number; w: number; h: number },
-  trimW: number,
-  trimH: number
+  start: { x: number; y: number; w: number; h: number }
 ): { x: number; y: number; w: number; h: number } {
   const { x: sx, y: sy, w: sw, h: sh } = start
   const right = sx + sw
@@ -94,20 +88,20 @@ function applyEdgeResize(
 
   switch (handle) {
     case "e": {
-      const w = clamp(px - sx, MIN_W_TRIM, trimW - sx)
+      const w = Math.max(MIN_W_TRIM, px - sx)
       return { x: sx, y: sy, w, h: sh }
     }
     case "w": {
-      const newLeft = clamp(px, 0, right - MIN_W_TRIM)
+      const newLeft = Math.min(px, right - MIN_W_TRIM)
       const w = right - newLeft
       return { x: newLeft, y: sy, w, h: sh }
     }
     case "s": {
-      const h = clamp(py - sy, MIN_H_TRIM, trimH - sy)
+      const h = Math.max(MIN_H_TRIM, py - sy)
       return { x: sx, y: sy, w: sw, h }
     }
     case "n": {
-      const newTop = clamp(py, 0, bottom - MIN_H_TRIM)
+      const newTop = Math.min(py, bottom - MIN_H_TRIM)
       const h = bottom - newTop
       return { x: sx, y: newTop, w: sw, h }
     }
@@ -118,18 +112,16 @@ function applyCornerResize(
   handle: "nw" | "ne" | "sw" | "se",
   px: number,
   py: number,
-  start: { x: number; y: number; w: number; h: number },
-  trimW: number,
-  trimH: number
+  start: { x: number; y: number; w: number; h: number }
 ): { x: number; y: number; w: number; h: number } {
   const edge =
     handle === "nw" || handle === "sw"
-      ? applyEdgeResize("w", px, py, start, trimW, trimH)
-      : applyEdgeResize("e", px, py, start, trimW, trimH)
+      ? applyEdgeResize("w", px, py, start)
+      : applyEdgeResize("e", px, py, start)
   const vertical =
     handle === "nw" || handle === "ne"
-      ? applyEdgeResize("n", px, py, edge, trimW, trimH)
-      : applyEdgeResize("s", px, py, edge, trimW, trimH)
+      ? applyEdgeResize("n", px, py, edge)
+      : applyEdgeResize("s", px, py, edge)
   return vertical
 }
 
@@ -231,7 +223,8 @@ export function ImageLayerBox({
       snapGuideYs,
       snapThresholdTrimPx,
       trimWidthPx,
-      trimHeightPx
+      trimHeightPx,
+      { boundToTrim: false }
     )
 
     onActiveSnapGuidesChange?.(
@@ -276,16 +269,8 @@ export function ImageLayerBox({
     if (session.kind === "move") {
       const dx = pt.x - session.trimStartX
       const dy = pt.y - session.trimStartY
-      let x = clamp(
-        session.startX + dx,
-        0,
-        Math.max(0, trimWidthPx - session.startW)
-      )
-      let y = clamp(
-        session.startY + dy,
-        0,
-        Math.max(0, trimHeightPx - session.startH)
-      )
+      const x = session.startX + dx
+      const y = session.startY + dy
       const snapped = applySnap(x, y, session.startW, session.startH)
       onUpdate({ x: snapped.x, y: snapped.y })
       return
@@ -305,9 +290,7 @@ export function ImageLayerBox({
               y: session.startY,
               w: session.startW,
               h: session.startH,
-            },
-            trimWidthPx,
-            trimHeightPx
+            }
           )
         : applyCornerResize(
             session.handle,
@@ -318,9 +301,7 @@ export function ImageLayerBox({
               y: session.startY,
               w: session.startW,
               h: session.startH,
-            },
-            trimWidthPx,
-            trimHeightPx
+            }
           )
 
     const snapped = applySnap(next.x, next.y, next.w, next.h)
