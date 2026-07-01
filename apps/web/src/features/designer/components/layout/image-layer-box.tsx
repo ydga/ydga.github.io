@@ -377,7 +377,7 @@ export function ImageLayerBox({
     <div
       data-designer-image-box
       className={cn(
-        "pointer-events-auto absolute touch-none overflow-hidden",
+        "pointer-events-auto absolute touch-none",
         isSelected && !isDragging && "cursor-move"
       )}
       style={{ left, top, width, height, zIndex, opacity }}
@@ -391,7 +391,7 @@ export function ImageLayerBox({
     >
       <div
         className={cn(
-          "h-full w-full",
+          "h-full w-full overflow-hidden",
           !hasImage && "border border-dashed border-muted-foreground/40"
         )}
         style={hasImage ? backgroundSettingsToStyle(fill) : undefined}
