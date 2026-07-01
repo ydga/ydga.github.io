@@ -1,8 +1,7 @@
 import type { CanvasSettings } from "@/features/designer/model/types"
 import type { DesignerDispatch } from "@/features/designer/state/use-designer-settings"
-import { SettingControl } from "@workspace/ui/components/settings/setting-control"
 import { SettingSection } from "@workspace/ui/components/settings/setting-section"
-import { Switch } from "@workspace/ui/components/switch"
+import { Checkbox } from "@workspace/ui/components/checkbox"
 
 type FrameContentSettingsSectionProps = {
   settings: CanvasSettings
@@ -15,15 +14,24 @@ export function FrameContentSettingsSection({
 }: FrameContentSettingsSectionProps) {
   return (
     <SettingSection title="Content">
-      <SettingControl label="Clip to frame">
-        <Switch
+      <label
+        htmlFor="frame-clip-content"
+        className="flex cursor-pointer items-center gap-2"
+      >
+        <Checkbox
+          id="frame-clip-content"
           checked={settings.clipContent === true}
-          aria-label="Clip content to frame"
-          onCheckedChange={(value) =>
-            dispatch({ type: "set-clip-content", value })
-          }
+          onCheckedChange={(checked) => {
+            if (typeof checked !== "boolean") {
+              return
+            }
+            dispatch({ type: "set-clip-content", value: checked })
+          }}
         />
-      </SettingControl>
+        <span className="text-xs leading-none text-foreground">
+          Clip content
+        </span>
+      </label>
     </SettingSection>
   )
 }
