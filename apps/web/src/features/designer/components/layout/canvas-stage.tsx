@@ -455,9 +455,6 @@ export function CanvasStage({
       }
 
       const target = event.target as HTMLElement
-      if (target.closest("[data-designer-text-box]")) {
-        return
-      }
       if (target.closest("[data-designer-gradient-overlay]")) {
         return
       }
@@ -781,6 +778,7 @@ export function CanvasStage({
                 isSelected={selectedElementId === layer.id}
                 zIndex={z}
                 getFrameElement={getFrameElement}
+                interactionEnabled={!isPlacementTool}
                 onUpdate={(patch) => onUpdateShapeLayer(layer.id, patch)}
                 onSelect={() => onSelectShapeLayer(layer.id)}
               />
@@ -805,6 +803,7 @@ export function CanvasStage({
                 isSelected={selectedElementId === layer.id}
                 zIndex={z}
                 getFrameElement={getFrameElement}
+                interactionEnabled={!isPlacementTool}
                 onUpdate={(patch) => onUpdateImageLayer(layer.id, patch)}
                 onSelect={() => onSelectImageLayer(layer.id)}
               />
@@ -830,6 +829,7 @@ export function CanvasStage({
               getFrameElement={getFrameElement}
               textLayerIdToBeginTyping={textLayerIdToBeginTyping}
               onTextLayerBeginTypingHandled={onTextLayerBeginTypingHandled}
+              interactionEnabled={!isPlacementTool}
               onUpdate={(patch) => onUpdateTextLayer(layer.id, patch)}
               onSelect={() => onSelectTextLayer(layer.id)}
               onRegisterTextarea={(layerId, node) => {
@@ -843,6 +843,7 @@ export function CanvasStage({
           )
         })}
         {showShapeGradientControls &&
+        !isPlacementTool &&
         selectedShapeLayer &&
         normalizedShapeFill ? (
           <div

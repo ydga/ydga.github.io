@@ -97,6 +97,8 @@ type TextLayerBoxProps = {
   ) => void
   textLayerIdToBeginTyping: string | null
   onTextLayerBeginTypingHandled: () => void
+  /** When false, clicks pass through to the canvas placement tool. */
+  interactionEnabled?: boolean
 }
 
 function clientToTrim(
@@ -309,6 +311,7 @@ export function TextLayerBox({
   onRegisterTextarea,
   textLayerIdToBeginTyping,
   onTextLayerBeginTypingHandled,
+  interactionEnabled = true,
 }: TextLayerBoxProps) {
   const dragRef = useRef<DragSession | null>(null)
   const pointerCaptureRef = useRef<HTMLElement | null>(null)
@@ -700,7 +703,8 @@ export function TextLayerBox({
       data-designer-text-box
       data-designer-text-layer
       className={cn(
-        "pointer-events-auto absolute box-border overscroll-none border border-transparent",
+        interactionEnabled ? "pointer-events-auto" : "pointer-events-none",
+        "absolute box-border overscroll-none border border-transparent",
         // Rounded corners + overflow can clip overflow-visible descendants in some engines when clip is off.
         clipToBounds ? "rounded-[2px]" : "rounded-none",
         // Resize handles extend past the box; unclipped text must paint past the layer rect too.

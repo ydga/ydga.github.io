@@ -58,6 +58,8 @@ type ImageLayerBoxProps = {
   getFrameElement: () => HTMLElement | null
   onUpdate: (patch: ImageLayerUpdatePatch) => void
   onSelect: () => void
+  /** When false, clicks pass through to the canvas placement tool. */
+  interactionEnabled?: boolean
 }
 
 function clientToTrim(
@@ -186,6 +188,7 @@ export function ImageLayerBox({
   getFrameElement,
   onUpdate,
   onSelect,
+  interactionEnabled = true,
 }: ImageLayerBoxProps) {
   const dragSessionRef = useRef<DragSession | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -377,11 +380,15 @@ export function ImageLayerBox({
     <div
       data-designer-image-box
       className={cn(
-        "pointer-events-auto absolute touch-none",
-        isSelected && !isDragging && "cursor-move"
+        interactionEnabled ? "pointer-events-auto" : "pointer-events-none",
+        "absolute touch-none",
+        isSelected && interactionEnabled && !isDragging && "cursor-move"
       )}
       style={{ left, top, width, height, zIndex, opacity }}
       onPointerDown={(event) => {
+        if (!interactionEnabled) {
+          return
+        }
         event.stopPropagation()
         onSelect()
         if (isSelected) {

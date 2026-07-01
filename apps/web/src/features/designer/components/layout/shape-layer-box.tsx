@@ -60,6 +60,8 @@ type ShapeLayerBoxProps = {
   getFrameElement: () => HTMLElement | null
   onUpdate: (patch: ShapeLayerUpdatePatch) => void
   onSelect: () => void
+  /** When false, clicks pass through to the canvas placement tool. */
+  interactionEnabled?: boolean
 }
 
 function clientToTrim(
@@ -392,6 +394,7 @@ export function ShapeLayerBox({
   getFrameElement,
   onUpdate,
   onSelect,
+  interactionEnabled = true,
 }: ShapeLayerBoxProps) {
   const dragSessionRef = useRef<DragSession | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -563,11 +566,15 @@ export function ShapeLayerBox({
     <div
       data-designer-shape-box
       className={cn(
-        "pointer-events-auto absolute touch-none",
-        isSelected && !isDragging && "cursor-move"
+        interactionEnabled ? "pointer-events-auto" : "pointer-events-none",
+        "absolute touch-none",
+        isSelected && interactionEnabled && !isDragging && "cursor-move"
       )}
       style={{ left, top, width, height, zIndex }}
       onPointerDown={(event) => {
+        if (!interactionEnabled) {
+          return
+        }
         event.stopPropagation()
         onSelect()
         if (isSelected) {
