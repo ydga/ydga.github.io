@@ -119,28 +119,60 @@ function applyCornerResize(
   const { x: sx, y: sy, w: sw, h: sh } = start
   const right = sx + sw
   const bottom = sy + sh
+  if (sw <= 0 || sh <= 0 || !Number.isFinite(sw) || !Number.isFinite(sh)) {
+    return {
+      x: sx,
+      y: sy,
+      w: Math.max(MIN_W_TRIM, sw),
+      h: Math.max(MIN_H_TRIM, sh),
+    }
+  }
+
+  const kMin = Math.max(MIN_W_TRIM / sw, MIN_H_TRIM / sh)
+  let rawW: number
+  let rawH: number
 
   switch (handle) {
     case "se": {
-      const w = Math.max(MIN_W_TRIM, px - sx)
-      const h = Math.max(MIN_H_TRIM, py - sy)
-      return { x: sx, y: sy, w, h }
+      rawW = px - sx
+      rawH = py - sy
+      break
     }
     case "nw": {
-      const newLeft = Math.min(px, right - MIN_W_TRIM)
-      const newTop = Math.min(py, bottom - MIN_H_TRIM)
-      return { x: newLeft, y: newTop, w: right - newLeft, h: bottom - newTop }
+      rawW = right - px
+      rawH = bottom - py
+      break
     }
     case "ne": {
-      const w = Math.max(MIN_W_TRIM, px - sx)
-      const newTop = Math.min(py, bottom - MIN_H_TRIM)
-      return { x: sx, y: newTop, w, h: bottom - newTop }
+      rawW = px - sx
+      rawH = bottom - py
+      break
     }
     case "sw": {
-      const newLeft = Math.min(px, right - MIN_W_TRIM)
-      const h = Math.max(MIN_H_TRIM, py - sy)
-      return { x: newLeft, y: sy, w: right - newLeft, h }
+      rawW = right - px
+      rawH = py - sy
+      break
     }
+  }
+
+  let k = Math.min(rawW / sw, rawH / sh)
+  if (!Number.isFinite(k)) {
+    k = kMin
+  }
+  k = Math.max(kMin, k)
+
+  const w = k * sw
+  const h = k * sh
+
+  switch (handle) {
+    case "se":
+      return { x: sx, y: sy, w, h }
+    case "nw":
+      return { x: right - w, y: bottom - h, w, h }
+    case "ne":
+      return { x: sx, y: bottom - h, w, h }
+    case "sw":
+      return { x: right - w, y: sy, w, h }
   }
 }
 
@@ -459,7 +491,12 @@ export function ShapeLayerBox({
       }
     )
     const snapped = applySnap(next.x, next.y, next.w, next.h)
-    onUpdate(snapped)
+    onUpdate({
+      x: snapped.x,
+      y: snapped.y,
+      width: snapped.w,
+      height: snapped.h,
+    })
   }
 
   function onPointerUp(ev: PointerEvent) {
