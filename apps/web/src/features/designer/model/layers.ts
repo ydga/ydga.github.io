@@ -129,7 +129,41 @@ export type ShapeLayerUpdatePatch = Partial<
   >
 >
 
-export type Layer = TextLayer | ShapeLayer
+export type ImageLayer = {
+  id: string
+  frameId: string
+  kind: "image"
+  name: string
+  x: number
+  y: number
+  width: number
+  height: number
+  fill?: BackgroundSettings
+  /** Layer opacity 0–100 (default 100 = fully opaque). */
+  opacity?: number
+  /** When false, layer is hidden on canvas and export. Default true. */
+  visible?: boolean
+  /**
+   * When true, changing width or height in the panel keeps the previous ratio.
+   */
+  maintainBoundsAspect?: boolean
+}
+
+export type ImageLayerUpdatePatch = Partial<
+  Pick<
+    ImageLayer,
+    | "x"
+    | "y"
+    | "width"
+    | "height"
+    | "fill"
+    | "opacity"
+    | "visible"
+    | "maintainBoundsAspect"
+  >
+>
+
+export type Layer = TextLayer | ShapeLayer | ImageLayer
 
 const TEXT_LAYER_LABEL_MAX = 28
 
@@ -151,6 +185,10 @@ export function isTextLayer(layer: Layer): layer is TextLayer {
 
 export function isShapeLayer(layer: Layer): layer is ShapeLayer {
   return layer.kind === "shape"
+}
+
+export function isImageLayer(layer: Layer): layer is ImageLayer {
+  return layer.kind === "image"
 }
 
 export function getLayersForFrame(layers: Layer[], frameId: string) {

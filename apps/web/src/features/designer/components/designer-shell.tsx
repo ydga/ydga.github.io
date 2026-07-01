@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { ContextPanel } from "@/features/designer/components/layout/context-panel"
 import { MainStage } from "@/features/designer/components/layout/main-stage"
+import { getExportDimensions } from "@/features/designer/lib/dimensions"
 import { useDesignerFrames } from "@/features/designer/state/use-designer-frames"
 import { useDesignerLayers } from "@/features/designer/state/use-designer-layers"
 import { useDesignerUi } from "@/features/designer/state/use-designer-ui"
 import { useFrameNameSync } from "@/features/designer/state/use-page-name-sync"
+import { cn } from "@workspace/ui/lib/utils"
 
 function shouldLetFieldHandleDeleteKey(event: KeyboardEvent): boolean {
   const candidates = [event.target, document.activeElement]
@@ -54,6 +56,7 @@ function shouldLetFieldHandleDeleteKey(event: KeyboardEvent): boolean {
 
 export function DesignerShell() {
   const canvasRefs = useRef(new Map<string, HTMLCanvasElement | null>())
+  const imageFileInputRef = useRef<HTMLInputElement>(null)
   const frames = useDesignerFrames()
   const layers = useDesignerLayers()
   const ui = useDesignerUi()
@@ -177,7 +180,46 @@ export function DesignerShell() {
     [frames.activeFrameId, layers, ui]
   )
 
+  const handleRequestImageUpload = useCallback(() => {
+    imageFileInputRef.current?.click()
+  }, [])
+
+  const handleImageFileSelected = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0] ?? null
+      event.target.value = ""
+
+      if (!file?.type.startsWith("image/")) {
+        return
+      }
+
+      const { trimWidthPx, trimHeightPx } = getExportDimensions(frames.settings)
+      const id = await layers.addImageLayerFromFile({
+        frameId: frames.activeFrameId,
+        file,
+        trimWidthPx,
+        trimHeightPx,
+      })
+
+      if (id == null) {
+        return
+      }
+
+      ui.selectElement(frames.activeFrameId, id)
+      ui.selectPointerTool()
+    },
+    [frames.activeFrameId, frames.settings, layers, ui]
+  )
+
   const handleSelectShapeLayer = useCallback(
+    (layerId: string) => {
+      ui.selectElement(frames.activeFrameId, layerId)
+      ui.selectPointerTool()
+    },
+    [frames.activeFrameId, ui]
+  )
+
+  const handleSelectImageLayer = useCallback(
     (layerId: string) => {
       ui.selectElement(frames.activeFrameId, layerId)
       ui.selectPointerTool()
@@ -193,9 +235,25 @@ export function DesignerShell() {
     [frames.activeFrameId, ui]
   )
 
+  const dockedPanelOccupiesSpace = ui.panelPinned && ui.isPanelVisible
+
   return (
     <div className="relative h-svh overflow-hidden bg-background">
-      <div className="flex h-full min-h-0 pt-2 pb-2 pl-2">
+      <input
+        ref={imageFileInputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={handleImageFileSelected}
+      />
+      <div
+        className={cn(
+          "flex h-full min-h-0 pt-2 pb-2 pl-2",
+          !dockedPanelOccupiesSpace && "pr-2"
+        )}
+      >
         <MainStage
           ui={ui}
           frames={frames}
@@ -223,26 +281,59 @@ export function DesignerShell() {
           }}
           onPlaceText={handlePlaceText}
           onPlaceShape={handlePlaceShape}
+          onRequestImageUpload={handleRequestImageUpload}
           onUpdateTextLayer={layers.updateTextLayer}
           onUpdateShapeLayer={layers.updateShapeLayer}
+          onUpdateImageLayer={layers.updateImageLayer}
           onSelectTextLayer={handleSelectTextLayer}
           onSelectShapeLayer={handleSelectShapeLayer}
+          onSelectImageLayer={handleSelectImageLayer}
         />
 
-        <ContextPanel
-          ui={ui}
-          frames={frames}
-          getCanvasForFrame={getCanvasForFrame}
-          onImageUpload={frames.setBackgroundImage}
-          layers={layers.layers}
-          activeFrameId={frames.activeFrameId}
-          onReorderLayers={layers.reorderLayers}
-          onUpdateTextLayer={layers.updateTextLayer}
-          onUpdateShapeLayer={layers.updateShapeLayer}
-          onRemoveLayer={layers.removeLayer}
-          onShapeFillImageUpload={layers.setShapeFillImage}
-        />
+        {ui.panelPinned ? (
+          <ContextPanel
+            layout="docked"
+            ui={ui}
+            frames={frames}
+            getCanvasForFrame={getCanvasForFrame}
+            onImageUpload={frames.setBackgroundImage}
+            layers={layers.layers}
+            activeFrameId={frames.activeFrameId}
+            onReorderLayers={layers.reorderLayers}
+            onUpdateTextLayer={layers.updateTextLayer}
+            onUpdateShapeLayer={layers.updateShapeLayer}
+            onUpdateImageLayer={layers.updateImageLayer}
+            onRemoveLayer={layers.removeLayer}
+            onShapeFillImageUpload={layers.setShapeFillImage}
+            onImageLayerFileUpload={layers.setImageLayerFile}
+          />
+        ) : null}
       </div>
+
+      {!ui.panelPinned && ui.isPanelVisible ? (
+        <div className="pointer-events-none absolute inset-y-2 right-2 z-40 flex w-[var(--panel-width)]">
+          <div className="pointer-events-auto box-border min-h-0 h-full w-full p-2">
+            <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[18px] border border-border/30 bg-background shadow-xl">
+              <ContextPanel
+                layout="floating"
+                ui={ui}
+                frames={frames}
+                getCanvasForFrame={getCanvasForFrame}
+                onImageUpload={frames.setBackgroundImage}
+                layers={layers.layers}
+                activeFrameId={frames.activeFrameId}
+                onReorderLayers={layers.reorderLayers}
+                onUpdateTextLayer={layers.updateTextLayer}
+                onUpdateShapeLayer={layers.updateShapeLayer}
+                onUpdateImageLayer={layers.updateImageLayer}
+                onRemoveLayer={layers.removeLayer}
+                onShapeFillImageUpload={layers.setShapeFillImage}
+                onImageLayerFileUpload={layers.setImageLayerFile}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -3,6 +3,7 @@ import {
   Circle,
   Eye,
   EyeOff,
+  Image,
   Minus,
   Square,
   Trash2,
@@ -38,6 +39,10 @@ const layerActionClassName = cn(
 function layerIcon(layer: Layer): LucideIcon {
   if (layer.kind === "text") {
     return Type
+  }
+
+  if (layer.kind === "image") {
+    return Image
   }
 
   switch (layer.shapeType) {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { GuidesOverlay } from "@/features/designer/components/preview/guides-overlay"
+import { SmartGuidesOverlay } from "@/features/designer/components/preview/smart-guides-overlay"
 import { GradientCanvasOverlay } from "@/features/designer/components/preview/gradient-canvas-overlay"
 import type {
   CanvasSettings,
@@ -9,14 +10,15 @@ import type {
 import type { CanvasTool, Selection } from "@/features/designer/model/ui-types"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
 import {
+  type ActiveSnapGuideLines,
   SNAP_THRESHOLD_TRIM_PX,
-  buildSnapGuideLinesTrimPx,
-  guideSnapActiveForText,
+  buildDragSnapGuideLines,
   snapTextLayerBoxTrimPx,
 } from "@/features/designer/lib/guide-snap"
 import { normalizeBackgroundGradient } from "@/features/designer/lib/gradient-stops"
 import { backgroundSettingsReducer } from "@/features/designer/lib/background-settings-reducer"
 import { getPreviewGuideGeometry } from "@/features/designer/lib/print-zones"
+import { frameAllowsElementOverflow } from "@/features/designer/lib/frame-content"
 import {
   paintBackgroundFallback,
   renderPreviewCanvasBackground,
@@ -25,12 +27,17 @@ import {
 } from "@/features/designer/lib/render-background"
 import { TextLayerBox } from "@/features/designer/components/layout/text-layer-box"
 import { ShapeLayerBox } from "@/features/designer/components/layout/shape-layer-box"
+import { ImageLayerBox } from "@/features/designer/components/layout/image-layer-box"
 import type {
+  ImageLayerUpdatePatch,
   Layer,
   ShapeLayerUpdatePatch,
   TextLayer,
   TextLayerUpdatePatch,
 } from "@/features/designer/model/layers"
+import {
+  resolveImageLayerVisible,
+} from "@/features/designer/model/image-layer-style"
 import {
   resolveShapeLayerFillBackground,
   resolveShapeLayerVisible,
@@ -140,6 +147,10 @@ function isNonElementFrameTarget(target: EventTarget | null) {
     return false
   }
 
+  if (target.closest("[data-designer-image-box]")) {
+    return false
+  }
+
   if (target.closest("[data-designer-gradient-overlay]")) {
     return false
   }
@@ -154,6 +165,7 @@ type CanvasStageProps = {
   isPageSelected: boolean
   onSelectPage: () => void
   onDeselectElement?: () => void
+  onDismissFrameSettings?: () => void
   onGradientStopsChange?: (stops: GradientStop[]) => void
   onGradientStartChange?: (x: number, y: number) => void
   onGradientEndChange?: (x: number, y: number) => void
@@ -177,8 +189,10 @@ type CanvasStageProps = {
   ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
+  onUpdateImageLayer: (layerId: string, patch: ImageLayerUpdatePatch) => void
   onSelectTextLayer: (layerId: string) => void
   onSelectShapeLayer: (layerId: string) => void
+  onSelectImageLayer: (layerId: string) => void
   textLayerIdToBeginTyping: string | null
   onTextLayerBeginTypingHandled: () => void
 }
@@ -190,6 +204,7 @@ export function CanvasStage({
   isPageSelected,
   onSelectPage,
   onDeselectElement,
+  onDismissFrameSettings,
   onGradientStopsChange,
   onGradientStartChange,
   onGradientEndChange,
@@ -203,8 +218,10 @@ export function CanvasStage({
   onPlaceShape,
   onUpdateTextLayer,
   onUpdateShapeLayer,
+  onUpdateImageLayer,
   onSelectTextLayer,
   onSelectShapeLayer,
+  onSelectImageLayer,
   textLayerIdToBeginTyping,
   onTextLayerBeginTypingHandled,
 }: CanvasStageProps) {
@@ -220,6 +237,8 @@ export function CanvasStage({
   const placementSessionRef = useRef<PlacementSession | null>(null)
   const [placementPreview, setPlacementPreview] =
     useState<PlacementPreview | null>(null)
+  const [activeSmartGuides, setActiveSmartGuides] =
+    useState<ActiveSnapGuideLines | null>(null)
   const exportDimensions = getExportDimensions(settings)
   const previewGeometry = getPreviewGuideGeometry(settings)
   const showBleedPreview = shouldShowBleedPreview(settings)
@@ -235,17 +254,9 @@ export function CanvasStage({
   const canvasDisplayWidth = canvasWidthPx * displayScale
   const canvasDisplayHeight = canvasHeightPx * displayScale
   const normalizedBackground = normalizeBackgroundGradient(settings.background)
-  const snapGuides = useMemo(() => {
-    if (!guideSnapActiveForText(settings)) {
-      return null
-    }
-    return buildSnapGuideLinesTrimPx(settings, trimWidthPx, trimHeightPx)
-  }, [settings, trimHeightPx, trimWidthPx])
-
-  /** `overflow:hidden` on the frame would clip HTML text that paints past the layer rect when clip is off. */
-  const anyTextLayerAllowsPaintOverflow = useMemo(
-    () => textLayers.some((l) => l.clip === false),
-    [textLayers]
+  const allowElementOverflow = frameAllowsElementOverflow(
+    settings,
+    showBleedPreview
   )
   const showGradientControls =
     settings.background.type === "gradient" &&
@@ -336,6 +347,18 @@ export function CanvasStage({
     frameLayers.some((layer) => layer.id === selection.elementId)
       ? selection.elementId
       : null
+
+  const dragSnapGuides = useMemo(
+    () =>
+      buildDragSnapGuideLines(
+        settings,
+        trimWidthPx,
+        trimHeightPx,
+        frameLayers,
+        selectedElementId
+      ),
+    [frameLayers, selectedElementId, settings, trimHeightPx, trimWidthPx]
+  )
 
   const selectedShapeLayer = useMemo(() => {
     if (!selectedElementId) {
@@ -432,9 +455,6 @@ export function CanvasStage({
       }
 
       const target = event.target as HTMLElement
-      if (target.closest("[data-designer-text-box]")) {
-        return
-      }
       if (target.closest("[data-designer-gradient-overlay]")) {
         return
       }
@@ -515,14 +535,14 @@ export function CanvasStage({
 
         if (dx < TEXT_PLACE_TAP_TRIM_PX && dy < TEXT_PLACE_TAP_TRIM_PX) {
           if (canvasTool === "text") {
-            if (snapGuides) {
+            if (dragSnapGuides) {
               const s = snapTextLayerBoxTrimPx(
                 session.x0,
                 session.y0,
                 DEFAULT_NEW_TEXT_W_TRIM,
                 DEFAULT_NEW_TEXT_H_TRIM,
-                snapGuides.xs,
-                snapGuides.ys,
+                dragSnapGuides.xs,
+                dragSnapGuides.ys,
                 SNAP_THRESHOLD_TRIM_PX,
                 trimWidthPx,
                 trimHeightPx
@@ -559,14 +579,14 @@ export function CanvasStage({
           const w = Math.max(minW, r.w)
           const h = Math.max(minH, r.h)
           if (canvasTool === "text") {
-            if (snapGuides) {
+            if (dragSnapGuides) {
               const s = snapTextLayerBoxTrimPx(
                 r.x,
                 r.y,
                 w,
                 h,
-                snapGuides.xs,
-                snapGuides.ys,
+                dragSnapGuides.xs,
+                dragSnapGuides.ys,
                 SNAP_THRESHOLD_TRIM_PX,
                 trimWidthPx,
                 trimHeightPx
@@ -593,10 +613,17 @@ export function CanvasStage({
       onPlaceShape,
       onPlaceText,
       shapeVariant,
-      snapGuides,
+      dragSnapGuides,
       trimHeightPx,
       trimWidthPx,
     ]
+  )
+
+  const handleActiveSnapGuidesChange = useCallback(
+    (guides: ActiveSnapGuideLines | null) => {
+      setActiveSmartGuides(guides)
+    },
+    []
   )
 
   const getFrameElement = useCallback(() => frameRef.current, [])
@@ -612,9 +639,7 @@ export function CanvasStage({
         canvasTool === "text" || canvasTool === "shape"
           ? "cursor-crosshair"
           : "cursor-default",
-        showBleedPreview || anyTextLayerAllowsPaintOverflow
-          ? "overflow-visible"
-          : "overflow-hidden"
+        allowElementOverflow ? "overflow-visible" : "overflow-hidden"
       )}
       style={{ width: trimDisplayWidth, height: trimDisplayHeight }}
       onPointerDown={handleFramePointerDown}
@@ -644,6 +669,11 @@ export function CanvasStage({
           onDeselectElement
         ) {
           onDeselectElement()
+          return
+        }
+
+        if (isPageSelected && onDismissFrameSettings) {
+          onDismissFrameSettings()
         }
       }}
       onDoubleClick={(event) => {
@@ -707,6 +737,13 @@ export function CanvasStage({
         )}
       />
       <GuidesOverlay settings={settings} displayScale={displayScale} />
+      <SmartGuidesOverlay
+        guides={activeSmartGuides}
+        displayScale={displayScale}
+        trimWidthPx={trimWidthPx}
+        trimHeightPx={trimHeightPx}
+        bleedDisplay={bleedDisplay}
+      />
       {placementPreview && isPlacementTool ? (
         <div
           aria-hidden
@@ -735,11 +772,40 @@ export function CanvasStage({
                 displayScale={displayScale}
                 trimWidthPx={trimWidthPx}
                 trimHeightPx={trimHeightPx}
+                snapGuideXs={dragSnapGuides.xs}
+                snapGuideYs={dragSnapGuides.ys}
+                onActiveSnapGuidesChange={handleActiveSnapGuidesChange}
                 isSelected={selectedElementId === layer.id}
                 zIndex={z}
                 getFrameElement={getFrameElement}
+                interactionEnabled={!isPlacementTool}
                 onUpdate={(patch) => onUpdateShapeLayer(layer.id, patch)}
                 onSelect={() => onSelectShapeLayer(layer.id)}
+              />
+            )
+          }
+
+          if (layer.kind === "image") {
+            if (!resolveImageLayerVisible(layer)) {
+              return null
+            }
+
+            return (
+              <ImageLayerBox
+                key={layer.id}
+                layer={layer}
+                displayScale={displayScale}
+                trimWidthPx={trimWidthPx}
+                trimHeightPx={trimHeightPx}
+                snapGuideXs={dragSnapGuides.xs}
+                snapGuideYs={dragSnapGuides.ys}
+                onActiveSnapGuidesChange={handleActiveSnapGuidesChange}
+                isSelected={selectedElementId === layer.id}
+                zIndex={z}
+                getFrameElement={getFrameElement}
+                interactionEnabled={!isPlacementTool}
+                onUpdate={(patch) => onUpdateImageLayer(layer.id, patch)}
+                onSelect={() => onSelectImageLayer(layer.id)}
               />
             )
           }
@@ -755,13 +821,15 @@ export function CanvasStage({
               displayScale={displayScale}
               trimWidthPx={trimWidthPx}
               trimHeightPx={trimHeightPx}
-              snapGuideXs={snapGuides?.xs ?? null}
-              snapGuideYs={snapGuides?.ys ?? null}
+              snapGuideXs={dragSnapGuides.xs}
+              snapGuideYs={dragSnapGuides.ys}
+              onActiveSnapGuidesChange={handleActiveSnapGuidesChange}
               isSelected={selectedElementId === layer.id}
               zIndex={z}
               getFrameElement={getFrameElement}
               textLayerIdToBeginTyping={textLayerIdToBeginTyping}
               onTextLayerBeginTypingHandled={onTextLayerBeginTypingHandled}
+              interactionEnabled={!isPlacementTool}
               onUpdate={(patch) => onUpdateTextLayer(layer.id, patch)}
               onSelect={() => onSelectTextLayer(layer.id)}
               onRegisterTextarea={(layerId, node) => {
@@ -775,6 +843,7 @@ export function CanvasStage({
           )
         })}
         {showShapeGradientControls &&
+        !isPlacementTool &&
         selectedShapeLayer &&
         normalizedShapeFill ? (
           <div

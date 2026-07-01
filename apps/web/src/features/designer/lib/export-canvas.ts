@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf"
 
 import { drawExportGuides } from "@/features/designer/lib/draw-export-guides"
+import { drawImageLayersOnContext } from "@/features/designer/lib/draw-image-layers"
 import { drawShapeLayersOnContext } from "@/features/designer/lib/draw-shape-layers"
 import { drawTextLayersOnContext } from "@/features/designer/lib/draw-text-layers"
 import {
@@ -8,6 +9,7 @@ import {
   isScreenDocument,
 } from "@/features/designer/lib/document-intent"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
+import { resolveFrameClipContent } from "@/features/designer/lib/frame-content"
 import {
   mergeExportOverrides,
   type PageExportOverrides,
@@ -38,6 +40,8 @@ function drawFrameLayersOnContext(
 
     if (layer.kind === "shape") {
       await drawShapeLayersOnContext(context, [layer], trimOffsetPx)
+    } else if (layer.kind === "image") {
+      await drawImageLayersOnContext(context, [layer], trimOffsetPx)
     } else if (layer.kind === "text") {
       drawTextLayersOnContext(context, [layer], trimOffsetPx)
     }
@@ -50,7 +54,8 @@ export async function renderExportCanvas(
   layers: Layer[]
 ): Promise<HTMLCanvasElement> {
   const exportDimensions = getExportDimensions(settings)
-  const { exportWidthPx, exportHeightPx, bleedPx } = exportDimensions
+  const { exportWidthPx, exportHeightPx, bleedPx, trimWidthPx, trimHeightPx } =
+    exportDimensions
 
   const canvas = document.createElement("canvas")
   canvas.width = exportWidthPx
@@ -79,7 +84,18 @@ export async function renderExportCanvas(
   }
 
   if (layers.length > 0) {
+    if (resolveFrameClipContent(settings)) {
+      context.save()
+      context.beginPath()
+      context.rect(bleedPx, bleedPx, trimWidthPx, trimHeightPx)
+      context.clip()
+    }
+
     await drawFrameLayersOnContext(context, layers, bleedPx)
+
+    if (resolveFrameClipContent(settings)) {
+      context.restore()
+    }
   }
 
   drawExportGuides(context, settings, settings.export.burnIn)

@@ -15,23 +15,32 @@ export type ZoomMode = "fit" | "manual"
 export type CanvasTool = "select" | "text" | "shape"
 export type ShapeVariant = "circle" | "square" | "triangle" | "line"
 export type PanelMode = "document" | "export" | "layers"
-export type ToolbarTool = "pointer" | "text" | "shape" | "document" | "export"
+export type ToolbarTool = "pointer" | "text" | "shape" | "image" | "export"
 
 export function resolveContextPanelMode(
   toolbarTool: ToolbarTool,
   panelMode: PanelMode,
-  selection: Selection
+  selection: Selection,
+  frameEngagedId: string | null
 ): PanelMode {
   if (toolbarTool === "export") {
     return "export"
   }
 
-  if (toolbarTool === "document") {
-    return "document"
-  }
-
   if (toolbarTool === "pointer") {
-    return selection.kind === "page" ? "layers" : "document"
+    if (selection.kind === "element") {
+      return "document"
+    }
+
+    if (
+      selection.kind === "page" &&
+      frameEngagedId != null &&
+      frameEngagedId === selection.pageId
+    ) {
+      return "document"
+    }
+
+    return "layers"
   }
 
   return panelMode

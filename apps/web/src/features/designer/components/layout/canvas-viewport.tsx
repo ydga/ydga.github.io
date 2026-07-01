@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useRef } from "react"
 
 import { CanvasStage } from "@/features/designer/components/layout/canvas-stage"
 import { FrameNameField } from "@/features/designer/components/layout/page-controls"
@@ -6,8 +6,10 @@ import { useStageFit } from "@/features/designer/hooks/use-stage-fit"
 import { useStagePan } from "@/features/designer/hooks/use-stage-pan"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
 import { shouldShowBleedPreview } from "@/features/designer/lib/render-background"
+import { frameAllowsElementOverflow } from "@/features/designer/lib/frame-content"
 import type { DesignerFrame } from "@/features/designer/model/frames"
 import type {
+  ImageLayerUpdatePatch,
   Layer,
   ShapeLayerUpdatePatch,
   TextLayer,
@@ -34,6 +36,7 @@ type CanvasViewportProps = {
   onZoomScaleChange: (scale: number) => void
   onSelectFrame: (frameId: string) => void
   onDeselectFrameElement: (frameId: string) => void
+  onDismissFrameSettings: () => void
   dispatch: DesignerDispatch
   toolbarChromeRef: React.RefObject<HTMLElement | null>
   bottomChromeRef: React.RefObject<HTMLElement | null>
@@ -57,8 +60,10 @@ type CanvasViewportProps = {
   ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
+  onUpdateImageLayer: (layerId: string, patch: ImageLayerUpdatePatch) => void
   onSelectTextLayer: (layerId: string) => void
   onSelectShapeLayer: (layerId: string) => void
+  onSelectImageLayer: (layerId: string) => void
   textLayerIdToBeginTyping: string | null
   onTextLayerBeginTypingHandled: () => void
 }
@@ -74,6 +79,7 @@ export function CanvasViewport({
   onZoomScaleChange,
   onSelectFrame,
   onDeselectFrameElement,
+  onDismissFrameSettings,
   dispatch,
   toolbarChromeRef,
   bottomChromeRef,
@@ -87,14 +93,20 @@ export function CanvasViewport({
   onPlaceShape,
   onUpdateTextLayer,
   onUpdateShapeLayer,
+  onUpdateImageLayer,
   onSelectTextLayer,
   onSelectShapeLayer,
+  onSelectImageLayer,
   textLayerIdToBeginTyping,
   onTextLayerBeginTypingHandled,
 }: CanvasViewportProps) {
   const displayScaleRef = useRef(displayScale)
   const exportDimensions = getExportDimensions(activeFrame.settings)
   const showBleedPreview = shouldShowBleedPreview(activeFrame.settings)
+  const allowElementOverflow = frameAllowsElementOverflow(
+    activeFrame.settings,
+    showBleedPreview
+  )
   const contentWidthPx = showBleedPreview
     ? exportDimensions.exportWidthPx
     : exportDimensions.trimWidthPx
@@ -110,26 +122,29 @@ export function CanvasViewport({
   })
 
   const isFitZoom = zoomMode === "fit"
+  const canPanCanvas =
+    !isFitZoom && canvasTool !== "text" && canvasTool !== "shape"
   const {
     pan,
     isDragging,
+    addPan,
     onPointerDown,
     onPointerMove,
     onPointerUp,
     onPointerCancel,
   } = useStagePan({
-    enabled: !isFitZoom && canvasTool !== "text" && canvasTool !== "shape",
+    enabled: canPanCanvas,
     resetKey: `${activeFrame.id}:${isFitZoom ? "fit" : "manual"}`,
   })
-
-  const anyTextLayerAllowsPaintOverflow = useMemo(
-    () => textLayers.some((l) => l.clip === false),
-    [textLayers]
-  )
 
   useEffect(() => {
     displayScaleRef.current = displayScale
   }, [displayScale])
+
+  const addPanRef = useRef(addPan)
+  useEffect(() => {
+    addPanRef.current = addPan
+  }, [addPan])
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -139,6 +154,16 @@ export function CanvasViewport({
 
     function onWheel(event: WheelEvent) {
       event.preventDefault()
+
+      const isZoomGesture = event.ctrlKey || event.metaKey
+      const isTrackpadScroll =
+        event.deltaMode === WheelEvent.DOM_DELTA_PIXEL ||
+        Math.abs(event.deltaX) > 0
+
+      if (!isZoomGesture && isTrackpadScroll && canPanCanvas) {
+        addPanRef.current(-event.deltaX, -event.deltaY)
+        return
+      }
 
       const factor = Math.exp(-event.deltaY * ZOOM_WHEEL_SENSITIVITY)
       onZoomScaleChange(displayScaleRef.current * factor)
@@ -154,7 +179,27 @@ export function CanvasViewport({
     return () => {
       viewport.removeEventListener("wheel", onWheel, { capture: true })
     }
-  }, [onZoomScaleChange, viewportRef])
+  }, [canPanCanvas, onZoomScaleChange, viewportRef])
+
+  function handleStageClick(event: React.MouseEvent) {
+    if (canvasTool === "text" || canvasTool === "shape") {
+      return
+    }
+
+    const target = event.target as HTMLElement
+    if (target.closest("[data-designer-frame-cluster]")) {
+      return
+    }
+
+    if (selection.kind === "element") {
+      onDeselectFrameElement(activeFrame.id)
+      return
+    }
+
+    if (frameEngagedId === activeFrame.id) {
+      onDismissFrameSettings()
+    }
+  }
 
   return (
     <div
@@ -165,21 +210,20 @@ export function CanvasViewport({
         ref={stageRef}
         className={cn(
           "absolute inset-0 touch-none overscroll-none bg-transparent",
-          anyTextLayerAllowsPaintOverflow
-            ? "overflow-visible"
-            : "overflow-hidden",
-          canvasTool !== "text" &&
-            canvasTool !== "shape" &&
-            (isDragging ? "cursor-grabbing" : "cursor-default")
+          allowElementOverflow ? "overflow-visible" : "overflow-hidden",
+          canPanCanvas &&
+            (isDragging ? "cursor-grabbing" : "cursor-grab")
         )}
         style={{ padding: safeAreaInset }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
+        onClick={handleStageClick}
       >
         <div className="flex h-full w-full items-center justify-center">
           <div
+            data-designer-frame-cluster
             className="group/frame flex flex-col items-start gap-3"
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px)`,
@@ -199,6 +243,7 @@ export function CanvasViewport({
               isPageSelected={frameEngagedId === activeFrame.id}
               onSelectPage={() => onSelectFrame(activeFrame.id)}
               onDeselectElement={() => onDeselectFrameElement(activeFrame.id)}
+              onDismissFrameSettings={onDismissFrameSettings}
               onGradientStopsChange={(value) =>
                 dispatch({ type: "set-background-gradient-stops", value })
               }
@@ -224,8 +269,10 @@ export function CanvasViewport({
               onPlaceShape={onPlaceShape}
               onUpdateTextLayer={onUpdateTextLayer}
               onUpdateShapeLayer={onUpdateShapeLayer}
+              onUpdateImageLayer={onUpdateImageLayer}
               onSelectTextLayer={onSelectTextLayer}
               onSelectShapeLayer={onSelectShapeLayer}
+              onSelectImageLayer={onSelectImageLayer}
               textLayerIdToBeginTyping={textLayerIdToBeginTyping}
               onTextLayerBeginTypingHandled={onTextLayerBeginTypingHandled}
             />

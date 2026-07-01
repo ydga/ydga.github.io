@@ -3,8 +3,9 @@ import type { BackgroundSettings } from "@/features/designer/model/types"
 import { DEFAULT_CANVAS_SETTINGS } from "@/features/designer/model/defaults"
 
 export const DEFAULT_SHAPE_FILL = "#6366f1"
-export const DEFAULT_SHAPE_STROKE = "#111827"
-export const DEFAULT_SHAPE_STROKE_WIDTH = 2
+export const DEFAULT_SHAPE_STROKE = "#000000"
+export const DEFAULT_SHAPE_STROKE_WIDTH = 0
+export const DEFAULT_LINE_STROKE_WIDTH = 2
 export const DEFAULT_SHAPE_OPACITY = 100
 
 export const DEFAULT_SHAPE_FILL_BACKGROUND: BackgroundSettings = {
@@ -66,7 +67,13 @@ export function resolveShapeLayerStroke(layer: ShapeLayer) {
 }
 
 export function resolveShapeLayerStrokeWidth(layer: ShapeLayer) {
-  return layer.strokeWidth ?? DEFAULT_SHAPE_STROKE_WIDTH
+  if (layer.strokeWidth !== undefined) {
+    return layer.strokeWidth
+  }
+
+  return layer.shapeType === "line"
+    ? DEFAULT_LINE_STROKE_WIDTH
+    : DEFAULT_SHAPE_STROKE_WIDTH
 }
 
 export function resolveShapeLayerOpacity(layer: ShapeLayer) {

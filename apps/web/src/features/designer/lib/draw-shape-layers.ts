@@ -33,7 +33,7 @@ async function drawShapeOnContext(
           context.rect(0, 0, w, h)
         })
       }
-      if (stroke !== "transparent") {
+      if (stroke !== "transparent" && strokeWidth > 0) {
         context.strokeStyle = stroke
         context.strokeRect(0, 0, w, h)
       }
@@ -50,7 +50,7 @@ async function drawShapeOnContext(
           context.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
         })
       }
-      if (stroke !== "transparent") {
+      if (stroke !== "transparent" && strokeWidth > 0) {
         context.beginPath()
         context.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
         context.strokeStyle = stroke
@@ -67,7 +67,7 @@ async function drawShapeOnContext(
           context.closePath()
         })
       }
-      if (stroke !== "transparent") {
+      if (stroke !== "transparent" && strokeWidth > 0) {
         context.beginPath()
         context.moveTo(w / 2, 0)
         context.lineTo(w, h)
@@ -79,11 +79,13 @@ async function drawShapeOnContext(
       break
     }
     case "line": {
-      context.beginPath()
-      context.moveTo(0, 0)
-      context.lineTo(w, h)
-      context.strokeStyle = stroke
-      context.stroke()
+      if (strokeWidth > 0) {
+        context.beginPath()
+        context.moveTo(0, 0)
+        context.lineTo(w, h)
+        context.strokeStyle = stroke
+        context.stroke()
+      }
       break
     }
   }

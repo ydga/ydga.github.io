@@ -3,6 +3,7 @@ import { Layers } from "lucide-react"
 import { LayerList } from "@/features/designer/components/layers/layer-list"
 import {
   getLayersForFrame,
+  type ImageLayerUpdatePatch,
   type Layer,
   type ShapeLayerUpdatePatch,
   type TextLayerUpdatePatch,
@@ -17,6 +18,7 @@ type LayersPanelProps = {
   onReorder: (frameId: string, fromIndex: number, toIndex: number) => void
   onUpdateLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
+  onUpdateImageLayer: (layerId: string, patch: ImageLayerUpdatePatch) => void
   onRemoveLayer: (layerId: string) => void
 }
 
@@ -27,6 +29,7 @@ export function LayersPanel({
   onReorder,
   onUpdateLayer,
   onUpdateShapeLayer,
+  onUpdateImageLayer,
   onRemoveLayer,
 }: LayersPanelProps) {
   const frameLayers = getLayersForFrame(layers, frameId)
@@ -76,6 +79,13 @@ export function LayersPanel({
 
         if (layer.kind === "text") {
           onUpdateLayer(layerId, {
+            visible: !resolveLayerVisible(layer),
+          })
+          return
+        }
+
+        if (layer.kind === "image") {
+          onUpdateImageLayer(layerId, {
             visible: !resolveLayerVisible(layer),
           })
           return
