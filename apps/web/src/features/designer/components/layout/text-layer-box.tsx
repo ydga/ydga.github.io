@@ -749,6 +749,10 @@ export function TextLayerBox({
           return
         }
         event.stopPropagation()
+        // Hit the box chrome (not textarea): select + drag on first press.
+        if (!isSelected) {
+          startMove(event)
+        }
       }}
       onClick={(event) => {
         const target = event.target as HTMLElement
@@ -819,6 +823,11 @@ export function TextLayerBox({
             el?.select()
             return
           }
+          // Unselected: first press selects + may drag; don't enter edit yet.
+          if (!isSelected) {
+            event.preventDefault()
+            return
+          }
           if (isSelected && !textEditing && event.detail === 1) {
             flushSync(() => {
               setTextEditing(true)
@@ -835,6 +844,10 @@ export function TextLayerBox({
         }}
         onPointerDown={(event) => {
           event.stopPropagation()
+          // First press-and-drag moves without requiring a prior selection click.
+          if (!isSelected) {
+            startMove(event)
+          }
         }}
         onDoubleClick={() => {
           flushSync(() => {

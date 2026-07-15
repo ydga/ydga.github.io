@@ -421,7 +421,7 @@ export function ShapeLayerBox({
   }
 
   function startMove(event: React.PointerEvent) {
-    if (!isSelected || event.button !== 0) {
+    if (event.button !== 0) {
       return
     }
 
@@ -477,15 +477,15 @@ export function ShapeLayerBox({
       data-designer-shape-box
       className={cn(
         "pointer-events-auto absolute touch-none",
-        isSelected && !isDragging && "cursor-move"
+        !isDragging && "cursor-move"
       )}
       style={{ left, top, width, height, zIndex }}
       onPointerDown={(event) => {
         event.stopPropagation()
         onSelect()
-        if (isSelected) {
-          startMove(event)
-        }
+        // Start move on the same press that selects — `isSelected` is still
+        // false in this render, so gating on it forced a second press to drag.
+        startMove(event)
       }}
     >
       <svg
