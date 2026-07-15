@@ -20,7 +20,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 const frameNameFieldClasses =
-  "h-7 w-full min-w-0 border-transparent bg-transparent shadow-none hover:bg-muted/50 has-[[data-slot=input-group-control]:focus-visible]:border-input has-[[data-slot=input-group-control]:focus-visible]:bg-background has-[[data-slot=input-group-control]:focus-visible]:ring-[3px] has-[[data-slot=input-group-control]:focus-visible]:ring-ring/50"
+  "h-7 w-full min-w-0 border-transparent bg-transparent shadow-none hover:bg-muted/50 has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:bg-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-0"
 
 type FrameNameFieldProps = {
   pageName: string
