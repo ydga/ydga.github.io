@@ -478,7 +478,12 @@ function ClosedShapeLayerBox({
       trimWidthPx,
       trimHeightPx
     )
-    onUpdate(next)
+    onUpdate({
+      x: next.x,
+      y: next.y,
+      width: next.w,
+      height: next.h,
+    })
   }
 
   function onPointerUp(ev: PointerEvent) {
@@ -528,8 +533,8 @@ function ClosedShapeLayerBox({
     }
     event.stopPropagation()
     event.preventDefault()
+    onSelect()
 
-    // Drop any move session so a bubbled body press cannot steal this resize.
     dragSessionRef.current = {
       kind: "resize",
       pointerId: event.pointerId,
@@ -541,6 +546,9 @@ function ClosedShapeLayerBox({
     }
     setIsDragging(true)
 
+    const el = event.currentTarget as HTMLElement
+    el.setPointerCapture(event.pointerId)
+
     window.addEventListener("pointermove", onPointerMove)
     window.addEventListener("pointerup", onPointerUp)
     window.addEventListener("pointercancel", onPointerUp)
@@ -550,7 +558,7 @@ function ClosedShapeLayerBox({
     <div
       data-designer-shape-box
       className={cn(
-        "pointer-events-auto absolute touch-none",
+        "pointer-events-auto absolute touch-none overflow-visible",
         !isDragging && "cursor-move"
       )}
       style={{ left, top, width, height, zIndex }}
@@ -558,6 +566,7 @@ function ClosedShapeLayerBox({
         const target = event.target as HTMLElement
         // Resize handles manage their own gesture — do not start a move.
         if (target.closest("[data-designer-shape-handle]")) {
+          event.stopPropagation()
           return
         }
         event.stopPropagation()
@@ -587,7 +596,7 @@ function ClosedShapeLayerBox({
               data-designer-shape-handle
               aria-label={`Resize ${layer.name}`}
               className={cn(
-                "absolute z-10 size-2 rounded-sm border border-[#7c3aed] bg-white",
+                "absolute z-20 size-2.5 rounded-sm border border-[#7c3aed] bg-white touch-none",
                 className
               )}
               style={{ cursor, margin: `calc(-1 * (${HANDLE_STICK_OUT}))` }}
