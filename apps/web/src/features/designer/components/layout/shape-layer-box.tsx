@@ -30,8 +30,7 @@ type DragSession =
       startY: number
       startW: number
       startH: number
-      /** Shift+Option held at pointerdown — clone once movement starts. */
-      duplicateOnMove: boolean
+      /** Clone created once Shift+Option is held during this move. */
       duplicated: boolean
     }
   | {
@@ -54,7 +53,7 @@ type ShapeLayerBoxProps = {
   getFrameElement: () => HTMLElement | null
   onUpdate: (patch: ShapeLayerUpdatePatch) => void
   onSelect: () => void
-  /** Shift+Option drag: leave a clone at `at` (drag start). */
+  /** Shift+Option while dragging: leave a clone at `at` (drag start). */
   onDuplicateInPlace: (at: { x: number; y: number }) => void
 }
 
@@ -396,23 +395,21 @@ export function ShapeLayerBox({
     )
 
     if (session.kind === "move") {
-      if (
-        session.duplicateOnMove &&
-        !session.duplicated
-      ) {
-        const movedX = pt.x - session.trimStartX
-        const movedY = pt.y - session.trimStartY
-        if (
-          movedX * movedX + movedY * movedY >=
-          DUPLICATE_MOVE_THRESHOLD_TRIM_PX * DUPLICATE_MOVE_THRESHOLD_TRIM_PX
-        ) {
-          onDuplicateInPlace({ x: session.startX, y: session.startY })
-          session.duplicated = true
-        }
-      }
-
       const dx = pt.x - session.trimStartX
       const dy = pt.y - session.trimStartY
+
+      // Shift+Option (Alt) held during the drag — leave a clone at the start.
+      if (
+        !session.duplicated &&
+        ev.shiftKey &&
+        ev.altKey &&
+        dx * dx + dy * dy >=
+          DUPLICATE_MOVE_THRESHOLD_TRIM_PX * DUPLICATE_MOVE_THRESHOLD_TRIM_PX
+      ) {
+        onDuplicateInPlace({ x: session.startX, y: session.startY })
+        session.duplicated = true
+      }
+
       const x = clamp(session.startX + dx, 0, trimWidthPx - session.startW)
       const y = clamp(session.startY + dy, 0, trimHeightPx - session.startH)
       onUpdate({ x, y })
@@ -467,7 +464,6 @@ export function ShapeLayerBox({
       startY: layer.y,
       startW: layer.width,
       startH: layer.height,
-      duplicateOnMove: event.shiftKey && event.altKey,
       duplicated: false,
     }
     setIsDragging(true)

@@ -63,8 +63,7 @@ type DragSession =
       startY: number
       startW: number
       startH: number
-      /** Shift+Option held at pointerdown — clone once movement starts. */
-      duplicateOnMove: boolean
+      /** Clone created once Shift+Option is held during this move. */
       duplicated: boolean
     }
   | {
@@ -92,7 +91,7 @@ type TextLayerBoxProps = {
   getFrameElement: () => HTMLElement | null
   onUpdate: (patch: TextLayerUpdatePatch) => void
   onSelect: () => void
-  /** Shift+Option drag: leave a clone at `at` (drag start). */
+  /** Shift+Option while dragging: leave a clone at `at` (drag start). */
   onDuplicateInPlace: (at: { x: number; y: number }) => void
   onRegisterTextarea: (
     layerId: string,
@@ -514,20 +513,21 @@ export function TextLayerBox({
       )
 
       if (session.kind === "move") {
-        if (session.duplicateOnMove && !session.duplicated) {
-          const movedX = px - session.trimStartX
-          const movedY = py - session.trimStartY
-          if (
-            movedX * movedX + movedY * movedY >=
-            DUPLICATE_MOVE_THRESHOLD_TRIM_PX * DUPLICATE_MOVE_THRESHOLD_TRIM_PX
-          ) {
-            onDuplicateInPlace({ x: session.startX, y: session.startY })
-            session.duplicated = true
-          }
-        }
-
         const dx = px - session.trimStartX
         const dy = py - session.trimStartY
+
+        // Shift+Option (Alt) held during the drag — leave a clone at the start.
+        if (
+          !session.duplicated &&
+          event.shiftKey &&
+          event.altKey &&
+          dx * dx + dy * dy >=
+            DUPLICATE_MOVE_THRESHOLD_TRIM_PX * DUPLICATE_MOVE_THRESHOLD_TRIM_PX
+        ) {
+          onDuplicateInPlace({ x: session.startX, y: session.startY })
+          session.duplicated = true
+        }
+
         let x = clamp(
           session.startX + dx,
           0,
@@ -659,7 +659,6 @@ export function TextLayerBox({
       startY: layer.y,
       startW: layer.width,
       startH: boxHeightTrim,
-      duplicateOnMove: event.shiftKey && event.altKey,
       duplicated: false,
     }
     const el = event.currentTarget as HTMLElement
