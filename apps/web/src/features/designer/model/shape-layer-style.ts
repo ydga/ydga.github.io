@@ -6,6 +6,15 @@ export const DEFAULT_SHAPE_FILL = "#6366f1"
 export const DEFAULT_SHAPE_STROKE = "#111827"
 export const DEFAULT_SHAPE_STROKE_WIDTH = 2
 export const DEFAULT_SHAPE_OPACITY = 100
+/** Common dashed stroke defaults (trim-space px). */
+export const DEFAULT_STROKE_DASH = 8
+export const DEFAULT_STROKE_GAP = 6
+export const MIN_STROKE_DASH = 1
+export const MAX_STROKE_DASH = 96
+export const MIN_STROKE_GAP = 0
+export const MAX_STROKE_GAP = 96
+
+export type StrokeDashStyle = "solid" | "dashed"
 
 export const DEFAULT_SHAPE_FILL_BACKGROUND: BackgroundSettings = {
   ...DEFAULT_CANVAS_SETTINGS.background,
@@ -67,6 +76,44 @@ export function resolveShapeLayerStroke(layer: ShapeLayer) {
 
 export function resolveShapeLayerStrokeWidth(layer: ShapeLayer) {
   return layer.strokeWidth ?? DEFAULT_SHAPE_STROKE_WIDTH
+}
+
+export function resolveShapeLayerStrokeDashStyle(
+  layer: ShapeLayer
+): StrokeDashStyle {
+  return layer.strokeDashStyle === "dashed" ? "dashed" : "solid"
+}
+
+export function resolveShapeLayerStrokeDash(layer: ShapeLayer) {
+  const raw = layer.strokeDash
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return Math.min(MAX_STROKE_DASH, Math.max(MIN_STROKE_DASH, raw))
+  }
+  return DEFAULT_STROKE_DASH
+}
+
+export function resolveShapeLayerStrokeGap(layer: ShapeLayer) {
+  const raw = layer.strokeGap
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return Math.min(MAX_STROKE_GAP, Math.max(MIN_STROKE_GAP, raw))
+  }
+  return DEFAULT_STROKE_GAP
+}
+
+/**
+ * SVG/canvas dash array in trim-space px, or `null` for a solid stroke.
+ * Pass `scale` (e.g. displayScale) to convert to screen/export pixels.
+ */
+export function resolveShapeLayerStrokeDasharray(
+  layer: ShapeLayer,
+  scale = 1
+): number[] | null {
+  if (resolveShapeLayerStrokeDashStyle(layer) !== "dashed") {
+    return null
+  }
+  const dash = resolveShapeLayerStrokeDash(layer) * scale
+  const gap = resolveShapeLayerStrokeGap(layer) * scale
+  return [dash, gap]
 }
 
 export function resolveShapeLayerOpacity(layer: ShapeLayer) {

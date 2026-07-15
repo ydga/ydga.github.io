@@ -4,6 +4,7 @@ import { DimensionField } from "@workspace/ui/components/settings/dimension-fiel
 import { FillBackgroundField } from "@/features/designer/components/settings/fill-background-field"
 import { SettingSection } from "@workspace/ui/components/settings/setting-section"
 import { ColorPickerField } from "@workspace/ui/components/settings/color-picker"
+import { SlidingSegmentedTabs } from "@workspace/ui/components/settings/sliding-segmented-tabs"
 import {
   InputGroup,
   InputGroupAddon,
@@ -35,10 +36,20 @@ import type {
 import { backgroundSettingsReducer } from "@/features/designer/lib/background-settings-reducer"
 import {
   DEFAULT_SHAPE_STROKE,
+  DEFAULT_STROKE_DASH,
+  DEFAULT_STROKE_GAP,
+  MAX_STROKE_DASH,
+  MAX_STROKE_GAP,
+  MIN_STROKE_DASH,
+  MIN_STROKE_GAP,
   resolveShapeLayerFillBackground,
   resolveShapeLayerOpacity,
   resolveShapeLayerStroke,
+  resolveShapeLayerStrokeDash,
+  resolveShapeLayerStrokeDashStyle,
+  resolveShapeLayerStrokeGap,
   resolveShapeLayerStrokeWidth,
+  type StrokeDashStyle,
 } from "@/features/designer/model/shape-layer-style"
 
 type ShapeLayerSettingsPanelProps = {
@@ -184,6 +195,92 @@ function StrokeWidthField({ value, onChange }: StrokeWidthFieldProps) {
   )
 }
 
+type StrokeDashMeasureFieldProps = {
+  label: string
+  ariaLabel: string
+  value: number
+  min: number
+  max: number
+  onChange: (value: number) => void
+}
+
+function StrokeDashMeasureField({
+  label,
+  ariaLabel,
+  value,
+  min,
+  max,
+  onChange,
+}: StrokeDashMeasureFieldProps) {
+  const onScrub = useCallback(
+    (next: number) => onChange(Math.min(max, Math.max(min, Math.round(next)))),
+    [max, min, onChange]
+  )
+
+  const { isScrubbing, scrubHandlers } = useScrubNumber({
+    value,
+    onChange: onScrub,
+    min,
+    max,
+    step: 1,
+  })
+
+  return (
+    <InputGroup
+      className={cn(
+        settingsInputGroupClasses(
+          cn(
+            settingsControlHeightClassName,
+            "min-w-0 flex-1 cursor-ew-resize"
+          )
+        ),
+        isScrubbing && "select-none"
+      )}
+      {...scrubHandlers}
+    >
+      <InputGroupAddon
+        align="inline-start"
+        className={cn(settingsInlineLabelAddonClassName, "cursor-ew-resize")}
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className={cn(
+                settingsInlineLabelClassName,
+                "cursor-ew-resize select-none"
+              )}
+            >
+              {label}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top">{ariaLabel}</TooltipContent>
+        </Tooltip>
+      </InputGroupAddon>
+      <InputGroupInput
+        type="number"
+        aria-label={ariaLabel}
+        min={min}
+        max={max}
+        step={1}
+        value={value}
+        className={cn(
+          settingsNumberFieldClassName,
+          settingsControlHeightClassName,
+          settingsControlLineHeightClassName,
+          settingsNumericTextClassName,
+          "min-w-0 py-0 pr-2 pl-0 text-right"
+        )}
+        onChange={(event) => {
+          const parsed = Number.parseFloat(event.target.value)
+          if (!Number.isNaN(parsed)) {
+            onChange(Math.min(max, Math.max(min, Math.round(parsed))))
+          }
+        }}
+      />
+    </InputGroup>
+  )
+}
+
 export function ShapeLayerSettingsPanel({
   layer,
   trimWidthPx,
@@ -195,6 +292,9 @@ export function ShapeLayerSettingsPanel({
   const fill = resolveShapeLayerFillBackground(layer)
   const stroke = resolveShapeLayerStroke(layer)
   const strokeWidth = resolveShapeLayerStrokeWidth(layer)
+  const dashStyle = resolveShapeLayerStrokeDashStyle(layer)
+  const strokeDash = resolveShapeLayerStrokeDash(layer)
+  const strokeGap = resolveShapeLayerStrokeGap(layer)
   const opacity = Math.round(resolveShapeLayerOpacity(layer) * 100)
 
   const applyFillAction = useCallback(
@@ -204,6 +304,21 @@ export function ShapeLayerSettingsPanel({
       })
     },
     [fill, onUpdate]
+  )
+
+  const setDashStyle = useCallback(
+    (next: StrokeDashStyle) => {
+      if (next === "dashed") {
+        onUpdate({
+          strokeDashStyle: "dashed",
+          strokeDash: layer.strokeDash ?? DEFAULT_STROKE_DASH,
+          strokeGap: layer.strokeGap ?? DEFAULT_STROKE_GAP,
+        })
+        return
+      }
+      onUpdate({ strokeDashStyle: "solid" })
+    },
+    [layer.strokeDash, layer.strokeGap, onUpdate]
   )
 
   return (
@@ -275,6 +390,51 @@ export function ShapeLayerSettingsPanel({
               />
             ) : null}
           </div>
+
+          {isLine ? (
+            <div className="flex flex-col gap-2">
+              <SlidingSegmentedTabs
+                value={dashStyle}
+                onValueChange={(value) =>
+                  setDashStyle(value === "dashed" ? "dashed" : "solid")
+                }
+                items={[
+                  {
+                    value: "solid",
+                    content: "Solid",
+                    ariaLabel: "Solid line",
+                    tooltip: "Solid",
+                  },
+                  {
+                    value: "dashed",
+                    content: "Dash",
+                    ariaLabel: "Dashed line",
+                    tooltip: "Dash",
+                  },
+                ]}
+              />
+              {dashStyle === "dashed" ? (
+                <div className="flex w-full min-w-0 gap-2">
+                  <StrokeDashMeasureField
+                    label="Dash"
+                    ariaLabel="Dash length"
+                    value={strokeDash}
+                    min={MIN_STROKE_DASH}
+                    max={MAX_STROKE_DASH}
+                    onChange={(next) => onUpdate({ strokeDash: next })}
+                  />
+                  <StrokeDashMeasureField
+                    label="Gap"
+                    ariaLabel="Gap length"
+                    value={strokeGap}
+                    min={MIN_STROKE_GAP}
+                    max={MAX_STROKE_GAP}
+                    onChange={(next) => onUpdate({ strokeGap: next })}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </SettingSection>
     </div>

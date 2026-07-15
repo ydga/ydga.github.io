@@ -11,6 +11,7 @@ import {
   resolveShapeLayerFillBackground,
   resolveShapeLayerOpacity,
   resolveShapeLayerStroke,
+  resolveShapeLayerStrokeDasharray,
   resolveShapeLayerStrokeWidth,
 } from "@/features/designer/model/shape-layer-style"
 import { LineShapeLayerBox } from "@/features/designer/components/layout/line-shape-layer-box"
@@ -268,8 +269,10 @@ function ShapePreview({
   const stroke = resolveShapeLayerStroke(layer)
   const strokeWidth = resolveShapeLayerStrokeWidth(layer)
   const opacity = resolveShapeLayerOpacity(layer)
+  const dasharray = resolveShapeLayerStrokeDasharray(layer)
 
   const sw = strokeWidth
+  const strokeDasharray = dasharray ? dasharray.join(" ") : undefined
 
   switch (layer.shapeType) {
     case "square":
@@ -289,6 +292,7 @@ function ShapePreview({
             fill="none"
             stroke={stroke !== "transparent" ? stroke : undefined}
             strokeWidth={stroke !== "transparent" ? sw : 0}
+            strokeDasharray={strokeDasharray}
           />
         </>
       )
@@ -309,6 +313,7 @@ function ShapePreview({
             fill="none"
             stroke={stroke !== "transparent" ? stroke : undefined}
             strokeWidth={stroke !== "transparent" ? sw : 0}
+            strokeDasharray={strokeDasharray}
           />
         </>
       )
@@ -327,6 +332,7 @@ function ShapePreview({
             stroke={stroke !== "transparent" ? stroke : undefined}
             strokeWidth={stroke !== "transparent" ? sw : 0}
             strokeLinejoin="round"
+            strokeDasharray={strokeDasharray}
           />
         </>
       )
@@ -341,6 +347,7 @@ function ShapePreview({
           strokeWidth={sw}
           strokeLinecap="round"
           strokeLinejoin="round"
+          strokeDasharray={strokeDasharray}
           opacity={opacity}
         />
       )

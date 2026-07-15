@@ -113,6 +113,12 @@ export type ShapeLayer = {
   stroke?: string
   /** Stroke width in trim-space pixels. */
   strokeWidth?: number
+  /** Solid vs dashed stroke. Defaults to solid. */
+  strokeDashStyle?: "solid" | "dashed"
+  /** Dash segment length in trim-space px (when dashed). */
+  strokeDash?: number
+  /** Gap between dashes in trim-space px (when dashed). */
+  strokeGap?: number
   /** Layer opacity 0–100 (default 100 = fully opaque). */
   opacity?: number
   /** When false, layer is hidden on canvas and export. Default true. */
@@ -130,6 +136,9 @@ export type ShapeLayerUpdatePatch = Partial<
     | "fill"
     | "stroke"
     | "strokeWidth"
+    | "strokeDashStyle"
+    | "strokeDash"
+    | "strokeGap"
     | "opacity"
     | "visible"
   >

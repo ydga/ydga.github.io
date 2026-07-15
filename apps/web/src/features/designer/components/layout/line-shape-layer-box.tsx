@@ -15,6 +15,7 @@ import {
 import {
   resolveShapeLayerOpacity,
   resolveShapeLayerStroke,
+  resolveShapeLayerStrokeDasharray,
   resolveShapeLayerStrokeWidth,
 } from "@/features/designer/model/shape-layer-style"
 import { cn } from "@workspace/ui/lib/utils"
@@ -118,11 +119,13 @@ export function LineShapeLayerBox({
   const stroke = resolveShapeLayerStroke(layer)
   const strokeWidth = resolveShapeLayerStrokeWidth(layer)
   const opacity = resolveShapeLayerOpacity(layer)
+  const dasharray = resolveShapeLayerStrokeDasharray(layer, displayScale)
   const hitStroke = Math.max(
     strokeWidth * displayScale,
     STROKE_HIT_MIN_SCREEN_PX
   )
   const nodeSize = NODE_HIT_SCREEN_PX
+  const strokeDasharray = dasharray ? dasharray.join(" ") : undefined
 
   function endDrag() {
     dragSessionRef.current = null
@@ -329,6 +332,7 @@ export function LineShapeLayerBox({
           strokeWidth={strokeWidth * displayScale}
           strokeLinecap="round"
           strokeLinejoin="round"
+          strokeDasharray={strokeDasharray}
           opacity={opacity}
           className="pointer-events-none"
         />

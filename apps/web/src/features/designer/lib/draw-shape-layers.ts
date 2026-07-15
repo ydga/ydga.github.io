@@ -5,6 +5,7 @@ import {
   resolveShapeLayerFillBackground,
   resolveShapeLayerOpacity,
   resolveShapeLayerStroke,
+  resolveShapeLayerStrokeDasharray,
   resolveShapeLayerStrokeWidth,
   resolveShapeLayerVisible,
 } from "@/features/designer/model/shape-layer-style"
@@ -18,6 +19,7 @@ async function drawShapeOnContext(
   const fill = resolveShapeLayerFillBackground(layer)
   const stroke = resolveShapeLayerStroke(layer)
   const strokeWidth = resolveShapeLayerStrokeWidth(layer)
+  const dasharray = resolveShapeLayerStrokeDasharray(layer)
   const hasFill = !isShapeFillTransparent(layer)
 
   context.save()
@@ -25,6 +27,11 @@ async function drawShapeOnContext(
   context.lineWidth = strokeWidth
   context.lineCap = "round"
   context.lineJoin = "round"
+  if (dasharray) {
+    context.setLineDash(dasharray)
+  } else {
+    context.setLineDash([])
+  }
 
   switch (layer.shapeType) {
     case "square": {
