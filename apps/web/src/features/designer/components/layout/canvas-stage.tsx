@@ -243,6 +243,7 @@ export function CanvasStage({
   > | null>(null)
   const placementSessionRef = useRef<PlacementSession | null>(null)
   const penSessionRef = useRef<PenSession | null>(null)
+  const penCursorRef = useRef<{ x: number; y: number } | null>(null)
   const [placementPreview, setPlacementPreview] =
     useState<PlacementPreview | null>(null)
   const exportDimensions = getExportDimensions(settings)
@@ -453,53 +454,75 @@ export function CanvasStage({
 
   const clearPenSession = useCallback(() => {
     penSessionRef.current = null
+    penCursorRef.current = null
     setPlacementPreview(null)
   }, [])
 
-  const commitPenSession = useCallback(() => {
-    const session = penSessionRef.current
-    if (!session || session.points.length < 2) {
-      clearPenSession()
-      return
-    }
-    const points = session.points.map((p) => ({ ...p }))
-    clearPenSession()
-    const xs = points.map((p) => p.x)
-    const ys = points.map((p) => p.y)
-    const minX = Math.min(...xs)
-    const minY = Math.min(...ys)
-    const maxX = Math.max(...xs)
-    const maxY = Math.max(...ys)
-    onPlaceShape(
-      minX,
-      minY,
-      Math.max(1, maxX - minX),
-      Math.max(1, maxY - minY),
-      points
-    )
-    armSuppressFrameClickAfterPlace()
-  }, [armSuppressFrameClickAfterPlace, clearPenSession, onPlaceShape])
+  const commitPenSession = useCallback(
+    (lastNode?: { x: number; y: number } | null) => {
+      const session = penSessionRef.current
+      if (!session) {
+        clearPenSession()
+        return
+      }
 
-  // Pen: Enter commits, Escape cancels the in-progress path.
+      const points = session.points.map((p) => ({ ...p }))
+      const candidate =
+        lastNode ?? penCursorRef.current ?? points[points.length - 1] ?? null
+
+      if (candidate) {
+        const prev = points[points.length - 1]
+        if (
+          !prev ||
+          Math.hypot(prev.x - candidate.x, prev.y - candidate.y) >
+            TEXT_PLACE_TAP_TRIM_PX
+        ) {
+          points.push({ ...candidate })
+        } else {
+          points[points.length - 1] = { ...candidate }
+        }
+      }
+
+      if (points.length < 2) {
+        clearPenSession()
+        return
+      }
+
+      clearPenSession()
+      const xs = points.map((p) => p.x)
+      const ys = points.map((p) => p.y)
+      const minX = Math.min(...xs)
+      const minY = Math.min(...ys)
+      const maxX = Math.max(...xs)
+      const maxY = Math.max(...ys)
+      onPlaceShape(
+        minX,
+        minY,
+        Math.max(1, maxX - minX),
+        Math.max(1, maxY - minY),
+        points
+      )
+      armSuppressFrameClickAfterPlace()
+    },
+    [armSuppressFrameClickAfterPlace, clearPenSession, onPlaceShape]
+  )
+
+  // Pen: Escape / Enter finish with the rubber-band point as the last node.
   useEffect(() => {
     if (!isPenTool) {
       penSessionRef.current = null
+      penCursorRef.current = null
       return
     }
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        if (penSessionRef.current) {
-          event.preventDefault()
-          clearPenSession()
+      if (event.key === "Escape" || event.key === "Enter") {
+        if (!penSessionRef.current || penSessionRef.current.points.length === 0) {
+          return
         }
-        return
-      }
-      if (event.key === "Enter") {
-        if (penSessionRef.current && penSessionRef.current.points.length >= 2) {
-          event.preventDefault()
-          commitPenSession()
-        }
+        event.preventDefault()
+        event.stopPropagation()
+        commitPenSession(penCursorRef.current)
       }
     }
 
@@ -517,6 +540,7 @@ export function CanvasStage({
         trimWidthPx,
         trimHeightPx
       )
+      penCursorRef.current = pt
       setPlacementPreview({
         kind: "pen",
         points: session.points,
@@ -524,14 +548,13 @@ export function CanvasStage({
       })
     }
 
-    window.addEventListener("keydown", onKeyDown)
+    window.addEventListener("keydown", onKeyDown, true)
     window.addEventListener("pointermove", onPointerMove)
     return () => {
-      window.removeEventListener("keydown", onKeyDown)
+      window.removeEventListener("keydown", onKeyDown, true)
       window.removeEventListener("pointermove", onPointerMove)
     }
   }, [
-    clearPenSession,
     commitPenSession,
     displayScale,
     isPenTool,
@@ -573,22 +596,17 @@ export function CanvasStage({
         trimHeightPx
       )
 
-      // Pen tool: each click adds a node; double-click finishes.
+      // Pen tool: each click adds a node; double-click sets the last node and finishes.
       if (isPenTool) {
         if (event.detail >= 2) {
-          // Double-click: commit without adding another near-duplicate point.
-          if (
-            penSessionRef.current &&
-            penSessionRef.current.points.length >= 2
-          ) {
-            commitPenSession()
-          }
+          commitPenSession(start)
           return
         }
 
         const session = penSessionRef.current ?? { points: [] }
         session.points.push(start)
         penSessionRef.current = session
+        penCursorRef.current = start
         setPlacementPreview({
           kind: "pen",
           points: session.points,

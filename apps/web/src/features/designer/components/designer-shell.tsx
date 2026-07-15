@@ -102,16 +102,25 @@ export function DesignerShell() {
     }
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        ui.selectPointerTool()
+      if (event.key !== "Escape") {
+        return
       }
+      // Pen finishes the path on Escape (handled in canvas-stage capture).
+      // Idle Escape still exits the tool.
+      if (ui.canvasTool === "shape" && ui.shapeVariant === "pen") {
+        queueMicrotask(() => {
+          ui.selectPointerTool()
+        })
+        return
+      }
+      ui.selectPointerTool()
     }
 
     window.addEventListener("keydown", onKeyDown)
     return () => {
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [ui.canvasTool, ui.selectPointerTool])
+  }, [ui.canvasTool, ui.selectPointerTool, ui.shapeVariant])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
