@@ -204,3 +204,49 @@ export function reorderLayers(
   next.splice(toIndex, 0, moved)
   return next
 }
+
+/** Deep-enough clone for drag-duplicate; caller supplies a fresh id. */
+export function cloneLayer(layer: Layer, newId: string): Layer {
+  if (layer.kind === "text") {
+    return { ...layer, id: newId }
+  }
+
+  const fill = layer.fill
+  if (fill && typeof fill === "object") {
+    return {
+      ...layer,
+      id: newId,
+      fill: {
+        ...fill,
+        gradientStops: fill.gradientStops.map((stop) => ({ ...stop })),
+      },
+    }
+  }
+
+  return { ...layer, id: newId }
+}
+
+/**
+ * Insert a clone of `layerId` immediately after it (below in paint order).
+ * Optional `at` pins the clone (used when the source already moved mid-drag).
+ */
+export function duplicateLayerInPlace(
+  layers: Layer[],
+  layerId: string,
+  at?: { x: number; y: number }
+): Layer[] {
+  const index = layers.findIndex((layer) => layer.id === layerId)
+  if (index === -1) {
+    return layers
+  }
+
+  const source = layers[index]!
+  const clone = cloneLayer(source, crypto.randomUUID())
+  if (at) {
+    clone.x = at.x
+    clone.y = at.y
+  }
+  const next = [...layers]
+  next.splice(index + 1, 0, clone)
+  return next
+}

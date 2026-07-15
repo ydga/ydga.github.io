@@ -63,6 +63,9 @@ type DragSession =
       startY: number
       startW: number
       startH: number
+      /** Shift+Option held at pointerdown — clone once movement starts. */
+      duplicateOnMove: boolean
+      duplicated: boolean
     }
   | {
       kind: "resize"
@@ -89,6 +92,8 @@ type TextLayerBoxProps = {
   getFrameElement: () => HTMLElement | null
   onUpdate: (patch: TextLayerUpdatePatch) => void
   onSelect: () => void
+  /** Shift+Option drag: leave a clone at `at` (drag start). */
+  onDuplicateInPlace: (at: { x: number; y: number }) => void
   onRegisterTextarea: (
     layerId: string,
     node: HTMLTextAreaElement | null
@@ -96,6 +101,8 @@ type TextLayerBoxProps = {
   textLayerIdToBeginTyping: string | null
   onTextLayerBeginTypingHandled: () => void
 }
+
+const DUPLICATE_MOVE_THRESHOLD_TRIM_PX = 2
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
@@ -322,6 +329,7 @@ export function TextLayerBox({
   getFrameElement,
   onUpdate,
   onSelect,
+  onDuplicateInPlace,
   onRegisterTextarea,
   textLayerIdToBeginTyping,
   onTextLayerBeginTypingHandled,
@@ -506,6 +514,18 @@ export function TextLayerBox({
       )
 
       if (session.kind === "move") {
+        if (session.duplicateOnMove && !session.duplicated) {
+          const movedX = px - session.trimStartX
+          const movedY = py - session.trimStartY
+          if (
+            movedX * movedX + movedY * movedY >=
+            DUPLICATE_MOVE_THRESHOLD_TRIM_PX * DUPLICATE_MOVE_THRESHOLD_TRIM_PX
+          ) {
+            onDuplicateInPlace({ x: session.startX, y: session.startY })
+            session.duplicated = true
+          }
+        }
+
         const dx = px - session.trimStartX
         const dy = py - session.trimStartY
         let x = clamp(
@@ -607,6 +627,7 @@ export function TextLayerBox({
     displayScale,
     endDrag,
     getFrameElement,
+    onDuplicateInPlace,
     onUpdate,
     snapGuideXs,
     snapGuideYs,
@@ -638,6 +659,8 @@ export function TextLayerBox({
       startY: layer.y,
       startW: layer.width,
       startH: boxHeightTrim,
+      duplicateOnMove: event.shiftKey && event.altKey,
+      duplicated: false,
     }
     const el = event.currentTarget as HTMLElement
     pointerCaptureRef.current = el

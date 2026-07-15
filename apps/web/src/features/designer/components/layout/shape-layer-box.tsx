@@ -30,6 +30,9 @@ type DragSession =
       startY: number
       startW: number
       startH: number
+      /** Shift+Option held at pointerdown — clone once movement starts. */
+      duplicateOnMove: boolean
+      duplicated: boolean
     }
   | {
       kind: "resize"
@@ -51,7 +54,11 @@ type ShapeLayerBoxProps = {
   getFrameElement: () => HTMLElement | null
   onUpdate: (patch: ShapeLayerUpdatePatch) => void
   onSelect: () => void
+  /** Shift+Option drag: leave a clone at `at` (drag start). */
+  onDuplicateInPlace: (at: { x: number; y: number }) => void
 }
+
+const DUPLICATE_MOVE_THRESHOLD_TRIM_PX = 2
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
@@ -357,6 +364,7 @@ export function ShapeLayerBox({
   getFrameElement,
   onUpdate,
   onSelect,
+  onDuplicateInPlace,
 }: ShapeLayerBoxProps) {
   const dragSessionRef = useRef<DragSession | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -388,6 +396,21 @@ export function ShapeLayerBox({
     )
 
     if (session.kind === "move") {
+      if (
+        session.duplicateOnMove &&
+        !session.duplicated
+      ) {
+        const movedX = pt.x - session.trimStartX
+        const movedY = pt.y - session.trimStartY
+        if (
+          movedX * movedX + movedY * movedY >=
+          DUPLICATE_MOVE_THRESHOLD_TRIM_PX * DUPLICATE_MOVE_THRESHOLD_TRIM_PX
+        ) {
+          onDuplicateInPlace({ x: session.startX, y: session.startY })
+          session.duplicated = true
+        }
+      }
+
       const dx = pt.x - session.trimStartX
       const dy = pt.y - session.trimStartY
       const x = clamp(session.startX + dx, 0, trimWidthPx - session.startW)
@@ -444,6 +467,8 @@ export function ShapeLayerBox({
       startY: layer.y,
       startW: layer.width,
       startH: layer.height,
+      duplicateOnMove: event.shiftKey && event.altKey,
+      duplicated: false,
     }
     setIsDragging(true)
 

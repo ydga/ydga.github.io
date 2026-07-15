@@ -225,6 +225,7 @@ export function DesignerShell() {
           onPlaceShape={handlePlaceShape}
           onUpdateTextLayer={layers.updateTextLayer}
           onUpdateShapeLayer={layers.updateShapeLayer}
+          onDuplicateLayer={layers.duplicateLayerInPlace}
           onSelectTextLayer={handleSelectTextLayer}
           onSelectShapeLayer={handleSelectShapeLayer}
         />

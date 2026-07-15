@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react"
 
 import {
+  duplicateLayerInPlace as duplicateLayerInPlaceModel,
   getLayersForFrame,
   removeLayersForFrame,
   reorderFrameLayers,
@@ -236,6 +237,16 @@ export function useDesignerLayers() {
     [revokeShapeFillImage]
   )
 
+  /** Leave a clone; optional `at` pins it when the source already moved. */
+  const duplicateLayerInPlace = useCallback(
+    (layerId: string, at?: { x: number; y: number }) => {
+      setLayers((current) =>
+        duplicateLayerInPlaceModel(current, layerId, at)
+      )
+    },
+    []
+  )
+
   const getFrameLayers = useCallback(
     (frameId: string) => getLayersForFrame(layers, frameId),
     [layers]
@@ -250,6 +261,7 @@ export function useDesignerLayers() {
     reorderLayers,
     removeLayersForFrame: removeLayersForFrameId,
     removeLayer,
+    duplicateLayerInPlace,
     setShapeFillImage,
     getFrameLayers,
   }

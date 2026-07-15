@@ -177,6 +177,7 @@ type CanvasStageProps = {
   ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
+  onDuplicateLayer: (layerId: string, at?: { x: number; y: number }) => void
   onSelectTextLayer: (layerId: string) => void
   onSelectShapeLayer: (layerId: string) => void
   textLayerIdToBeginTyping: string | null
@@ -203,6 +204,7 @@ export function CanvasStage({
   onPlaceShape,
   onUpdateTextLayer,
   onUpdateShapeLayer,
+  onDuplicateLayer,
   onSelectTextLayer,
   onSelectShapeLayer,
   textLayerIdToBeginTyping,
@@ -740,6 +742,7 @@ export function CanvasStage({
                 getFrameElement={getFrameElement}
                 onUpdate={(patch) => onUpdateShapeLayer(layer.id, patch)}
                 onSelect={() => onSelectShapeLayer(layer.id)}
+                onDuplicateInPlace={(at) => onDuplicateLayer(layer.id, at)}
               />
             )
           }
@@ -764,6 +767,7 @@ export function CanvasStage({
               onTextLayerBeginTypingHandled={onTextLayerBeginTypingHandled}
               onUpdate={(patch) => onUpdateTextLayer(layer.id, patch)}
               onSelect={() => onSelectTextLayer(layer.id)}
+              onDuplicateInPlace={(at) => onDuplicateLayer(layer.id, at)}
               onRegisterTextarea={(layerId, node) => {
                 if (node) {
                   textAreaRefs.current.set(layerId, node)
