@@ -124,28 +124,66 @@ function applyCornerResize(
   const { x: sx, y: sy, w: sw, h: sh } = start
   const right = sx + sw
   const bottom = sy + sh
+  if (sw <= 0 || sh <= 0 || !Number.isFinite(sw) || !Number.isFinite(sh)) {
+    return {
+      x: sx,
+      y: sy,
+      w: Math.max(MIN_W_TRIM, sw),
+      h: Math.max(MIN_H_TRIM, sh),
+    }
+  }
+
+  // Uniform scale from the opposite corner so aspect ratio stays locked.
+  const kMin = Math.max(MIN_W_TRIM / sw, MIN_H_TRIM / sh)
+  let rawW: number
+  let rawH: number
+  let kMax: number
 
   switch (handle) {
     case "se": {
-      const w = clamp(px - sx, MIN_W_TRIM, trimW - sx)
-      const h = clamp(py - sy, MIN_H_TRIM, trimH - sy)
-      return { x: sx, y: sy, w, h }
+      rawW = px - sx
+      rawH = py - sy
+      kMax = Math.min((trimW - sx) / sw, (trimH - sy) / sh)
+      break
     }
     case "nw": {
-      const newLeft = clamp(px, 0, right - MIN_W_TRIM)
-      const newTop = clamp(py, 0, bottom - MIN_H_TRIM)
-      return { x: newLeft, y: newTop, w: right - newLeft, h: bottom - newTop }
+      rawW = right - px
+      rawH = bottom - py
+      kMax = Math.min(right / sw, bottom / sh)
+      break
     }
     case "ne": {
-      const w = clamp(px - sx, MIN_W_TRIM, trimW - sx)
-      const newTop = clamp(py, 0, bottom - MIN_H_TRIM)
-      return { x: sx, y: newTop, w, h: bottom - newTop }
+      rawW = px - sx
+      rawH = bottom - py
+      kMax = Math.min((trimW - sx) / sw, bottom / sh)
+      break
     }
     case "sw": {
-      const newLeft = clamp(px, 0, right - MIN_W_TRIM)
-      const h = clamp(py - sy, MIN_H_TRIM, trimH - sy)
-      return { x: newLeft, y: sy, w: right - newLeft, h }
+      rawW = right - px
+      rawH = py - sy
+      kMax = Math.min(right / sw, (trimH - sy) / sh)
+      break
     }
+  }
+
+  let k = Math.min(rawW / sw, rawH / sh)
+  if (!Number.isFinite(k)) {
+    k = kMin
+  }
+  k = clamp(k, kMin, Math.max(kMin, kMax))
+
+  const w = k * sw
+  const h = k * sh
+
+  switch (handle) {
+    case "se":
+      return { x: sx, y: sy, w, h }
+    case "nw":
+      return { x: right - w, y: bottom - h, w, h }
+    case "ne":
+      return { x: sx, y: bottom - h, w, h }
+    case "sw":
+      return { x: right - w, y: sy, w, h }
   }
 }
 
@@ -474,9 +512,13 @@ export function ShapeLayerBox({
   }
 
   function startResize(handle: ResizeHandle, event: React.PointerEvent) {
+    if (event.button !== 0) {
+      return
+    }
     event.stopPropagation()
     event.preventDefault()
 
+    // Drop any move session so a bubbled body press cannot steal this resize.
     dragSessionRef.current = {
       kind: "resize",
       pointerId: event.pointerId,
@@ -502,6 +544,11 @@ export function ShapeLayerBox({
       )}
       style={{ left, top, width, height, zIndex }}
       onPointerDown={(event) => {
+        const target = event.target as HTMLElement
+        // Resize handles manage their own gesture — do not start a move.
+        if (target.closest("[data-designer-shape-handle]")) {
+          return
+        }
         event.stopPropagation()
         onSelect()
         // Start move on the same press that selects — `isSelected` is still
@@ -526,6 +573,7 @@ export function ShapeLayerBox({
             <button
               key={id}
               type="button"
+              data-designer-shape-handle
               aria-label={`Resize ${layer.name}`}
               className={cn(
                 "absolute z-10 size-2 rounded-sm border border-[#7c3aed] bg-white",
