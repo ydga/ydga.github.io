@@ -351,7 +351,7 @@ export function LineShapeLayerBox({
                     ? "Line end"
                     : `Line point ${index + 1}`
               }
-              className="pointer-events-auto absolute z-10 rounded-sm border border-[#7c3aed] bg-white"
+              className="pointer-events-auto absolute z-10 rounded-sm border"
               style={{
                 width: nodeSize,
                 height: nodeSize,
@@ -359,6 +359,9 @@ export function LineShapeLayerBox({
                 top: point.y * displayScale,
                 transform: "translate(-50%, -50%)",
                 cursor: "move",
+                backgroundColor: stroke,
+                borderColor: stroke,
+                opacity,
               }}
               onPointerDown={(event) => startPointDrag(index, event)}
             />
