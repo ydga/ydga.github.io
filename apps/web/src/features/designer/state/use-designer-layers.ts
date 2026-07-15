@@ -15,6 +15,10 @@ import {
 } from "@/features/designer/model/layers"
 import { backgroundSettingsReducer } from "@/features/designer/lib/background-settings-reducer"
 import {
+  boundsFromAbsolutePoints,
+  lineGeometryFromEndpoints,
+} from "@/features/designer/model/line-geometry"
+import {
   resolveShapeLayerFillBackground,
   shapeLayerDisplayName,
 } from "@/features/designer/model/shape-layer-style"
@@ -41,6 +45,8 @@ export type NewShapeLayerInput = {
   y: number
   width: number
   height: number
+  /** Absolute trim-space polyline for lines (preferred over box diagonal). */
+  absolutePoints?: Array<{ x: number; y: number }>
 }
 
 export function useDesignerLayers() {
@@ -106,16 +112,46 @@ export function useDesignerLayers() {
   const addShapeLayer = useCallback((input: NewShapeLayerInput) => {
     const id = crypto.randomUUID()
 
+    let x = input.x
+    let y = input.y
+    let width = input.width
+    let height = input.height
+    let points: Array<{ x: number; y: number }> | undefined
+
+    if (input.shapeType === "line") {
+      if (input.absolutePoints && input.absolutePoints.length >= 2) {
+        const geometry = boundsFromAbsolutePoints(input.absolutePoints)
+        x = geometry.x
+        y = geometry.y
+        width = geometry.width
+        height = geometry.height
+        points = geometry.points
+      } else {
+        const geometry = lineGeometryFromEndpoints(
+          input.x,
+          input.y,
+          input.x + input.width,
+          input.y + input.height
+        )
+        x = geometry.x
+        y = geometry.y
+        width = geometry.width
+        height = geometry.height
+        points = geometry.points
+      }
+    }
+
     const layer: ShapeLayer = {
       id,
       frameId: input.frameId,
       kind: "shape",
       name: shapeLayerDisplayName(input.shapeType),
       shapeType: input.shapeType,
-      x: input.x,
-      y: input.y,
-      width: input.width,
-      height: input.height,
+      x,
+      y,
+      width,
+      height,
+      ...(points ? { points } : {}),
     }
 
     setLayers((prev) => {

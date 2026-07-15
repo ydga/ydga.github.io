@@ -6,7 +6,7 @@ import type {
   CanvasSettings,
   GradientStop,
 } from "@/features/designer/model/types"
-import type { CanvasTool, Selection } from "@/features/designer/model/ui-types"
+import type { CanvasTool, Selection, ShapeVariant } from "@/features/designer/model/ui-types"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
 import {
   SNAP_THRESHOLD_TRIM_PX,
@@ -36,7 +36,11 @@ import {
   resolveShapeLayerVisible,
 } from "@/features/designer/model/shape-layer-style"
 import { resolveTextLayerVisible } from "@/features/designer/model/text-layer-style"
-import type { ShapeVariant } from "@/features/designer/model/ui-types"
+import {
+  clampPointToTrim,
+  constrainLineEnd,
+  lineGeometryFromEndpoints,
+} from "@/features/designer/model/line-geometry"
 import { cn } from "@workspace/ui/lib/utils"
 
 const MIN_PLACE_TEXT_W = 48
@@ -51,14 +55,22 @@ const DEFAULT_NEW_TEXT_H_TRIM = 72
 const DEFAULT_NEW_SHAPE_W_TRIM = 80
 const DEFAULT_NEW_SHAPE_H_TRIM = 80
 const DEFAULT_NEW_LINE_W_TRIM = 120
-const DEFAULT_NEW_LINE_H_TRIM = 4
 
-type PlacementPreview = {
-  x: number
-  y: number
-  w: number
-  h: number
-}
+type PlacementPreview =
+  | {
+      kind: "rect"
+      x: number
+      y: number
+      w: number
+      h: number
+    }
+  | {
+      kind: "line"
+      x0: number
+      y0: number
+      x1: number
+      y1: number
+    }
 
 type PlacementSession = {
   pointerId: number
@@ -95,7 +107,7 @@ function clampPlacementRect(
   y = Math.max(0, Math.min(y, trimH))
   w = Math.max(1, Math.min(w, trimW - x))
   h = Math.max(1, Math.min(h, trimH - y))
-  return { x, y, w, h }
+  return { kind: "rect", x, y, w, h }
 }
 
 function placementRectFromDrag(
@@ -173,7 +185,8 @@ type CanvasStageProps = {
     trimX: number,
     trimY: number,
     trimWidth: number,
-    trimHeight: number
+    trimHeight: number,
+    absolutePoints?: Array<{ x: number; y: number }>
   ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
@@ -461,7 +474,23 @@ export function CanvasStage({
         x0: start.x,
         y0: start.y,
       }
-      setPlacementPreview({ x: start.x, y: start.y, w: 0, h: 0 })
+      if (canvasTool === "shape" && shapeVariant === "line") {
+        setPlacementPreview({
+          kind: "line",
+          x0: start.x,
+          y0: start.y,
+          x1: start.x,
+          y1: start.y,
+        })
+      } else {
+        setPlacementPreview({
+          kind: "rect",
+          x: start.x,
+          y: start.y,
+          w: 0,
+          h: 0,
+        })
+      }
 
       function onMove(ev: PointerEvent) {
         const session = placementSessionRef.current
@@ -478,6 +507,23 @@ export function CanvasStage({
           ev.clientY,
           displayScale
         )
+
+        if (canvasTool === "shape" && shapeVariant === "line") {
+          const end = clampPointToTrim(
+            constrainLineEnd(session.x0, session.y0, pt.x, pt.y, ev.shiftKey),
+            trimWidthPx,
+            trimHeightPx
+          )
+          setPlacementPreview({
+            kind: "line",
+            x0: session.x0,
+            y0: session.y0,
+            x1: end.x,
+            y1: end.y,
+          })
+          return
+        }
+
         const r = placementRectFromDrag(
           session.x0,
           session.y0,
@@ -515,6 +561,41 @@ export function CanvasStage({
         const dx = Math.abs(pt.x - session.x0)
         const dy = Math.abs(pt.y - session.y0)
 
+        if (canvasTool === "shape" && shapeVariant === "line") {
+          let x1: number
+          let y1: number
+          if (dx < TEXT_PLACE_TAP_TRIM_PX && dy < TEXT_PLACE_TAP_TRIM_PX) {
+            x1 = session.x0 + DEFAULT_NEW_LINE_W_TRIM
+            y1 = session.y0
+          } else {
+            const end = clampPointToTrim(
+              constrainLineEnd(
+                session.x0,
+                session.y0,
+                pt.x,
+                pt.y,
+                ev.shiftKey
+              ),
+              trimWidthPx,
+              trimHeightPx
+            )
+            x1 = end.x
+            y1 = end.y
+          }
+          const geometry = lineGeometryFromEndpoints(
+            session.x0,
+            session.y0,
+            x1,
+            y1
+          )
+          onPlaceShape(geometry.x, geometry.y, geometry.width, geometry.height, [
+            { x: session.x0, y: session.y0 },
+            { x: x1, y: y1 },
+          ])
+          armSuppressFrameClickAfterPlace()
+          return
+        }
+
         if (dx < TEXT_PLACE_TAP_TRIM_PX && dy < TEXT_PLACE_TAP_TRIM_PX) {
           if (canvasTool === "text") {
             if (snapGuides) {
@@ -534,15 +615,12 @@ export function CanvasStage({
               onPlaceText(session.x0, session.y0)
             }
           } else {
-            const defaultW =
-              shapeVariant === "line"
-                ? DEFAULT_NEW_LINE_W_TRIM
-                : DEFAULT_NEW_SHAPE_W_TRIM
-            const defaultH =
-              shapeVariant === "line"
-                ? DEFAULT_NEW_LINE_H_TRIM
-                : DEFAULT_NEW_SHAPE_H_TRIM
-            onPlaceShape(session.x0, session.y0, defaultW, defaultH)
+            onPlaceShape(
+              session.x0,
+              session.y0,
+              DEFAULT_NEW_SHAPE_W_TRIM,
+              DEFAULT_NEW_SHAPE_H_TRIM
+            )
           }
         } else {
           const r = placementRectFromDrag(
@@ -554,6 +632,9 @@ export function CanvasStage({
             trimHeightPx,
             canvasTool === "shape" && ev.shiftKey
           )
+          if (r.kind !== "rect") {
+            return
+          }
           const minW =
             canvasTool === "text" ? MIN_PLACE_TEXT_W : MIN_PLACE_SHAPE_W
           const minH =
@@ -710,16 +791,36 @@ export function CanvasStage({
       />
       <GuidesOverlay settings={settings} displayScale={displayScale} />
       {placementPreview && isPlacementTool ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute z-[14] border border-dashed border-[#7c3aed]"
-          style={{
-            left: placementPreview.x * displayScale,
-            top: placementPreview.y * displayScale,
-            width: Math.max(1, placementPreview.w * displayScale),
-            height: Math.max(1, placementPreview.h * displayScale),
-          }}
-        />
+        placementPreview.kind === "line" ? (
+          <svg
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-[14] overflow-visible"
+            width={trimDisplayWidth}
+            height={trimDisplayHeight}
+          >
+            <line
+              x1={placementPreview.x0 * displayScale}
+              y1={placementPreview.y0 * displayScale}
+              x2={placementPreview.x1 * displayScale}
+              y2={placementPreview.y1 * displayScale}
+              stroke="#7c3aed"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeDasharray="4 3"
+            />
+          </svg>
+        ) : (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute z-[14] border border-dashed border-[#7c3aed]"
+            style={{
+              left: placementPreview.x * displayScale,
+              top: placementPreview.y * displayScale,
+              width: Math.max(1, placementPreview.w * displayScale),
+              height: Math.max(1, placementPreview.h * displayScale),
+            }}
+          />
+        )
       ) : null}
       <div className="pointer-events-none absolute inset-0 z-[25] overflow-visible">
         {frameLayers.map((layer, index) => {

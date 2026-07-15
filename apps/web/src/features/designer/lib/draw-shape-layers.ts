@@ -79,9 +79,18 @@ async function drawShapeOnContext(
       break
     }
     case "line": {
+      const points =
+        layer.points && layer.points.length >= 2
+          ? layer.points
+          : [
+              { x: 0, y: 0 },
+              { x: w, y: h },
+            ]
       context.beginPath()
-      context.moveTo(0, 0)
-      context.lineTo(w, h)
+      context.moveTo(points[0]!.x, points[0]!.y)
+      for (let i = 1; i < points.length; i++) {
+        context.lineTo(points[i]!.x, points[i]!.y)
+      }
       context.strokeStyle = stroke
       context.stroke()
       break

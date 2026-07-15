@@ -160,7 +160,13 @@ export function DesignerShell() {
   )
 
   const handlePlaceShape = useCallback(
-    (trimX: number, trimY: number, trimWidth: number, trimHeight: number) => {
+    (
+      trimX: number,
+      trimY: number,
+      trimWidth: number,
+      trimHeight: number,
+      absolutePoints?: Array<{ x: number; y: number }>
+    ) => {
       const id = layers.addShapeLayer({
         frameId: frames.activeFrameId,
         shapeType: ui.shapeVariant,
@@ -168,6 +174,7 @@ export function DesignerShell() {
         y: trimY,
         width: trimWidth,
         height: trimHeight,
+        absolutePoints,
       })
       ui.selectElement(frames.activeFrameId, id)
       queueMicrotask(() => {

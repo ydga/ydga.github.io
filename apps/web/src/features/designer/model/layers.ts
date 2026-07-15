@@ -102,6 +102,11 @@ export type ShapeLayer = {
   y: number
   width: number
   height: number
+  /**
+   * Polyline vertices relative to {@link x}/{@link y}. Used by lines (≥2 points).
+   * Legacy lines without `points` render as the box diagonal (0,0)→(width,height).
+   */
+  points?: Array<{ x: number; y: number }>
   /** Fill for closed shapes; solid, gradient, image, or transparent. Ignored for lines. */
   fill?: BackgroundSettings | string
   /** Stroke color; primary color for lines. */
@@ -121,6 +126,7 @@ export type ShapeLayerUpdatePatch = Partial<
     | "y"
     | "width"
     | "height"
+    | "points"
     | "fill"
     | "stroke"
     | "strokeWidth"
@@ -211,11 +217,13 @@ export function cloneLayer(layer: Layer, newId: string): Layer {
     return { ...layer, id: newId }
   }
 
+  const points = layer.points?.map((p) => ({ ...p }))
   const fill = layer.fill
   if (fill && typeof fill === "object") {
     return {
       ...layer,
       id: newId,
+      points,
       fill: {
         ...fill,
         gradientStops: fill.gradientStops.map((stop) => ({ ...stop })),
@@ -223,7 +231,7 @@ export function cloneLayer(layer: Layer, newId: string): Layer {
     }
   }
 
-  return { ...layer, id: newId }
+  return { ...layer, id: newId, points }
 }
 
 /**

@@ -33,7 +33,8 @@ type MainStageProps = {
     trimX: number,
     trimY: number,
     trimWidth: number,
-    trimHeight: number
+    trimHeight: number,
+    absolutePoints?: Array<{ x: number; y: number }>
   ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void

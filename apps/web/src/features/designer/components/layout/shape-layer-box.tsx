@@ -4,6 +4,7 @@ import type {
   ShapeLayer,
   ShapeLayerUpdatePatch,
 } from "@/features/designer/model/layers"
+import { resolveLinePoints } from "@/features/designer/model/line-geometry"
 import { backgroundSettingsToStyle } from "@/features/designer/lib/background-style"
 import {
   isShapeFillTransparent,
@@ -12,6 +13,7 @@ import {
   resolveShapeLayerStroke,
   resolveShapeLayerStrokeWidth,
 } from "@/features/designer/model/shape-layer-style"
+import { LineShapeLayerBox } from "@/features/designer/components/layout/line-shape-layer-box"
 import { cn } from "@workspace/ui/lib/utils"
 
 const MIN_W_TRIM = 8
@@ -328,19 +330,21 @@ function ShapePreview({
           />
         </>
       )
-    case "line":
+    case "line": {
+      const pts = resolveLinePoints(layer)
+      const svgPoints = pts.map((p) => `${p.x},${p.y}`).join(" ")
       return (
-        <line
-          x1={0}
-          y1={0}
-          x2={width}
-          y2={height}
+        <polyline
+          points={svgPoints}
+          fill="none"
           stroke={stroke}
           strokeWidth={sw}
           strokeLinecap="round"
+          strokeLinejoin="round"
           opacity={opacity}
         />
       )
+    }
   }
 }
 
@@ -391,7 +395,14 @@ const HANDLES: Array<{
   },
 ]
 
-export function ShapeLayerBox({
+export function ShapeLayerBox(props: ShapeLayerBoxProps) {
+  if (props.layer.shapeType === "line") {
+    return <LineShapeLayerBox {...props} />
+  }
+  return <ClosedShapeLayerBox {...props} />
+}
+
+function ClosedShapeLayerBox({
   layer,
   displayScale,
   trimWidthPx,
