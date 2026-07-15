@@ -32,10 +32,20 @@ const SHAPE_LABELS: Record<ShapeType, string> = {
   square: "Square",
   triangle: "Triangle",
   line: "Line",
+  pen: "Pen",
 }
 
 export function shapeLayerDisplayName(shapeType: ShapeType) {
   return SHAPE_LABELS[shapeType]
+}
+
+/** Lines and pen paths share polyline geometry / stroke editing. */
+export function isPolylineShapeType(shapeType: ShapeType) {
+  return shapeType === "line" || shapeType === "pen"
+}
+
+export function isPolylineShape(layer: ShapeLayer) {
+  return isPolylineShapeType(layer.shapeType)
 }
 
 function isLegacyFillString(fill: ShapeLayer["fill"]): fill is string {
@@ -43,7 +53,7 @@ function isLegacyFillString(fill: ShapeLayer["fill"]): fill is string {
 }
 
 export function resolveShapeLayerFillBackground(layer: ShapeLayer) {
-  if (layer.shapeType === "line") {
+  if (isPolylineShape(layer)) {
     return TRANSPARENT_SHAPE_FILL_BACKGROUND
   }
 
@@ -68,7 +78,7 @@ export function isShapeFillTransparent(layer: ShapeLayer) {
 }
 
 export function resolveShapeLayerStroke(layer: ShapeLayer) {
-  if (layer.shapeType === "line") {
+  if (isPolylineShape(layer)) {
     return layer.stroke ?? DEFAULT_SHAPE_STROKE
   }
   return layer.stroke ?? "transparent"

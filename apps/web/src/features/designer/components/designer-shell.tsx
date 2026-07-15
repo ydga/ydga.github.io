@@ -177,9 +177,12 @@ export function DesignerShell() {
         absolutePoints,
       })
       ui.selectElement(frames.activeFrameId, id)
-      queueMicrotask(() => {
-        ui.selectPointerTool()
-      })
+      // Pen stays active so the next path can start immediately.
+      if (ui.shapeVariant !== "pen") {
+        queueMicrotask(() => {
+          ui.selectPointerTool()
+        })
+      }
     },
     [frames.activeFrameId, layers, ui]
   )

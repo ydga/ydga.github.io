@@ -288,7 +288,7 @@ export function ShapeLayerSettingsPanel({
   onUpdate,
   onFillImageUpload,
 }: ShapeLayerSettingsPanelProps) {
-  const isLine = layer.shapeType === "line"
+  const isLine = layer.shapeType === "line" || layer.shapeType === "pen"
   const fill = resolveShapeLayerFillBackground(layer)
   const stroke = resolveShapeLayerStroke(layer)
   const strokeWidth = resolveShapeLayerStrokeWidth(layer)

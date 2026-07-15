@@ -4,6 +4,7 @@ import {
   Eye,
   EyeOff,
   Minus,
+  PenTool,
   Square,
   Trash2,
   Triangle,
@@ -47,6 +48,8 @@ function layerIcon(layer: Layer): LucideIcon {
       return Triangle
     case "line":
       return Minus
+    case "pen":
+      return PenTool
     case "square":
     default:
       return Square

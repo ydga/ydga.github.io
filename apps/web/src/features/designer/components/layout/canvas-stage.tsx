@@ -71,11 +71,20 @@ type PlacementPreview =
       x1: number
       y1: number
     }
+  | {
+      kind: "pen"
+      points: Array<{ x: number; y: number }>
+      cursor: { x: number; y: number } | null
+    }
 
 type PlacementSession = {
   pointerId: number
   x0: number
   y0: number
+}
+
+type PenSession = {
+  points: Array<{ x: number; y: number }>
 }
 
 function trimPointFromClient(
@@ -233,6 +242,7 @@ export function CanvasStage({
     typeof setTimeout
   > | null>(null)
   const placementSessionRef = useRef<PlacementSession | null>(null)
+  const penSessionRef = useRef<PenSession | null>(null)
   const [placementPreview, setPlacementPreview] =
     useState<PlacementPreview | null>(null)
   const exportDimensions = getExportDimensions(settings)
@@ -276,7 +286,7 @@ export function CanvasStage({
     [registerCanvas]
   )
 
-  function armSuppressFrameClickAfterPlace() {
+  const armSuppressFrameClickAfterPlace = useCallback(() => {
     suppressFrameClickAfterPlaceRef.current = true
     if (suppressFrameClickTimerRef.current != null) {
       clearTimeout(suppressFrameClickTimerRef.current)
@@ -285,7 +295,7 @@ export function CanvasStage({
       suppressFrameClickTimerRef.current = null
       suppressFrameClickAfterPlaceRef.current = false
     }, 400)
-  }
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -439,6 +449,98 @@ export function CanvasStage({
   const showShapeGradientControls = normalizedShapeFill != null
 
   const isPlacementTool = canvasTool === "text" || canvasTool === "shape"
+  const isPenTool = canvasTool === "shape" && shapeVariant === "pen"
+
+  const clearPenSession = useCallback(() => {
+    penSessionRef.current = null
+    setPlacementPreview(null)
+  }, [])
+
+  const commitPenSession = useCallback(() => {
+    const session = penSessionRef.current
+    if (!session || session.points.length < 2) {
+      clearPenSession()
+      return
+    }
+    const points = session.points.map((p) => ({ ...p }))
+    clearPenSession()
+    const xs = points.map((p) => p.x)
+    const ys = points.map((p) => p.y)
+    const minX = Math.min(...xs)
+    const minY = Math.min(...ys)
+    const maxX = Math.max(...xs)
+    const maxY = Math.max(...ys)
+    onPlaceShape(
+      minX,
+      minY,
+      Math.max(1, maxX - minX),
+      Math.max(1, maxY - minY),
+      points
+    )
+    armSuppressFrameClickAfterPlace()
+  }, [armSuppressFrameClickAfterPlace, clearPenSession, onPlaceShape])
+
+  // Pen: Enter commits, Escape cancels the in-progress path.
+  useEffect(() => {
+    if (!isPenTool) {
+      penSessionRef.current = null
+      return
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (penSessionRef.current) {
+          event.preventDefault()
+          clearPenSession()
+        }
+        return
+      }
+      if (event.key === "Enter") {
+        if (penSessionRef.current && penSessionRef.current.points.length >= 2) {
+          event.preventDefault()
+          commitPenSession()
+        }
+      }
+    }
+
+    function onPointerMove(ev: PointerEvent) {
+      const session = penSessionRef.current
+      if (!session || session.points.length === 0) {
+        return
+      }
+      const frameEl = frameRef.current
+      if (!frameEl) {
+        return
+      }
+      const pt = clampPointToTrim(
+        trimPointFromClient(frameEl, ev.clientX, ev.clientY, displayScale),
+        trimWidthPx,
+        trimHeightPx
+      )
+      setPlacementPreview({
+        kind: "pen",
+        points: session.points,
+        cursor: pt,
+      })
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    window.addEventListener("pointermove", onPointerMove)
+    return () => {
+      window.removeEventListener("keydown", onKeyDown)
+      window.removeEventListener("pointermove", onPointerMove)
+    }
+  }, [
+    clearPenSession,
+    commitPenSession,
+    displayScale,
+    isPenTool,
+    trimHeightPx,
+    trimWidthPx,
+  ])
+
+  const activePlacementPreview =
+    placementPreview?.kind === "pen" && !isPenTool ? null : placementPreview
 
   const handleFramePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -448,6 +550,9 @@ export function CanvasStage({
 
       const target = event.target as HTMLElement
       if (target.closest("[data-designer-text-box]")) {
+        return
+      }
+      if (target.closest("[data-designer-shape-box]")) {
         return
       }
       if (target.closest("[data-designer-gradient-overlay]")) {
@@ -462,12 +567,35 @@ export function CanvasStage({
         return
       }
 
-      const start = trimPointFromClient(
-        host,
-        event.clientX,
-        event.clientY,
-        displayScale
+      const start = clampPointToTrim(
+        trimPointFromClient(host, event.clientX, event.clientY, displayScale),
+        trimWidthPx,
+        trimHeightPx
       )
+
+      // Pen tool: each click adds a node; double-click finishes.
+      if (isPenTool) {
+        if (event.detail >= 2) {
+          // Double-click: commit without adding another near-duplicate point.
+          if (
+            penSessionRef.current &&
+            penSessionRef.current.points.length >= 2
+          ) {
+            commitPenSession()
+          }
+          return
+        }
+
+        const session = penSessionRef.current ?? { points: [] }
+        session.points.push(start)
+        penSessionRef.current = session
+        setPlacementPreview({
+          kind: "pen",
+          points: session.points,
+          cursor: start,
+        })
+        return
+      }
 
       placementSessionRef.current = {
         pointerId: event.pointerId,
@@ -670,8 +798,11 @@ export function CanvasStage({
       window.addEventListener("pointercancel", onUp)
     },
     [
+      armSuppressFrameClickAfterPlace,
       canvasTool,
+      commitPenSession,
       displayScale,
+      isPenTool,
       isPlacementTool,
       onPlaceShape,
       onPlaceText,
@@ -790,8 +921,47 @@ export function CanvasStage({
         )}
       />
       <GuidesOverlay settings={settings} displayScale={displayScale} />
-      {placementPreview && isPlacementTool ? (
-        placementPreview.kind === "line" ? (
+      {activePlacementPreview && isPlacementTool ? (
+        activePlacementPreview.kind === "pen" ? (
+          <svg
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-[14] overflow-visible"
+            width={trimDisplayWidth}
+            height={trimDisplayHeight}
+          >
+            {activePlacementPreview.points.length > 0 ? (
+              <polyline
+                points={[
+                  ...activePlacementPreview.points,
+                  ...(activePlacementPreview.cursor
+                    ? [activePlacementPreview.cursor]
+                    : []),
+                ]
+                  .map(
+                    (p) =>
+                      `${p.x * displayScale},${p.y * displayScale}`
+                  )
+                  .join(" ")}
+                fill="none"
+                stroke="#7c3aed"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="4 3"
+              />
+            ) : null}
+            {activePlacementPreview.points.map((p, i) => (
+              <rect
+                key={`${i}-${p.x}-${p.y}`}
+                x={p.x * displayScale - 3}
+                y={p.y * displayScale - 3}
+                width={6}
+                height={6}
+                fill="#7c3aed"
+              />
+            ))}
+          </svg>
+        ) : activePlacementPreview.kind === "line" ? (
           <svg
             aria-hidden
             className="pointer-events-none absolute inset-0 z-[14] overflow-visible"
@@ -799,10 +969,10 @@ export function CanvasStage({
             height={trimDisplayHeight}
           >
             <line
-              x1={placementPreview.x0 * displayScale}
-              y1={placementPreview.y0 * displayScale}
-              x2={placementPreview.x1 * displayScale}
-              y2={placementPreview.y1 * displayScale}
+              x1={activePlacementPreview.x0 * displayScale}
+              y1={activePlacementPreview.y0 * displayScale}
+              x2={activePlacementPreview.x1 * displayScale}
+              y2={activePlacementPreview.y1 * displayScale}
               stroke="#7c3aed"
               strokeWidth={2}
               strokeLinecap="round"
@@ -814,10 +984,10 @@ export function CanvasStage({
             aria-hidden
             className="pointer-events-none absolute z-[14] border border-dashed border-[#7c3aed]"
             style={{
-              left: placementPreview.x * displayScale,
-              top: placementPreview.y * displayScale,
-              width: Math.max(1, placementPreview.w * displayScale),
-              height: Math.max(1, placementPreview.h * displayScale),
+              left: activePlacementPreview.x * displayScale,
+              top: activePlacementPreview.y * displayScale,
+              width: Math.max(1, activePlacementPreview.w * displayScale),
+              height: Math.max(1, activePlacementPreview.h * displayScale),
             }}
           />
         )

@@ -12,6 +12,7 @@ import {
   Frame,
   Minus,
   MousePointer2,
+  PenTool,
   Square,
   Triangle,
   Type,
@@ -68,6 +69,7 @@ const SHAPE_VARIANTS: Array<{
   { variant: "circle", label: "Circle", icon: Circle },
   { variant: "triangle", label: "Triangle", icon: Triangle },
   { variant: "line", label: "Line", icon: Minus },
+  { variant: "pen", label: "Pen", icon: PenTool },
 ]
 
 function shapeVariantMeta(variant: ShapeVariant) {

@@ -85,7 +85,8 @@ async function drawShapeOnContext(
       }
       break
     }
-    case "line": {
+    case "line":
+    case "pen": {
       const points =
         layer.points && layer.points.length >= 2
           ? layer.points

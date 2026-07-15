@@ -336,7 +336,8 @@ function ShapePreview({
           />
         </>
       )
-    case "line": {
+    case "line":
+    case "pen": {
       const pts = resolveLinePoints(layer)
       const svgPoints = pts.map((p) => `${p.x},${p.y}`).join(" ")
       return (
@@ -403,7 +404,7 @@ const HANDLES: Array<{
 ]
 
 export function ShapeLayerBox(props: ShapeLayerBoxProps) {
-  if (props.layer.shapeType === "line") {
+  if (props.layer.shapeType === "line" || props.layer.shapeType === "pen") {
     return <LineShapeLayerBox {...props} />
   }
   return <ClosedShapeLayerBox {...props} />
