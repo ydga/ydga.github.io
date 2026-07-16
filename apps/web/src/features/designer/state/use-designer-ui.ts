@@ -163,6 +163,8 @@ export function useDesignerUi() {
     queueMicrotask(() => {
       if (preservePanelModeRef.current) {
         preservePanelModeRef.current = false
+        // Layer-list selection: stay on layers while highlighting on canvas.
+        setPanelMode("layers")
         setPanelOpen(true)
         return
       }

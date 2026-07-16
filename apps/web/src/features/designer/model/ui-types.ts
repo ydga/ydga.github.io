@@ -31,6 +31,11 @@ export function resolveContextPanelMode(
   }
 
   if (toolbarTool === "pointer") {
+    // Keep the layers panel when explicitly in layers mode (e.g. selecting
+    // from the layer list) even if a canvas element is selected.
+    if (panelMode === "layers") {
+      return "layers"
+    }
     return selection.kind === "page" ? "layers" : "document"
   }
 

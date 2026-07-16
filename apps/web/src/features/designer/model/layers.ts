@@ -276,12 +276,57 @@ export function reorderFrameLayersById(
   fromLayerId: string,
   toLayerId: string
 ): Layer[] {
+  if (fromLayerId === toLayerId) {
+    return layers
+  }
+
   const frameLayers = getLayersForFrame(layers, frameId)
   const fromIndex = frameLayers.findIndex((layer) => layer.id === fromLayerId)
   const toIndex = frameLayers.findIndex((layer) => layer.id === toLayerId)
   if (fromIndex < 0 || toIndex < 0) {
     return layers
   }
+
+  const moving = frameLayers[fromIndex]!
+
+  // Move a group as a contiguous block with its children.
+  if (moving.kind === "group") {
+    const block = frameLayers.filter(
+      (layer) =>
+        layer.id === moving.id ||
+        (isDrawableLayer(layer) && layer.parentId === moving.id)
+    )
+    const blockIds = new Set(block.map((layer) => layer.id))
+    if (blockIds.has(toLayerId)) {
+      return layers
+    }
+
+    const withoutBlock = frameLayers.filter((layer) => !blockIds.has(layer.id))
+    const targetIndex = withoutBlock.findIndex((layer) => layer.id === toLayerId)
+    if (targetIndex < 0) {
+      return layers
+    }
+    // Drop before the target when dragging upward, after when dragging downward.
+    const insertAt =
+      fromIndex < toIndex ? targetIndex + 1 : targetIndex
+    const reordered = [
+      ...withoutBlock.slice(0, insertAt),
+      ...block,
+      ...withoutBlock.slice(insertAt),
+    ]
+
+    const frameEntries = layers.flatMap((layer, index) =>
+      layer.frameId === frameId ? [{ index }] : []
+    )
+    const next = [...layers]
+    frameEntries.forEach(({ index }, position) => {
+      next[index] = reordered[position]!
+    })
+    return next
+  }
+
+  // Don't drop a layer onto one of its own group siblings in a way that
+  // breaks parentage — keep parentId as-is; only change order.
   return reorderFrameLayers(layers, frameId, fromIndex, toIndex)
 }
 

@@ -143,7 +143,8 @@ export function LayerList({
               isSelected ? "bg-active" : "bg-muted/40",
               isDropTarget && "border-dashed border-ring",
               isDragging && "opacity-50",
-              !isVisible && "opacity-70"
+              !isVisible && "opacity-70",
+              !isEditing && "cursor-pointer"
             )}
             style={{ marginLeft: depth > 0 ? depth * 12 : undefined }}
             onDragOver={(event) => {
@@ -158,6 +159,23 @@ export function LayerList({
             onDrop={(event) => {
               event.preventDefault()
               handleDrop(layer.id)
+            }}
+            onClick={(event) => {
+              if (isEditing) {
+                return
+              }
+              const target = event.target as HTMLElement
+              if (
+                target.closest("button") ||
+                target.closest("input") ||
+                target.closest("[data-layer-action]")
+              ) {
+                return
+              }
+              onSelectLayer(layer.id, {
+                additive: event.metaKey || event.ctrlKey,
+                range: event.shiftKey,
+              })
             }}
           >
             <div className="flex items-center gap-1 px-1.5 py-1">
@@ -250,6 +268,7 @@ export function LayerList({
                   <TooltipTrigger asChild>
                     <button
                       type="button"
+                      data-layer-action
                       aria-label={
                         isVisible ? `Hide ${layer.name}` : `Show ${layer.name}`
                       }
@@ -280,6 +299,7 @@ export function LayerList({
                   <TooltipTrigger asChild>
                     <button
                       type="button"
+                      data-layer-action
                       aria-label={
                         layer.kind === "group"
                           ? `Ungroup ${layer.name}`

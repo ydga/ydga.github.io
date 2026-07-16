@@ -57,12 +57,20 @@ export function LayersPanel({
   const [listSelectedIds, setListSelectedIds] = useState<string[]>([])
 
   const selectedLayerIds = useMemo(() => {
-    if (listSelectedIds.length > 0) {
-      return listSelectedIds.filter((id) =>
-        frameLayers.some((layer) => layer.id === id)
-      )
+    const validList = listSelectedIds.filter((id) =>
+      frameLayers.some((layer) => layer.id === id)
+    )
+    // Multi-select only sticks while it still includes the canvas selection.
+    if (
+      validList.length > 1 &&
+      (!canvasSelectedId || validList.includes(canvasSelectedId))
+    ) {
+      return validList
     }
-    return canvasSelectedId ? [canvasSelectedId] : []
+    if (canvasSelectedId) {
+      return [canvasSelectedId]
+    }
+    return validList
   }, [canvasSelectedId, frameLayers, listSelectedIds])
 
   const canGroup =
@@ -144,11 +152,18 @@ export function LayersPanel({
               setListSelectedIds([layerId])
             }
           } else if (options?.additive) {
-            setListSelectedIds((current) =>
-              current.includes(layerId)
-                ? current.filter((id) => id !== layerId)
-                : [...current, layerId]
-            )
+            setListSelectedIds((current) => {
+              const base =
+                current.length > 0 &&
+                (!canvasSelectedId || current.includes(canvasSelectedId))
+                  ? current
+                  : canvasSelectedId
+                    ? [canvasSelectedId]
+                    : []
+              return base.includes(layerId)
+                ? base.filter((id) => id !== layerId)
+                : [...base, layerId]
+            })
           } else {
             setListSelectedIds([layerId])
           }
