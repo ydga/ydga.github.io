@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import {
   DEFAULT_FRAME_ID,
@@ -32,6 +32,7 @@ export function useDesignerUi() {
   const [zoomMode, setZoomMode] = useState<ZoomMode>("fit")
   const [manualZoom, setManualZoom] = useState(1)
   const [fitScale, setFitScaleState] = useState(1)
+  const preservePanelModeRef = useRef(false)
 
   const setFitScale = useCallback((scale: number) => {
     setFitScaleState((current) =>
@@ -43,20 +44,40 @@ export function useDesignerUi() {
     setSelection({ kind: "page", pageId })
   }, [])
 
-  const selectElement = useCallback((pageId: string, elementId: string) => {
-    setFrameEngagedId(null)
-    setSelection({ kind: "element", pageId, elementId })
-  }, [])
+  const selectElement = useCallback(
+    (
+      pageId: string,
+      elementId: string,
+      options?: { preservePanelMode?: boolean }
+    ) => {
+      setFrameEngagedId(null)
+      if (options?.preservePanelMode) {
+        preservePanelModeRef.current = true
+      }
+      setSelection({ kind: "element", pageId, elementId })
+    },
+    []
+  )
 
   const toggleElementSelection = useCallback(
-    (pageId: string, elementId: string) => {
+    (
+      pageId: string,
+      elementId: string,
+      options?: { preservePanelMode?: boolean }
+    ) => {
       setSelection((prev) => {
         if (
           prev.kind === "element" &&
           prev.pageId === pageId &&
           prev.elementId === elementId
         ) {
+          if (options?.preservePanelMode) {
+            preservePanelModeRef.current = true
+          }
           return { kind: "page", pageId }
+        }
+        if (options?.preservePanelMode) {
+          preservePanelModeRef.current = true
         }
         return { kind: "element", pageId, elementId }
       })
@@ -140,6 +161,12 @@ export function useDesignerUi() {
   /** Keep the context panel in sync with toolbar tool and canvas selection. */
   useEffect(() => {
     queueMicrotask(() => {
+      if (preservePanelModeRef.current) {
+        preservePanelModeRef.current = false
+        setPanelOpen(true)
+        return
+      }
+
       if (toolbarTool === "pointer") {
         setPanelMode(selection.kind === "page" ? "layers" : "document")
         setPanelOpen(true)

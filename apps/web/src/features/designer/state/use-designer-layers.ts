@@ -3,9 +3,14 @@ import { useCallback, useRef, useState } from "react"
 import {
   duplicateLayerInPlace as duplicateLayerInPlaceModel,
   getLayersForFrame,
+  groupLayers as groupLayersModel,
   removeLayersForFrame,
+  renameLayer as renameLayerModel,
   reorderFrameLayers,
+  reorderFrameLayersById,
   textLayerDisplayName,
+  ungroupLayer as ungroupLayerModel,
+  type GroupLayerUpdatePatch,
   type Layer,
   type ShapeLayer,
   type ShapeType,
@@ -177,10 +182,17 @@ export function useDesignerLayers() {
           }
 
           const nextText = patch.text !== undefined ? patch.text : layer.text
+          const nextName =
+            patch.name !== undefined
+              ? patch.name.trim() || layer.name
+              : patch.text !== undefined
+                ? textLayerDisplayName(nextText)
+                : layer.name
+
           return {
             ...layer,
             ...patch,
-            name: textLayerDisplayName(nextText),
+            name: nextName,
           }
         })
       )
@@ -196,9 +208,15 @@ export function useDesignerLayers() {
             return layer
           }
 
+          const nextName =
+            patch.name !== undefined
+              ? patch.name.trim() || layer.name
+              : layer.name
+
           return {
             ...layer,
             ...patch,
+            name: nextName,
           }
         })
       )
@@ -206,10 +224,62 @@ export function useDesignerLayers() {
     []
   )
 
+  const updateGroupLayer = useCallback(
+    (layerId: string, patch: GroupLayerUpdatePatch) => {
+      setLayers((current) =>
+        current.map((layer) => {
+          if (layer.id !== layerId || layer.kind !== "group") {
+            return layer
+          }
+          const nextName =
+            patch.name !== undefined
+              ? patch.name.trim() || layer.name
+              : layer.name
+          return {
+            ...layer,
+            ...patch,
+            name: nextName,
+          }
+        })
+      )
+    },
+    []
+  )
+
+  const renameLayer = useCallback((layerId: string, name: string) => {
+    setLayers((current) => renameLayerModel(current, layerId, name))
+  }, [])
+
+  const groupLayers = useCallback((frameId: string, layerIds: string[]) => {
+    let groupId: string | null = null
+    setLayers((current) => {
+      const result = groupLayersModel(current, frameId, layerIds)
+      if (!result) {
+        return current
+      }
+      groupId = result.groupId
+      return result.layers
+    })
+    return groupId
+  }, [])
+
+  const ungroupLayer = useCallback((groupId: string) => {
+    setLayers((current) => ungroupLayerModel(current, groupId))
+  }, [])
+
   const reorderLayers = useCallback(
     (frameId: string, fromIndex: number, toIndex: number) => {
       setLayers((current) =>
         reorderFrameLayers(current, frameId, fromIndex, toIndex)
+      )
+    },
+    []
+  )
+
+  const reorderLayersById = useCallback(
+    (frameId: string, fromLayerId: string, toLayerId: string) => {
+      setLayers((current) =>
+        reorderFrameLayersById(current, frameId, fromLayerId, toLayerId)
       )
     },
     []
@@ -268,8 +338,15 @@ export function useDesignerLayers() {
 
   const removeLayer = useCallback(
     (layerId: string) => {
-      revokeShapeFillImage(layerId)
-      setLayers((current) => current.filter((layer) => layer.id !== layerId))
+      setLayers((current) => {
+        const target = current.find((layer) => layer.id === layerId)
+        if (target?.kind === "group") {
+          // Removing a group ungroups children instead of deleting them.
+          return ungroupLayerModel(current, layerId)
+        }
+        revokeShapeFillImage(layerId)
+        return current.filter((layer) => layer.id !== layerId)
+      })
     },
     [revokeShapeFillImage]
   )
@@ -295,7 +372,12 @@ export function useDesignerLayers() {
     addShapeLayer,
     updateTextLayer,
     updateShapeLayer,
+    updateGroupLayer,
+    renameLayer,
+    groupLayers,
+    ungroupLayer,
     reorderLayers,
+    reorderLayersById,
     removeLayersForFrame: removeLayersForFrameId,
     removeLayer,
     duplicateLayerInPlace,

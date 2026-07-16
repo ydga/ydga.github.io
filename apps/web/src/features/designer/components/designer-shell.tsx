@@ -259,9 +259,13 @@ export function DesignerShell() {
           onImageUpload={frames.setBackgroundImage}
           layers={layers.layers}
           activeFrameId={frames.activeFrameId}
-          onReorderLayers={layers.reorderLayers}
+          onReorderLayers={layers.reorderLayersById}
           onUpdateTextLayer={layers.updateTextLayer}
           onUpdateShapeLayer={layers.updateShapeLayer}
+          onUpdateGroupLayer={layers.updateGroupLayer}
+          onRenameLayer={layers.renameLayer}
+          onGroupLayers={layers.groupLayers}
+          onUngroupLayer={layers.ungroupLayer}
           onRemoveLayer={layers.removeLayer}
           onShapeFillImageUpload={layers.setShapeFillImage}
         />

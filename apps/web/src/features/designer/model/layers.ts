@@ -67,11 +67,14 @@ export type TextLayer = {
    * the previous width:height ratio. Default false.
    */
   maintainBoundsAspect?: boolean
+  /** When set, this layer is nested under a {@link GroupLayer}. */
+  parentId?: string
 }
 
 export type TextLayerUpdatePatch = Partial<
   Pick<
     TextLayer,
+    | "name"
     | "text"
     | "x"
     | "y"
@@ -95,6 +98,7 @@ export type TextLayerUpdatePatch = Partial<
     | "textTransform"
     | "clip"
     | "maintainBoundsAspect"
+    | "parentId"
   >
 >
 
@@ -129,11 +133,14 @@ export type ShapeLayer = {
   opacity?: number
   /** When false, layer is hidden on canvas and export. Default true. */
   visible?: boolean
+  /** When set, this layer is nested under a {@link GroupLayer}. */
+  parentId?: string
 }
 
 export type ShapeLayerUpdatePatch = Partial<
   Pick<
     ShapeLayer,
+    | "name"
     | "x"
     | "y"
     | "width"
@@ -147,10 +154,26 @@ export type ShapeLayerUpdatePatch = Partial<
     | "strokeGap"
     | "opacity"
     | "visible"
+    | "parentId"
   >
 >
 
-export type Layer = TextLayer | ShapeLayer
+export type GroupLayer = {
+  id: string
+  frameId: string
+  kind: "group"
+  name: string
+  /** When false, group and its children are hidden. Default true. */
+  visible?: boolean
+  /** When true, children are collapsed in the layers list. */
+  collapsed?: boolean
+}
+
+export type GroupLayerUpdatePatch = Partial<
+  Pick<GroupLayer, "name" | "visible" | "collapsed">
+>
+
+export type Layer = TextLayer | ShapeLayer | GroupLayer
 
 const TEXT_LAYER_LABEL_MAX = 28
 
@@ -174,8 +197,50 @@ export function isShapeLayer(layer: Layer): layer is ShapeLayer {
   return layer.kind === "shape"
 }
 
+export function isGroupLayer(layer: Layer): layer is GroupLayer {
+  return layer.kind === "group"
+}
+
+export function isDrawableLayer(
+  layer: Layer
+): layer is TextLayer | ShapeLayer {
+  return layer.kind === "text" || layer.kind === "shape"
+}
+
 export function getLayersForFrame(layers: Layer[], frameId: string) {
   return layers.filter((layer) => layer.frameId === frameId)
+}
+
+/** Flat list for the layers panel: groups followed by their children. */
+export function getLayerListRows(
+  layers: Layer[],
+  frameId: string
+): Array<{ layer: Layer; depth: number }> {
+  const frameLayers = getLayersForFrame(layers, frameId)
+  const childrenByParent = new Map<string, Layer[]>()
+
+  for (const layer of frameLayers) {
+    if (isDrawableLayer(layer) && layer.parentId) {
+      const list = childrenByParent.get(layer.parentId) ?? []
+      list.push(layer)
+      childrenByParent.set(layer.parentId, list)
+    }
+  }
+
+  const rows: Array<{ layer: Layer; depth: number }> = []
+  for (const layer of frameLayers) {
+    if (isDrawableLayer(layer) && layer.parentId) {
+      continue
+    }
+    rows.push({ layer, depth: 0 })
+    if (layer.kind === "group" && !layer.collapsed) {
+      const children = childrenByParent.get(layer.id) ?? []
+      for (const child of children) {
+        rows.push({ layer: child, depth: 1 })
+      }
+    }
+  }
+  return rows
 }
 
 export function removeLayersForFrame(layers: Layer[], frameId: string) {
@@ -205,6 +270,21 @@ export function reorderFrameLayers(
   return next
 }
 
+export function reorderFrameLayersById(
+  layers: Layer[],
+  frameId: string,
+  fromLayerId: string,
+  toLayerId: string
+): Layer[] {
+  const frameLayers = getLayersForFrame(layers, frameId)
+  const fromIndex = frameLayers.findIndex((layer) => layer.id === fromLayerId)
+  const toIndex = frameLayers.findIndex((layer) => layer.id === toLayerId)
+  if (fromIndex < 0 || toIndex < 0) {
+    return layers
+  }
+  return reorderFrameLayers(layers, frameId, fromIndex, toIndex)
+}
+
 export function reorderLayers(
   layers: Layer[],
   fromIndex: number,
@@ -228,6 +308,10 @@ export function reorderLayers(
 
 /** Deep-enough clone for drag-duplicate; caller supplies a fresh id. */
 export function cloneLayer(layer: Layer, newId: string): Layer {
+  if (layer.kind === "group") {
+    return { ...layer, id: newId }
+  }
+
   if (layer.kind === "text") {
     return { ...layer, id: newId }
   }
@@ -252,6 +336,7 @@ export function cloneLayer(layer: Layer, newId: string): Layer {
 /**
  * Insert a clone of `layerId` immediately after it (below in paint order).
  * Optional `at` pins the clone (used when the source already moved mid-drag).
+ * Groups are not duplicated (children would need deep copy).
  */
 export function duplicateLayerInPlace(
   layers: Layer[],
@@ -264,12 +349,102 @@ export function duplicateLayerInPlace(
   }
 
   const source = layers[index]!
+  if (source.kind === "group") {
+    return layers
+  }
+
   const clone = cloneLayer(source, crypto.randomUUID())
-  if (at) {
+  if (at && isDrawableLayer(clone)) {
     clone.x = at.x
     clone.y = at.y
   }
   const next = [...layers]
   next.splice(index + 1, 0, clone)
   return next
+}
+
+/**
+ * Wrap the given drawable layers in a new group. Uses the earliest frame
+ * position among the selection as the group's insert point.
+ */
+export function groupLayers(
+  layers: Layer[],
+  frameId: string,
+  layerIds: string[]
+): { layers: Layer[]; groupId: string } | null {
+  const uniqueIds = [...new Set(layerIds)]
+  const selected = layers.filter(
+    (layer): layer is TextLayer | ShapeLayer =>
+      layer.frameId === frameId &&
+      uniqueIds.includes(layer.id) &&
+      isDrawableLayer(layer) &&
+      !layer.parentId
+  )
+  if (selected.length < 2) {
+    return null
+  }
+
+  const selectedIds = new Set(selected.map((layer) => layer.id))
+  const groupId = crypto.randomUUID()
+  const group: GroupLayer = {
+    id: groupId,
+    frameId,
+    kind: "group",
+    name: "Group",
+  }
+
+  const next: Layer[] = []
+  let inserted = false
+  for (const layer of layers) {
+    if (layer.frameId !== frameId) {
+      next.push(layer)
+      continue
+    }
+    if (selectedIds.has(layer.id)) {
+      if (!inserted) {
+        next.push(group)
+        for (const child of selected) {
+          next.push({ ...child, parentId: groupId })
+        }
+        inserted = true
+      }
+      continue
+    }
+    next.push(layer)
+  }
+
+  return { layers: next, groupId }
+}
+
+/** Remove a group and promote its children to the root of the frame. */
+export function ungroupLayer(layers: Layer[], groupId: string): Layer[] {
+  const group = layers.find(
+    (layer) => layer.id === groupId && layer.kind === "group"
+  )
+  if (!group) {
+    return layers
+  }
+
+  return layers
+    .filter((layer) => layer.id !== groupId)
+    .map((layer) => {
+      if (isDrawableLayer(layer) && layer.parentId === groupId) {
+        return { ...layer, parentId: undefined }
+      }
+      return layer
+    })
+}
+
+export function renameLayer(
+  layers: Layer[],
+  layerId: string,
+  name: string
+): Layer[] {
+  const trimmed = name.trim()
+  if (!trimmed) {
+    return layers
+  }
+  return layers.map((layer) =>
+    layer.id === layerId ? { ...layer, name: trimmed } : layer
+  )
 }

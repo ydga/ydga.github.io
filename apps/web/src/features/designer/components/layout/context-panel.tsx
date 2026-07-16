@@ -42,9 +42,20 @@ type ContextPanelProps = {
   onImageUpload: (file: File | null) => void
   layers: Layer[]
   activeFrameId: string
-  onReorderLayers: (frameId: string, fromIndex: number, toIndex: number) => void
+  onReorderLayers: (
+    frameId: string,
+    fromLayerId: string,
+    toLayerId: string
+  ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
+  onUpdateGroupLayer: (
+    layerId: string,
+    patch: import("@/features/designer/model/layers").GroupLayerUpdatePatch
+  ) => void
+  onRenameLayer: (layerId: string, name: string) => void
+  onGroupLayers: (frameId: string, layerIds: string[]) => string | null
+  onUngroupLayer: (groupId: string) => void
   onRemoveLayer: (layerId: string) => void
   onShapeFillImageUpload: (layerId: string, file: File | null) => void
 }
@@ -85,6 +96,10 @@ export function ContextPanel({
   onReorderLayers,
   onUpdateTextLayer,
   onUpdateShapeLayer,
+  onUpdateGroupLayer,
+  onRenameLayer,
+  onGroupLayers,
+  onUngroupLayer,
   onRemoveLayer,
   onShapeFillImageUpload,
 }: ContextPanelProps) {
@@ -166,6 +181,10 @@ export function ContextPanel({
                   onReorder={onReorderLayers}
                   onUpdateLayer={onUpdateTextLayer}
                   onUpdateShapeLayer={onUpdateShapeLayer}
+                  onUpdateGroupLayer={onUpdateGroupLayer}
+                  onRenameLayer={onRenameLayer}
+                  onGroupLayers={onGroupLayers}
+                  onUngroupLayer={onUngroupLayer}
                   onRemoveLayer={onRemoveLayer}
                 />
               ) : selection.kind === "page" ? (
