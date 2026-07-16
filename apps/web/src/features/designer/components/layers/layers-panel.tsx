@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { FolderPlus, Layers } from "lucide-react"
 
 import { LayerList } from "@/features/designer/components/layers/layer-list"
@@ -32,6 +32,17 @@ type LayersPanelProps = {
   onGroupLayers: (frameId: string, layerIds: string[]) => string | null
   onUngroupLayer: (groupId: string) => void
   onRemoveLayer: (layerId: string) => void
+}
+
+function isEditableKeyboardTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+  if (target.isContentEditable) {
+    return true
+  }
+  const tag = target.tagName
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
 }
 
 export function LayersPanel({
@@ -73,11 +84,56 @@ export function LayersPanel({
     return validList
   }, [canvasSelectedId, frameLayers, listSelectedIds])
 
-  const canGroup =
-    selectedLayerIds.filter((id) => {
-      const layer = frameLayers.find((item) => item.id === id)
-      return layer && isDrawableLayer(layer) && !layer.parentId
-    }).length >= 2
+  const groupableIds = useMemo(
+    () =>
+      selectedLayerIds.filter((id) => {
+        const layer = frameLayers.find((item) => item.id === id)
+        return layer && isDrawableLayer(layer) && !layer.parentId
+      }),
+    [frameLayers, selectedLayerIds]
+  )
+  const canGroup = groupableIds.length >= 2
+
+  function groupSelection() {
+    if (!canGroup) {
+      return
+    }
+    const groupId = onGroupLayers(frameId, groupableIds)
+    if (groupId) {
+      setListSelectedIds([groupId])
+    }
+  }
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (isEditableKeyboardTarget(event.target)) {
+        return
+      }
+      // Shift+G groups the current multi-selection.
+      if (
+        event.key.toLowerCase() !== "g" ||
+        !event.shiftKey ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey
+      ) {
+        return
+      }
+      if (groupableIds.length < 2) {
+        return
+      }
+      event.preventDefault()
+      const groupId = onGroupLayers(frameId, groupableIds)
+      if (groupId) {
+        setListSelectedIds([groupId])
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      window.removeEventListener("keydown", onKeyDown)
+    }
+  }, [frameId, groupableIds, onGroupLayers])
 
   if (frameLayers.length === 0) {
     return (
@@ -105,19 +161,14 @@ export function LayersPanel({
               size="sm"
               className="h-6 gap-1 px-1.5 text-[11px] text-muted-foreground"
               disabled={!canGroup}
-              onClick={() => {
-                const groupId = onGroupLayers(frameId, selectedLayerIds)
-                if (groupId) {
-                  setListSelectedIds([groupId])
-                }
-              }}
+              onClick={groupSelection}
             >
               <FolderPlus className="size-3" aria-hidden />
               Group
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left">
-            Group selected layers (⌘/Ctrl-click to multi-select)
+            Group selected layers (⇧G)
           </TooltipContent>
         </Tooltip>
       </div>
