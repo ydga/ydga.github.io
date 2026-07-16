@@ -4,21 +4,33 @@ import type {
   ShapeLayer,
   ShapeLayerUpdatePatch,
 } from "@/features/designer/model/layers"
+import { resolveLinePoints } from "@/features/designer/model/line-geometry"
 import { backgroundSettingsToStyle } from "@/features/designer/lib/background-style"
+import {
+  angleFromCenterDegrees,
+  maybeSnapRotationDegrees,
+  resolveLayerRotation,
+  worldPointerToUnrotatedTrim,
+} from "@/features/designer/lib/layer-rotation"
 import {
   isShapeFillTransparent,
   resolveShapeLayerFillBackground,
   resolveShapeLayerOpacity,
   resolveShapeLayerStroke,
+  resolveShapeLayerStrokeDasharray,
   resolveShapeLayerStrokeWidth,
 } from "@/features/designer/model/shape-layer-style"
+import { LineShapeLayerBox } from "@/features/designer/components/layout/line-shape-layer-box"
 import { cn } from "@workspace/ui/lib/utils"
 
 const MIN_W_TRIM = 8
 const MIN_H_TRIM = 8
 const HANDLE_STICK_OUT = "0.5rem / 6"
+/** How far outside each corner the rotate hit target sits (CSS). */
+const ROTATE_HANDLE_OUT = "0.75rem"
 
 type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w"
+type RotateCorner = "nw" | "ne" | "se" | "sw"
 
 type DragSession =
   | {
@@ -30,6 +42,8 @@ type DragSession =
       startY: number
       startW: number
       startH: number
+      /** Clone created once Shift+Option is held during this move. */
+      duplicated: boolean
     }
   | {
       kind: "resize"
@@ -39,6 +53,15 @@ type DragSession =
       startY: number
       startW: number
       startH: number
+      startRotation: number
+    }
+  | {
+      kind: "rotate"
+      pointerId: number
+      centerX: number
+      centerY: number
+      startRotation: number
+      startAngle: number
     }
 
 type ShapeLayerBoxProps = {
@@ -51,7 +74,11 @@ type ShapeLayerBoxProps = {
   getFrameElement: () => HTMLElement | null
   onUpdate: (patch: ShapeLayerUpdatePatch) => void
   onSelect: () => void
+  /** Shift+Option while dragging: leave a clone at `at` (drag start). */
+  onDuplicateInPlace: (at: { x: number; y: number }) => void
 }
+
+const DUPLICATE_MOVE_THRESHOLD_TRIM_PX = 2
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
@@ -118,28 +145,66 @@ function applyCornerResize(
   const { x: sx, y: sy, w: sw, h: sh } = start
   const right = sx + sw
   const bottom = sy + sh
+  if (sw <= 0 || sh <= 0 || !Number.isFinite(sw) || !Number.isFinite(sh)) {
+    return {
+      x: sx,
+      y: sy,
+      w: Math.max(MIN_W_TRIM, sw),
+      h: Math.max(MIN_H_TRIM, sh),
+    }
+  }
+
+  // Uniform scale from the opposite corner so aspect ratio stays locked.
+  const kMin = Math.max(MIN_W_TRIM / sw, MIN_H_TRIM / sh)
+  let rawW: number
+  let rawH: number
+  let kMax: number
 
   switch (handle) {
     case "se": {
-      const w = clamp(px - sx, MIN_W_TRIM, trimW - sx)
-      const h = clamp(py - sy, MIN_H_TRIM, trimH - sy)
-      return { x: sx, y: sy, w, h }
+      rawW = px - sx
+      rawH = py - sy
+      kMax = Math.min((trimW - sx) / sw, (trimH - sy) / sh)
+      break
     }
     case "nw": {
-      const newLeft = clamp(px, 0, right - MIN_W_TRIM)
-      const newTop = clamp(py, 0, bottom - MIN_H_TRIM)
-      return { x: newLeft, y: newTop, w: right - newLeft, h: bottom - newTop }
+      rawW = right - px
+      rawH = bottom - py
+      kMax = Math.min(right / sw, bottom / sh)
+      break
     }
     case "ne": {
-      const w = clamp(px - sx, MIN_W_TRIM, trimW - sx)
-      const newTop = clamp(py, 0, bottom - MIN_H_TRIM)
-      return { x: sx, y: newTop, w, h: bottom - newTop }
+      rawW = px - sx
+      rawH = bottom - py
+      kMax = Math.min((trimW - sx) / sw, bottom / sh)
+      break
     }
     case "sw": {
-      const newLeft = clamp(px, 0, right - MIN_W_TRIM)
-      const h = clamp(py - sy, MIN_H_TRIM, trimH - sy)
-      return { x: newLeft, y: sy, w: right - newLeft, h }
+      rawW = right - px
+      rawH = py - sy
+      kMax = Math.min(right / sw, (trimH - sy) / sh)
+      break
     }
+  }
+
+  let k = Math.min(rawW / sw, rawH / sh)
+  if (!Number.isFinite(k)) {
+    k = kMin
+  }
+  k = clamp(k, kMin, Math.max(kMin, kMax))
+
+  const w = k * sw
+  const h = k * sh
+
+  switch (handle) {
+    case "se":
+      return { x: sx, y: sy, w, h }
+    case "nw":
+      return { x: right - w, y: bottom - h, w, h }
+    case "ne":
+      return { x: sx, y: bottom - h, w, h }
+    case "sw":
+      return { x: right - w, y: sy, w, h }
   }
 }
 
@@ -193,6 +258,16 @@ function ShapeFillBackground({
           {layer.shapeType === "triangle" ? (
             <polygon points={`${width / 2},0 ${width},${height} 0,${height}`} />
           ) : null}
+          {layer.shapeType === "polygon" ? (
+            <polygon
+              points={resolveLinePoints(layer)
+                .map(
+                  (p) =>
+                    `${(p.x / Math.max(1, layer.width)) * width},${(p.y / Math.max(1, layer.height)) * height}`
+                )
+                .join(" ")}
+            />
+          ) : null}
         </clipPath>
       </defs>
       <g clipPath={`url(#${clipId})`} opacity={opacity}>
@@ -222,8 +297,10 @@ function ShapePreview({
   const stroke = resolveShapeLayerStroke(layer)
   const strokeWidth = resolveShapeLayerStrokeWidth(layer)
   const opacity = resolveShapeLayerOpacity(layer)
+  const dasharray = resolveShapeLayerStrokeDasharray(layer)
 
   const sw = strokeWidth
+  const strokeDasharray = dasharray ? dasharray.join(" ") : undefined
 
   switch (layer.shapeType) {
     case "square":
@@ -243,6 +320,7 @@ function ShapePreview({
             fill="none"
             stroke={stroke !== "transparent" ? stroke : undefined}
             strokeWidth={stroke !== "transparent" ? sw : 0}
+            strokeDasharray={strokeDasharray}
           />
         </>
       )
@@ -263,6 +341,7 @@ function ShapePreview({
             fill="none"
             stroke={stroke !== "transparent" ? stroke : undefined}
             strokeWidth={stroke !== "transparent" ? sw : 0}
+            strokeDasharray={strokeDasharray}
           />
         </>
       )
@@ -281,22 +360,54 @@ function ShapePreview({
             stroke={stroke !== "transparent" ? stroke : undefined}
             strokeWidth={stroke !== "transparent" ? sw : 0}
             strokeLinejoin="round"
+            strokeDasharray={strokeDasharray}
           />
         </>
       )
     case "line":
+    case "pen": {
+      const pts = resolveLinePoints(layer)
+      const svgPoints = pts.map((p) => `${p.x},${p.y}`).join(" ")
       return (
-        <line
-          x1={0}
-          y1={0}
-          x2={width}
-          y2={height}
+        <polyline
+          points={svgPoints}
+          fill="none"
           stroke={stroke}
           strokeWidth={sw}
           strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray={strokeDasharray}
           opacity={opacity}
         />
       )
+    }
+    case "polygon": {
+      const pts = resolveLinePoints(layer)
+      const scaleX = width / Math.max(1, layer.width)
+      const scaleY = height / Math.max(1, layer.height)
+      const svgPoints = pts
+        .map((p) => `${p.x * scaleX},${p.y * scaleY}`)
+        .join(" ")
+      return (
+        <>
+          <ShapeFillBackground
+            layer={layer}
+            width={width}
+            height={height}
+            opacity={opacity}
+          />
+          <polygon
+            points={svgPoints}
+            fill="none"
+            stroke={stroke !== "transparent" ? stroke : undefined}
+            strokeWidth={stroke !== "transparent" ? sw : 0}
+            strokeLinejoin="round"
+            strokeDasharray={strokeDasharray}
+            opacity={opacity}
+          />
+        </>
+      )
+    }
   }
 }
 
@@ -347,7 +458,45 @@ const HANDLES: Array<{
   },
 ]
 
-export function ShapeLayerBox({
+const ROTATE_HANDLES: Array<{
+  id: RotateCorner
+  className: string
+  transform: string
+}> = [
+  {
+    id: "nw",
+    className: "left-0 top-0",
+    transform: `translate(calc(-50% - ${ROTATE_HANDLE_OUT}), calc(-50% - ${ROTATE_HANDLE_OUT}))`,
+  },
+  {
+    id: "ne",
+    className: "left-full top-0",
+    transform: `translate(calc(-50% + ${ROTATE_HANDLE_OUT}), calc(-50% - ${ROTATE_HANDLE_OUT}))`,
+  },
+  {
+    id: "se",
+    className: "left-full top-full",
+    transform: `translate(calc(-50% + ${ROTATE_HANDLE_OUT}), calc(-50% + ${ROTATE_HANDLE_OUT}))`,
+  },
+  {
+    id: "sw",
+    className: "left-0 top-full",
+    transform: `translate(calc(-50% - ${ROTATE_HANDLE_OUT}), calc(-50% + ${ROTATE_HANDLE_OUT}))`,
+  },
+]
+
+export function ShapeLayerBox(props: ShapeLayerBoxProps) {
+  if (
+    props.layer.shapeType === "line" ||
+    props.layer.shapeType === "pen" ||
+    props.layer.shapeType === "polygon"
+  ) {
+    return <LineShapeLayerBox {...props} />
+  }
+  return <ClosedShapeLayerBox {...props} />
+}
+
+function ClosedShapeLayerBox({
   layer,
   displayScale,
   trimWidthPx,
@@ -357,6 +506,7 @@ export function ShapeLayerBox({
   getFrameElement,
   onUpdate,
   onSelect,
+  onDuplicateInPlace,
 }: ShapeLayerBoxProps) {
   const dragSessionRef = useRef<DragSession | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -365,6 +515,7 @@ export function ShapeLayerBox({
   const top = layer.y * displayScale
   const width = layer.width * displayScale
   const height = layer.height * displayScale
+  const rotation = resolveLayerRotation(layer)
 
   function endDrag() {
     dragSessionRef.current = null
@@ -390,16 +541,55 @@ export function ShapeLayerBox({
     if (session.kind === "move") {
       const dx = pt.x - session.trimStartX
       const dy = pt.y - session.trimStartY
+
+      // Shift+Option (Alt) held during the drag — leave a clone at the start.
+      if (
+        !session.duplicated &&
+        ev.shiftKey &&
+        ev.altKey &&
+        dx * dx + dy * dy >=
+          DUPLICATE_MOVE_THRESHOLD_TRIM_PX * DUPLICATE_MOVE_THRESHOLD_TRIM_PX
+      ) {
+        onDuplicateInPlace({ x: session.startX, y: session.startY })
+        session.duplicated = true
+      }
+
       const x = clamp(session.startX + dx, 0, trimWidthPx - session.startW)
       const y = clamp(session.startY + dy, 0, trimHeightPx - session.startH)
       onUpdate({ x, y })
       return
     }
 
-    const next = applyResize(
-      session.handle,
+    if (session.kind === "rotate") {
+      const angle = angleFromCenterDegrees(
+        pt.x,
+        pt.y,
+        session.centerX,
+        session.centerY
+      )
+      const next = maybeSnapRotationDegrees(
+        session.startRotation + (angle - session.startAngle),
+        ev.shiftKey
+      )
+      onUpdate({ rotation: next })
+      return
+    }
+
+    const local = worldPointerToUnrotatedTrim(
       pt.x,
       pt.y,
+      {
+        x: session.startX,
+        y: session.startY,
+        w: session.startW,
+        h: session.startH,
+      },
+      session.startRotation
+    )
+    const next = applyResize(
+      session.handle,
+      local.x,
+      local.y,
       {
         x: session.startX,
         y: session.startY,
@@ -409,7 +599,12 @@ export function ShapeLayerBox({
       trimWidthPx,
       trimHeightPx
     )
-    onUpdate(next)
+    onUpdate({
+      x: next.x,
+      y: next.y,
+      width: next.w,
+      height: next.h,
+    })
   }
 
   function onPointerUp(ev: PointerEvent) {
@@ -421,7 +616,7 @@ export function ShapeLayerBox({
   }
 
   function startMove(event: React.PointerEvent) {
-    if (!isSelected || event.button !== 0) {
+    if (event.button !== 0) {
       return
     }
 
@@ -444,6 +639,7 @@ export function ShapeLayerBox({
       startY: layer.y,
       startW: layer.width,
       startH: layer.height,
+      duplicated: false,
     }
     setIsDragging(true)
 
@@ -453,8 +649,12 @@ export function ShapeLayerBox({
   }
 
   function startResize(handle: ResizeHandle, event: React.PointerEvent) {
+    if (event.button !== 0) {
+      return
+    }
     event.stopPropagation()
     event.preventDefault()
+    onSelect()
 
     dragSessionRef.current = {
       kind: "resize",
@@ -464,8 +664,48 @@ export function ShapeLayerBox({
       startY: layer.y,
       startW: layer.width,
       startH: layer.height,
+      startRotation: resolveLayerRotation(layer),
     }
     setIsDragging(true)
+
+    const el = event.currentTarget as HTMLElement
+    el.setPointerCapture(event.pointerId)
+
+    window.addEventListener("pointermove", onPointerMove)
+    window.addEventListener("pointerup", onPointerUp)
+    window.addEventListener("pointercancel", onPointerUp)
+  }
+
+  function startRotate(event: React.PointerEvent) {
+    if (event.button !== 0) {
+      return
+    }
+    event.stopPropagation()
+    event.preventDefault()
+    onSelect()
+
+    const pt = clientToTrim(
+      getFrameElement(),
+      event.clientX,
+      event.clientY,
+      displayScale
+    )
+    const centerX = layer.x + layer.width / 2
+    const centerY = layer.y + layer.height / 2
+    const startRotation = resolveLayerRotation(layer)
+
+    dragSessionRef.current = {
+      kind: "rotate",
+      pointerId: event.pointerId,
+      centerX,
+      centerY,
+      startRotation,
+      startAngle: angleFromCenterDegrees(pt.x, pt.y, centerX, centerY),
+    }
+    setIsDragging(true)
+
+    const el = event.currentTarget as HTMLElement
+    el.setPointerCapture(event.pointerId)
 
     window.addEventListener("pointermove", onPointerMove)
     window.addEventListener("pointerup", onPointerUp)
@@ -476,16 +716,33 @@ export function ShapeLayerBox({
     <div
       data-designer-shape-box
       className={cn(
-        "pointer-events-auto absolute touch-none",
-        isSelected && !isDragging && "cursor-move"
+        "pointer-events-auto absolute touch-none overflow-visible",
+        !isDragging && "cursor-move"
       )}
-      style={{ left, top, width, height, zIndex }}
+      style={{
+        left,
+        top,
+        width,
+        height,
+        zIndex,
+        transform: rotation ? `rotate(${rotation}deg)` : undefined,
+        transformOrigin: "center center",
+      }}
       onPointerDown={(event) => {
+        const target = event.target as HTMLElement
+        // Resize / rotate handles manage their own gesture — do not start a move.
+        if (
+          target.closest("[data-designer-shape-handle]") ||
+          target.closest("[data-designer-shape-rotate]")
+        ) {
+          event.stopPropagation()
+          return
+        }
         event.stopPropagation()
         onSelect()
-        if (isSelected) {
-          startMove(event)
-        }
+        // Start move on the same press that selects — `isSelected` is still
+        // false in this render, so gating on it forced a second press to drag.
+        startMove(event)
       }}
     >
       <svg
@@ -501,13 +758,28 @@ export function ShapeLayerBox({
             aria-hidden
             className="pointer-events-none absolute inset-0 border border-[#7c3aed]"
           />
+          {ROTATE_HANDLES.map(({ id, className, transform }) => (
+            <button
+              key={`rotate-${id}`}
+              type="button"
+              data-designer-shape-rotate
+              aria-label={`Rotate ${layer.name}`}
+              className={cn(
+                "absolute z-10 size-4 rounded-full touch-none cursor-grab active:cursor-grabbing hover:bg-[#7c3aed]/15",
+                className
+              )}
+              style={{ transform }}
+              onPointerDown={startRotate}
+            />
+          ))}
           {HANDLES.map(({ id, className, cursor }) => (
             <button
               key={id}
               type="button"
+              data-designer-shape-handle
               aria-label={`Resize ${layer.name}`}
               className={cn(
-                "absolute z-10 size-2 rounded-sm border border-[#7c3aed] bg-white",
+                "absolute z-20 size-2 rounded-[1px] border border-[#7c3aed] bg-white touch-none",
                 className
               )}
               style={{ cursor, margin: `calc(-1 * (${HANDLE_STICK_OUT}))` }}

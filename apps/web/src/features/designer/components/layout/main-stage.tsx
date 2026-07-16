@@ -33,10 +33,13 @@ type MainStageProps = {
     trimX: number,
     trimY: number,
     trimWidth: number,
-    trimHeight: number
+    trimHeight: number,
+    absolutePoints?: Array<{ x: number; y: number }>,
+    shapeTypeOverride?: import("@/features/designer/model/layers").ShapeType
   ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
+  onDuplicateLayer: (layerId: string, at?: { x: number; y: number }) => void
   onSelectTextLayer: (layerId: string) => void
   onSelectShapeLayer: (layerId: string) => void
   textLayerIdToBeginTyping: string | null
@@ -56,6 +59,7 @@ export function MainStage({
   onPlaceShape,
   onUpdateTextLayer,
   onUpdateShapeLayer,
+  onDuplicateLayer,
   onSelectTextLayer,
   onSelectShapeLayer,
   textLayerIdToBeginTyping,
@@ -121,6 +125,7 @@ export function MainStage({
         onPlaceShape={onPlaceShape}
         onUpdateTextLayer={onUpdateTextLayer}
         onUpdateShapeLayer={onUpdateShapeLayer}
+        onDuplicateLayer={onDuplicateLayer}
         onSelectTextLayer={onSelectTextLayer}
         onSelectShapeLayer={onSelectShapeLayer}
         textLayerIdToBeginTyping={textLayerIdToBeginTyping}

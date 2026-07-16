@@ -1,10 +1,15 @@
 import type { ShapeLayer } from "@/features/designer/model/layers"
 import { renderBackgroundInClip } from "@/features/designer/lib/render-background"
 import {
+  degToRad,
+  resolveLayerRotation,
+} from "@/features/designer/lib/layer-rotation"
+import {
   isShapeFillTransparent,
   resolveShapeLayerFillBackground,
   resolveShapeLayerOpacity,
   resolveShapeLayerStroke,
+  resolveShapeLayerStrokeDasharray,
   resolveShapeLayerStrokeWidth,
   resolveShapeLayerVisible,
 } from "@/features/designer/model/shape-layer-style"
@@ -18,6 +23,7 @@ async function drawShapeOnContext(
   const fill = resolveShapeLayerFillBackground(layer)
   const stroke = resolveShapeLayerStroke(layer)
   const strokeWidth = resolveShapeLayerStrokeWidth(layer)
+  const dasharray = resolveShapeLayerStrokeDasharray(layer)
   const hasFill = !isShapeFillTransparent(layer)
 
   context.save()
@@ -25,6 +31,11 @@ async function drawShapeOnContext(
   context.lineWidth = strokeWidth
   context.lineCap = "round"
   context.lineJoin = "round"
+  if (dasharray) {
+    context.setLineDash(dasharray)
+  } else {
+    context.setLineDash([])
+  }
 
   switch (layer.shapeType) {
     case "square": {
@@ -78,12 +89,52 @@ async function drawShapeOnContext(
       }
       break
     }
-    case "line": {
+    case "line":
+    case "pen": {
+      const points =
+        layer.points && layer.points.length >= 2
+          ? layer.points
+          : [
+              { x: 0, y: 0 },
+              { x: w, y: h },
+            ]
       context.beginPath()
-      context.moveTo(0, 0)
-      context.lineTo(w, h)
+      context.moveTo(points[0]!.x, points[0]!.y)
+      for (let i = 1; i < points.length; i++) {
+        context.lineTo(points[i]!.x, points[i]!.y)
+      }
       context.strokeStyle = stroke
       context.stroke()
+      break
+    }
+    case "polygon": {
+      const points =
+        layer.points && layer.points.length >= 3
+          ? layer.points
+          : [
+              { x: 0, y: 0 },
+              { x: w, y: 0 },
+              { x: w / 2, y: h },
+            ]
+      if (hasFill) {
+        await renderBackgroundInClip(context, w, h, fill, () => {
+          context.moveTo(points[0]!.x, points[0]!.y)
+          for (let i = 1; i < points.length; i++) {
+            context.lineTo(points[i]!.x, points[i]!.y)
+          }
+          context.closePath()
+        })
+      }
+      if (stroke !== "transparent") {
+        context.beginPath()
+        context.moveTo(points[0]!.x, points[0]!.y)
+        for (let i = 1; i < points.length; i++) {
+          context.lineTo(points[i]!.x, points[i]!.y)
+        }
+        context.closePath()
+        context.strokeStyle = stroke
+        context.stroke()
+      }
       break
     }
   }
@@ -109,6 +160,12 @@ export async function drawShapeLayersOnContext(
 
     context.save()
     context.translate(trimOffsetPx + layer.x, trimOffsetPx + layer.y)
+    const rotation = resolveLayerRotation(layer)
+    if (rotation) {
+      context.translate(layer.width / 2, layer.height / 2)
+      context.rotate(degToRad(rotation))
+      context.translate(-layer.width / 2, -layer.height / 2)
+    }
     await drawShapeOnContext(context, layer, layer.width, layer.height)
     context.restore()
   }

@@ -6,7 +6,7 @@ import type {
   CanvasSettings,
   GradientStop,
 } from "@/features/designer/model/types"
-import type { CanvasTool, Selection } from "@/features/designer/model/ui-types"
+import type { CanvasTool, Selection, ShapeVariant } from "@/features/designer/model/ui-types"
 import { getExportDimensions } from "@/features/designer/lib/dimensions"
 import {
   SNAP_THRESHOLD_TRIM_PX,
@@ -36,7 +36,11 @@ import {
   resolveShapeLayerVisible,
 } from "@/features/designer/model/shape-layer-style"
 import { resolveTextLayerVisible } from "@/features/designer/model/text-layer-style"
-import type { ShapeVariant } from "@/features/designer/model/ui-types"
+import {
+  clampPointToTrim,
+  constrainLineEnd,
+  lineGeometryFromEndpoints,
+} from "@/features/designer/model/line-geometry"
 import { cn } from "@workspace/ui/lib/utils"
 
 const MIN_PLACE_TEXT_W = 48
@@ -51,19 +55,36 @@ const DEFAULT_NEW_TEXT_H_TRIM = 72
 const DEFAULT_NEW_SHAPE_W_TRIM = 80
 const DEFAULT_NEW_SHAPE_H_TRIM = 80
 const DEFAULT_NEW_LINE_W_TRIM = 120
-const DEFAULT_NEW_LINE_H_TRIM = 4
 
-type PlacementPreview = {
-  x: number
-  y: number
-  w: number
-  h: number
-}
+type PlacementPreview =
+  | {
+      kind: "rect"
+      x: number
+      y: number
+      w: number
+      h: number
+    }
+  | {
+      kind: "line"
+      x0: number
+      y0: number
+      x1: number
+      y1: number
+    }
+  | {
+      kind: "pen"
+      points: Array<{ x: number; y: number }>
+      cursor: { x: number; y: number } | null
+    }
 
 type PlacementSession = {
   pointerId: number
   x0: number
   y0: number
+}
+
+type PenSession = {
+  points: Array<{ x: number; y: number }>
 }
 
 function trimPointFromClient(
@@ -95,7 +116,7 @@ function clampPlacementRect(
   y = Math.max(0, Math.min(y, trimH))
   w = Math.max(1, Math.min(w, trimW - x))
   h = Math.max(1, Math.min(h, trimH - y))
-  return { x, y, w, h }
+  return { kind: "rect", x, y, w, h }
 }
 
 function placementRectFromDrag(
@@ -173,10 +194,13 @@ type CanvasStageProps = {
     trimX: number,
     trimY: number,
     trimWidth: number,
-    trimHeight: number
+    trimHeight: number,
+    absolutePoints?: Array<{ x: number; y: number }>,
+    shapeTypeOverride?: import("@/features/designer/model/layers").ShapeType
   ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
+  onDuplicateLayer: (layerId: string, at?: { x: number; y: number }) => void
   onSelectTextLayer: (layerId: string) => void
   onSelectShapeLayer: (layerId: string) => void
   textLayerIdToBeginTyping: string | null
@@ -203,6 +227,7 @@ export function CanvasStage({
   onPlaceShape,
   onUpdateTextLayer,
   onUpdateShapeLayer,
+  onDuplicateLayer,
   onSelectTextLayer,
   onSelectShapeLayer,
   textLayerIdToBeginTyping,
@@ -218,6 +243,8 @@ export function CanvasStage({
     typeof setTimeout
   > | null>(null)
   const placementSessionRef = useRef<PlacementSession | null>(null)
+  const penSessionRef = useRef<PenSession | null>(null)
+  const penCursorRef = useRef<{ x: number; y: number } | null>(null)
   const [placementPreview, setPlacementPreview] =
     useState<PlacementPreview | null>(null)
   const exportDimensions = getExportDimensions(settings)
@@ -261,7 +288,7 @@ export function CanvasStage({
     [registerCanvas]
   )
 
-  function armSuppressFrameClickAfterPlace() {
+  const armSuppressFrameClickAfterPlace = useCallback(() => {
     suppressFrameClickAfterPlaceRef.current = true
     if (suppressFrameClickTimerRef.current != null) {
       clearTimeout(suppressFrameClickTimerRef.current)
@@ -270,7 +297,7 @@ export function CanvasStage({
       suppressFrameClickTimerRef.current = null
       suppressFrameClickAfterPlaceRef.current = false
     }, 400)
-  }
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -336,6 +363,22 @@ export function CanvasStage({
     frameLayers.some((layer) => layer.id === selection.elementId)
       ? selection.elementId
       : null
+
+  const selectedElementIds = useMemo(() => {
+    if (
+      selection.kind !== "element" ||
+      selection.pageId !== frameId
+    ) {
+      return new Set<string>()
+    }
+    const ids = new Set<string>([selection.elementId])
+    for (const id of selection.additionalElementIds ?? []) {
+      if (frameLayers.some((layer) => layer.id === id)) {
+        ids.add(id)
+      }
+    }
+    return ids
+  }, [frameId, frameLayers, selection])
 
   const selectedShapeLayer = useMemo(() => {
     if (!selectedElementId) {
@@ -424,6 +467,129 @@ export function CanvasStage({
   const showShapeGradientControls = normalizedShapeFill != null
 
   const isPlacementTool = canvasTool === "text" || canvasTool === "shape"
+  const isPenTool = canvasTool === "shape" && shapeVariant === "pen"
+
+  const clearPenSession = useCallback(() => {
+    penSessionRef.current = null
+    penCursorRef.current = null
+    setPlacementPreview(null)
+  }, [])
+
+  const commitPenSession = useCallback(
+    (
+      lastNode?: { x: number; y: number } | null,
+      options?: { asPolygon?: boolean }
+    ) => {
+      const session = penSessionRef.current
+      if (!session) {
+        clearPenSession()
+        return
+      }
+
+      const points = session.points.map((p) => ({ ...p }))
+      const asPolygon = options?.asPolygon === true
+
+      if (!asPolygon) {
+        const candidate =
+          lastNode ?? penCursorRef.current ?? points[points.length - 1] ?? null
+
+        if (candidate) {
+          const prev = points[points.length - 1]
+          if (
+            !prev ||
+            Math.hypot(prev.x - candidate.x, prev.y - candidate.y) >
+              TEXT_PLACE_TAP_TRIM_PX
+          ) {
+            points.push({ ...candidate })
+          } else {
+            points[points.length - 1] = { ...candidate }
+          }
+        }
+      }
+
+      const minPoints = asPolygon ? 3 : 2
+      if (points.length < minPoints) {
+        clearPenSession()
+        return
+      }
+
+      clearPenSession()
+      const xs = points.map((p) => p.x)
+      const ys = points.map((p) => p.y)
+      const minX = Math.min(...xs)
+      const minY = Math.min(...ys)
+      const maxX = Math.max(...xs)
+      const maxY = Math.max(...ys)
+      onPlaceShape(
+        minX,
+        minY,
+        Math.max(1, maxX - minX),
+        Math.max(1, maxY - minY),
+        points,
+        asPolygon ? "polygon" : undefined
+      )
+      armSuppressFrameClickAfterPlace()
+    },
+    [armSuppressFrameClickAfterPlace, clearPenSession, onPlaceShape]
+  )
+
+  // Pen: Escape / Enter finish with the rubber-band point as the last node.
+  useEffect(() => {
+    if (!isPenTool) {
+      penSessionRef.current = null
+      penCursorRef.current = null
+      return
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" || event.key === "Enter") {
+        if (!penSessionRef.current || penSessionRef.current.points.length === 0) {
+          return
+        }
+        event.preventDefault()
+        event.stopPropagation()
+        commitPenSession(penCursorRef.current)
+      }
+    }
+
+    function onPointerMove(ev: PointerEvent) {
+      const session = penSessionRef.current
+      if (!session || session.points.length === 0) {
+        return
+      }
+      const frameEl = frameRef.current
+      if (!frameEl) {
+        return
+      }
+      const pt = clampPointToTrim(
+        trimPointFromClient(frameEl, ev.clientX, ev.clientY, displayScale),
+        trimWidthPx,
+        trimHeightPx
+      )
+      penCursorRef.current = pt
+      setPlacementPreview({
+        kind: "pen",
+        points: session.points,
+        cursor: pt,
+      })
+    }
+
+    window.addEventListener("keydown", onKeyDown, true)
+    window.addEventListener("pointermove", onPointerMove)
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true)
+      window.removeEventListener("pointermove", onPointerMove)
+    }
+  }, [
+    commitPenSession,
+    displayScale,
+    isPenTool,
+    trimHeightPx,
+    trimWidthPx,
+  ])
+
+  const activePlacementPreview =
+    placementPreview?.kind === "pen" && !isPenTool ? null : placementPreview
 
   const handleFramePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -433,6 +599,9 @@ export function CanvasStage({
 
       const target = event.target as HTMLElement
       if (target.closest("[data-designer-text-box]")) {
+        return
+      }
+      if (target.closest("[data-designer-shape-box]")) {
         return
       }
       if (target.closest("[data-designer-gradient-overlay]")) {
@@ -447,19 +616,104 @@ export function CanvasStage({
         return
       }
 
-      const start = trimPointFromClient(
-        host,
-        event.clientX,
-        event.clientY,
-        displayScale
+      const start = clampPointToTrim(
+        trimPointFromClient(host, event.clientX, event.clientY, displayScale),
+        trimWidthPx,
+        trimHeightPx
       )
+
+      // Pen tool: each click adds a node; click first node (≥3) closes into a polygon;
+      // double-click sets the last node and finishes an open path.
+      if (isPenTool) {
+        const existing = penSessionRef.current
+        const first = existing?.points[0]
+        const last = existing?.points[existing.points.length - 1]
+        const closeHitTrimPx = Math.max(10 / displayScale, 8)
+        const distFirst =
+          first != null
+            ? Math.hypot(start.x - first.x, start.y - first.y)
+            : Number.POSITIVE_INFINITY
+        const distLast =
+          last != null
+            ? Math.hypot(start.x - last.x, start.y - last.y)
+            : Number.POSITIVE_INFINITY
+
+        // Double-click: finalize with this point as the last node.
+        // (Also handled in onDoubleClick for browsers where pointerdown detail stays 1.)
+        if (event.detail >= 2) {
+          if (
+            existing &&
+            existing.points.length > 0 &&
+            distLast <= closeHitTrimPx
+          ) {
+            // First click of this double-click may have stacked a duplicate on the
+            // current last node — drop it so commit can set the true end point.
+            existing.points.pop()
+          }
+          commitPenSession(start)
+          return
+        }
+
+        // Click first node (≥3) closes into a polygon. Ignore when the click is on
+        // the current last node so double-click-to-finish still works.
+        if (
+          existing &&
+          first &&
+          last &&
+          existing.points.length >= 3 &&
+          distFirst <= closeHitTrimPx &&
+          distLast > closeHitTrimPx
+        ) {
+          commitPenSession(null, { asPolygon: true })
+          return
+        }
+
+        // Clicking the current last node does not add another vertex — it keeps
+        // the path ready for a finishing double-click / Escape.
+        if (existing && last && distLast <= TEXT_PLACE_TAP_TRIM_PX) {
+          penCursorRef.current = last
+          setPlacementPreview({
+            kind: "pen",
+            points: existing.points,
+            cursor: last,
+          })
+          return
+        }
+
+        const session = existing ?? { points: [] }
+        session.points.push(start)
+        penSessionRef.current = session
+        penCursorRef.current = start
+        setPlacementPreview({
+          kind: "pen",
+          points: session.points,
+          cursor: start,
+        })
+        return
+      }
 
       placementSessionRef.current = {
         pointerId: event.pointerId,
         x0: start.x,
         y0: start.y,
       }
-      setPlacementPreview({ x: start.x, y: start.y, w: 0, h: 0 })
+      if (canvasTool === "shape" && shapeVariant === "line") {
+        setPlacementPreview({
+          kind: "line",
+          x0: start.x,
+          y0: start.y,
+          x1: start.x,
+          y1: start.y,
+        })
+      } else {
+        setPlacementPreview({
+          kind: "rect",
+          x: start.x,
+          y: start.y,
+          w: 0,
+          h: 0,
+        })
+      }
 
       function onMove(ev: PointerEvent) {
         const session = placementSessionRef.current
@@ -476,6 +730,23 @@ export function CanvasStage({
           ev.clientY,
           displayScale
         )
+
+        if (canvasTool === "shape" && shapeVariant === "line") {
+          const end = clampPointToTrim(
+            constrainLineEnd(session.x0, session.y0, pt.x, pt.y, ev.shiftKey),
+            trimWidthPx,
+            trimHeightPx
+          )
+          setPlacementPreview({
+            kind: "line",
+            x0: session.x0,
+            y0: session.y0,
+            x1: end.x,
+            y1: end.y,
+          })
+          return
+        }
+
         const r = placementRectFromDrag(
           session.x0,
           session.y0,
@@ -513,6 +784,41 @@ export function CanvasStage({
         const dx = Math.abs(pt.x - session.x0)
         const dy = Math.abs(pt.y - session.y0)
 
+        if (canvasTool === "shape" && shapeVariant === "line") {
+          let x1: number
+          let y1: number
+          if (dx < TEXT_PLACE_TAP_TRIM_PX && dy < TEXT_PLACE_TAP_TRIM_PX) {
+            x1 = session.x0 + DEFAULT_NEW_LINE_W_TRIM
+            y1 = session.y0
+          } else {
+            const end = clampPointToTrim(
+              constrainLineEnd(
+                session.x0,
+                session.y0,
+                pt.x,
+                pt.y,
+                ev.shiftKey
+              ),
+              trimWidthPx,
+              trimHeightPx
+            )
+            x1 = end.x
+            y1 = end.y
+          }
+          const geometry = lineGeometryFromEndpoints(
+            session.x0,
+            session.y0,
+            x1,
+            y1
+          )
+          onPlaceShape(geometry.x, geometry.y, geometry.width, geometry.height, [
+            { x: session.x0, y: session.y0 },
+            { x: x1, y: y1 },
+          ])
+          armSuppressFrameClickAfterPlace()
+          return
+        }
+
         if (dx < TEXT_PLACE_TAP_TRIM_PX && dy < TEXT_PLACE_TAP_TRIM_PX) {
           if (canvasTool === "text") {
             if (snapGuides) {
@@ -532,15 +838,12 @@ export function CanvasStage({
               onPlaceText(session.x0, session.y0)
             }
           } else {
-            const defaultW =
-              shapeVariant === "line"
-                ? DEFAULT_NEW_LINE_W_TRIM
-                : DEFAULT_NEW_SHAPE_W_TRIM
-            const defaultH =
-              shapeVariant === "line"
-                ? DEFAULT_NEW_LINE_H_TRIM
-                : DEFAULT_NEW_SHAPE_H_TRIM
-            onPlaceShape(session.x0, session.y0, defaultW, defaultH)
+            onPlaceShape(
+              session.x0,
+              session.y0,
+              DEFAULT_NEW_SHAPE_W_TRIM,
+              DEFAULT_NEW_SHAPE_H_TRIM
+            )
           }
         } else {
           const r = placementRectFromDrag(
@@ -552,6 +855,9 @@ export function CanvasStage({
             trimHeightPx,
             canvasTool === "shape" && ev.shiftKey
           )
+          if (r.kind !== "rect") {
+            return
+          }
           const minW =
             canvasTool === "text" ? MIN_PLACE_TEXT_W : MIN_PLACE_SHAPE_W
           const minH =
@@ -587,8 +893,11 @@ export function CanvasStage({
       window.addEventListener("pointercancel", onUp)
     },
     [
+      armSuppressFrameClickAfterPlace,
       canvasTool,
+      commitPenSession,
       displayScale,
+      isPenTool,
       isPlacementTool,
       onPlaceShape,
       onPlaceText,
@@ -658,6 +967,43 @@ export function CanvasStage({
           return
         }
 
+        // Pen: finish open path with the double-click point as the last node.
+        // pointerdown detail is not reliable in all browsers, so this is the
+        // primary finish gesture when double-clicking the last node / canvas.
+        if (isPenTool) {
+          event.preventDefault()
+          event.stopPropagation()
+          if (!penSessionRef.current) {
+            return
+          }
+          const host = frameRef.current
+          if (!host) {
+            return
+          }
+          const pt = clampPointToTrim(
+            trimPointFromClient(
+              host,
+              event.clientX,
+              event.clientY,
+              displayScale
+            ),
+            trimWidthPx,
+            trimHeightPx
+          )
+          const session = penSessionRef.current
+          const last = session.points[session.points.length - 1]
+          if (
+            last &&
+            Math.hypot(pt.x - last.x, pt.y - last.y) <=
+              Math.max(10 / displayScale, 8)
+          ) {
+            // Second click of the double-click may have added a duplicate vertex.
+            session.points.pop()
+          }
+          commitPenSession(pt)
+          return
+        }
+
         if (isPlacementTool) {
           return
         }
@@ -707,17 +1053,95 @@ export function CanvasStage({
         )}
       />
       <GuidesOverlay settings={settings} displayScale={displayScale} />
-      {placementPreview && isPlacementTool ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute z-[14] border border-dashed border-[#7c3aed]"
-          style={{
-            left: placementPreview.x * displayScale,
-            top: placementPreview.y * displayScale,
-            width: Math.max(1, placementPreview.w * displayScale),
-            height: Math.max(1, placementPreview.h * displayScale),
-          }}
-        />
+      {activePlacementPreview && isPlacementTool ? (
+        activePlacementPreview.kind === "pen" ? (
+          <svg
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-[14] overflow-visible"
+            width={trimDisplayWidth}
+            height={trimDisplayHeight}
+          >
+            {activePlacementPreview.points.length > 0 ? (
+              <polyline
+                points={[
+                  ...activePlacementPreview.points,
+                  ...(activePlacementPreview.cursor
+                    ? [activePlacementPreview.cursor]
+                    : []),
+                ]
+                  .map(
+                    (p) =>
+                      `${p.x * displayScale},${p.y * displayScale}`
+                  )
+                  .join(" ")}
+                fill="none"
+                stroke="#7c3aed"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="4 3"
+              />
+            ) : null}
+            {(() => {
+              const pts = activePlacementPreview.points
+              const first = pts[0]
+              const cursor = activePlacementPreview.cursor
+              const closeable = pts.length >= 3 && first != null
+              const hoveringClose =
+                closeable &&
+                cursor != null &&
+                Math.hypot(cursor.x - first.x, cursor.y - first.y) <=
+                  Math.max(10 / displayScale, 8)
+              return pts.map((p, i) => {
+                const isCloseTarget = closeable && i === 0
+                // Match shape/text handle size (`size-2` = 8px); close target stays same size.
+                const size = 8
+                return (
+                  <rect
+                    key={`${i}-${p.x}-${p.y}`}
+                    x={p.x * displayScale - size / 2}
+                    y={p.y * displayScale - size / 2}
+                    width={size}
+                    height={size}
+                    rx={1}
+                    fill={hoveringClose && isCloseTarget ? "#fff" : "#7c3aed"}
+                    stroke="#7c3aed"
+                    strokeWidth={isCloseTarget ? 1.5 : 0}
+                  />
+                )
+              })
+            })()}
+          </svg>
+        ) : activePlacementPreview.kind === "line" ? (
+          <svg
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-[14] overflow-visible"
+            width={trimDisplayWidth}
+            height={trimDisplayHeight}
+          >
+            <line
+              x1={activePlacementPreview.x0 * displayScale}
+              y1={activePlacementPreview.y0 * displayScale}
+              x2={activePlacementPreview.x1 * displayScale}
+              y2={activePlacementPreview.y1 * displayScale}
+              stroke="#7c3aed"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeDasharray="4 3"
+            />
+          </svg>
+        ) : (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute z-[14] border border-dashed border-[#7c3aed]"
+            style={{
+              left: activePlacementPreview.x * displayScale,
+              top: activePlacementPreview.y * displayScale,
+              width: Math.max(1, activePlacementPreview.w * displayScale),
+              height: Math.max(1, activePlacementPreview.h * displayScale),
+            }}
+          />
+        )
       ) : null}
       <div className="pointer-events-none absolute inset-0 z-[25] overflow-visible">
         {frameLayers.map((layer, index) => {
@@ -735,11 +1159,12 @@ export function CanvasStage({
                 displayScale={displayScale}
                 trimWidthPx={trimWidthPx}
                 trimHeightPx={trimHeightPx}
-                isSelected={selectedElementId === layer.id}
+                isSelected={selectedElementIds.has(layer.id)}
                 zIndex={z}
                 getFrameElement={getFrameElement}
                 onUpdate={(patch) => onUpdateShapeLayer(layer.id, patch)}
                 onSelect={() => onSelectShapeLayer(layer.id)}
+                onDuplicateInPlace={(at) => onDuplicateLayer(layer.id, at)}
               />
             )
           }
@@ -757,13 +1182,14 @@ export function CanvasStage({
               trimHeightPx={trimHeightPx}
               snapGuideXs={snapGuides?.xs ?? null}
               snapGuideYs={snapGuides?.ys ?? null}
-              isSelected={selectedElementId === layer.id}
+              isSelected={selectedElementIds.has(layer.id)}
               zIndex={z}
               getFrameElement={getFrameElement}
               textLayerIdToBeginTyping={textLayerIdToBeginTyping}
               onTextLayerBeginTypingHandled={onTextLayerBeginTypingHandled}
               onUpdate={(patch) => onUpdateTextLayer(layer.id, patch)}
               onSelect={() => onSelectTextLayer(layer.id)}
+              onDuplicateInPlace={(at) => onDuplicateLayer(layer.id, at)}
               onRegisterTextarea={(layerId, node) => {
                 if (node) {
                   textAreaRefs.current.set(layerId, node)

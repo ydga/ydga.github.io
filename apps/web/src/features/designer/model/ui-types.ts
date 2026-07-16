@@ -7,13 +7,15 @@ export type ElementSelection = {
   kind: "element"
   pageId: string
   elementId: string
+  /** Extra selected element ids (e.g. other children when a group is selected). */
+  additionalElementIds?: string[]
 }
 
 export type Selection = PageSelection | ElementSelection
 
 export type ZoomMode = "fit" | "manual"
 export type CanvasTool = "select" | "text" | "shape"
-export type ShapeVariant = "circle" | "square" | "triangle" | "line"
+export type ShapeVariant = "circle" | "square" | "triangle" | "line" | "pen"
 export type PanelMode = "document" | "export" | "layers"
 export type ToolbarTool = "pointer" | "text" | "shape" | "document" | "export"
 
@@ -31,6 +33,11 @@ export function resolveContextPanelMode(
   }
 
   if (toolbarTool === "pointer") {
+    // Keep the layers panel when explicitly in layers mode (e.g. selecting
+    // from the layer list) even if a canvas element is selected.
+    if (panelMode === "layers") {
+      return "layers"
+    }
     return selection.kind === "page" ? "layers" : "document"
   }
 

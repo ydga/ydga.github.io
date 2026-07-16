@@ -37,7 +37,7 @@ export const DEFAULT_CANVAS_SETTINGS: CanvasSettings = {
     showTrim: false,
     showBleed: false,
     showSafe: false,
-    showCenter: true,
+    showCenter: false,
     showThirds: false,
   },
   export: {

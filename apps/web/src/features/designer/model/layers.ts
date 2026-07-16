@@ -6,7 +6,13 @@ import type { BackgroundSettings } from "@/features/designer/model/types"
 /** How {@link TextLayer.letterSpacing} is stored: trim-space `px` or `em` (relative to font size). */
 export type TextLayerLetterSpacingUnit = "px" | "em"
 
-export type ShapeType = "circle" | "square" | "triangle" | "line"
+export type ShapeType =
+  | "circle"
+  | "square"
+  | "triangle"
+  | "line"
+  | "pen"
+  | "polygon"
 
 export type TextLayer = {
   id: string
@@ -61,11 +67,16 @@ export type TextLayer = {
    * the previous width:height ratio. Default false.
    */
   maintainBoundsAspect?: boolean
+  /** Rotation in degrees around the box center. Default 0. */
+  rotation?: number
+  /** When set, this layer is nested under a {@link GroupLayer}. */
+  parentId?: string
 }
 
 export type TextLayerUpdatePatch = Partial<
   Pick<
     TextLayer,
+    | "name"
     | "text"
     | "x"
     | "y"
@@ -89,6 +100,8 @@ export type TextLayerUpdatePatch = Partial<
     | "textTransform"
     | "clip"
     | "maintainBoundsAspect"
+    | "rotation"
+    | "parentId"
   >
 >
 
@@ -102,34 +115,71 @@ export type ShapeLayer = {
   y: number
   width: number
   height: number
+  /**
+   * Polyline vertices relative to {@link x}/{@link y}. Used by lines (≥2 points).
+   * Legacy lines without `points` render as the box diagonal (0,0)→(width,height).
+   */
+  points?: Array<{ x: number; y: number }>
   /** Fill for closed shapes; solid, gradient, image, or transparent. Ignored for lines. */
   fill?: BackgroundSettings | string
   /** Stroke color; primary color for lines. */
   stroke?: string
   /** Stroke width in trim-space pixels. */
   strokeWidth?: number
+  /** Solid vs dashed stroke. Defaults to solid. */
+  strokeDashStyle?: "solid" | "dashed"
+  /** Dash segment length in trim-space px (when dashed). */
+  strokeDash?: number
+  /** Gap between dashes in trim-space px (when dashed). */
+  strokeGap?: number
   /** Layer opacity 0–100 (default 100 = fully opaque). */
   opacity?: number
   /** When false, layer is hidden on canvas and export. Default true. */
   visible?: boolean
+  /** Rotation in degrees around the box center. Default 0. */
+  rotation?: number
+  /** When set, this layer is nested under a {@link GroupLayer}. */
+  parentId?: string
 }
 
 export type ShapeLayerUpdatePatch = Partial<
   Pick<
     ShapeLayer,
+    | "name"
     | "x"
     | "y"
     | "width"
     | "height"
+    | "points"
     | "fill"
     | "stroke"
     | "strokeWidth"
+    | "strokeDashStyle"
+    | "strokeDash"
+    | "strokeGap"
     | "opacity"
     | "visible"
+    | "rotation"
+    | "parentId"
   >
 >
 
-export type Layer = TextLayer | ShapeLayer
+export type GroupLayer = {
+  id: string
+  frameId: string
+  kind: "group"
+  name: string
+  /** When false, group and its children are hidden. Default true. */
+  visible?: boolean
+  /** When true, children are collapsed in the layers list. */
+  collapsed?: boolean
+}
+
+export type GroupLayerUpdatePatch = Partial<
+  Pick<GroupLayer, "name" | "visible" | "collapsed">
+>
+
+export type Layer = TextLayer | ShapeLayer | GroupLayer
 
 const TEXT_LAYER_LABEL_MAX = 28
 
@@ -153,8 +203,50 @@ export function isShapeLayer(layer: Layer): layer is ShapeLayer {
   return layer.kind === "shape"
 }
 
+export function isGroupLayer(layer: Layer): layer is GroupLayer {
+  return layer.kind === "group"
+}
+
+export function isDrawableLayer(
+  layer: Layer
+): layer is TextLayer | ShapeLayer {
+  return layer.kind === "text" || layer.kind === "shape"
+}
+
 export function getLayersForFrame(layers: Layer[], frameId: string) {
   return layers.filter((layer) => layer.frameId === frameId)
+}
+
+/** Flat list for the layers panel: groups followed by their children. */
+export function getLayerListRows(
+  layers: Layer[],
+  frameId: string
+): Array<{ layer: Layer; depth: number }> {
+  const frameLayers = getLayersForFrame(layers, frameId)
+  const childrenByParent = new Map<string, Layer[]>()
+
+  for (const layer of frameLayers) {
+    if (isDrawableLayer(layer) && layer.parentId) {
+      const list = childrenByParent.get(layer.parentId) ?? []
+      list.push(layer)
+      childrenByParent.set(layer.parentId, list)
+    }
+  }
+
+  const rows: Array<{ layer: Layer; depth: number }> = []
+  for (const layer of frameLayers) {
+    if (isDrawableLayer(layer) && layer.parentId) {
+      continue
+    }
+    rows.push({ layer, depth: 0 })
+    if (layer.kind === "group" && !layer.collapsed) {
+      const children = childrenByParent.get(layer.id) ?? []
+      for (const child of children) {
+        rows.push({ layer: child, depth: 1 })
+      }
+    }
+  }
+  return rows
 }
 
 export function removeLayersForFrame(layers: Layer[], frameId: string) {
@@ -184,6 +276,66 @@ export function reorderFrameLayers(
   return next
 }
 
+export function reorderFrameLayersById(
+  layers: Layer[],
+  frameId: string,
+  fromLayerId: string,
+  toLayerId: string
+): Layer[] {
+  if (fromLayerId === toLayerId) {
+    return layers
+  }
+
+  const frameLayers = getLayersForFrame(layers, frameId)
+  const fromIndex = frameLayers.findIndex((layer) => layer.id === fromLayerId)
+  const toIndex = frameLayers.findIndex((layer) => layer.id === toLayerId)
+  if (fromIndex < 0 || toIndex < 0) {
+    return layers
+  }
+
+  const moving = frameLayers[fromIndex]!
+
+  // Move a group as a contiguous block with its children.
+  if (moving.kind === "group") {
+    const block = frameLayers.filter(
+      (layer) =>
+        layer.id === moving.id ||
+        (isDrawableLayer(layer) && layer.parentId === moving.id)
+    )
+    const blockIds = new Set(block.map((layer) => layer.id))
+    if (blockIds.has(toLayerId)) {
+      return layers
+    }
+
+    const withoutBlock = frameLayers.filter((layer) => !blockIds.has(layer.id))
+    const targetIndex = withoutBlock.findIndex((layer) => layer.id === toLayerId)
+    if (targetIndex < 0) {
+      return layers
+    }
+    // Drop before the target when dragging upward, after when dragging downward.
+    const insertAt =
+      fromIndex < toIndex ? targetIndex + 1 : targetIndex
+    const reordered = [
+      ...withoutBlock.slice(0, insertAt),
+      ...block,
+      ...withoutBlock.slice(insertAt),
+    ]
+
+    const frameEntries = layers.flatMap((layer, index) =>
+      layer.frameId === frameId ? [{ index }] : []
+    )
+    const next = [...layers]
+    frameEntries.forEach(({ index }, position) => {
+      next[index] = reordered[position]!
+    })
+    return next
+  }
+
+  // Don't drop a layer onto one of its own group siblings in a way that
+  // breaks parentage — keep parentId as-is; only change order.
+  return reorderFrameLayers(layers, frameId, fromIndex, toIndex)
+}
+
 export function reorderLayers(
   layers: Layer[],
   fromIndex: number,
@@ -203,4 +355,147 @@ export function reorderLayers(
   const [moved] = next.splice(fromIndex, 1)
   next.splice(toIndex, 0, moved)
   return next
+}
+
+/** Deep-enough clone for drag-duplicate; caller supplies a fresh id. */
+export function cloneLayer(layer: Layer, newId: string): Layer {
+  if (layer.kind === "group") {
+    return { ...layer, id: newId }
+  }
+
+  if (layer.kind === "text") {
+    return { ...layer, id: newId }
+  }
+
+  const points = layer.points?.map((p) => ({ ...p }))
+  const fill = layer.fill
+  if (fill && typeof fill === "object") {
+    return {
+      ...layer,
+      id: newId,
+      points,
+      fill: {
+        ...fill,
+        gradientStops: fill.gradientStops.map((stop) => ({ ...stop })),
+      },
+    }
+  }
+
+  return { ...layer, id: newId, points }
+}
+
+/**
+ * Insert a clone of `layerId` immediately after it (below in paint order).
+ * Optional `at` pins the clone (used when the source already moved mid-drag).
+ * Groups are not duplicated (children would need deep copy).
+ */
+export function duplicateLayerInPlace(
+  layers: Layer[],
+  layerId: string,
+  at?: { x: number; y: number }
+): Layer[] {
+  const index = layers.findIndex((layer) => layer.id === layerId)
+  if (index === -1) {
+    return layers
+  }
+
+  const source = layers[index]!
+  if (source.kind === "group") {
+    return layers
+  }
+
+  const clone = cloneLayer(source, crypto.randomUUID())
+  if (at && isDrawableLayer(clone)) {
+    clone.x = at.x
+    clone.y = at.y
+  }
+  const next = [...layers]
+  next.splice(index + 1, 0, clone)
+  return next
+}
+
+/**
+ * Wrap the given drawable layers in a new group. Uses the earliest frame
+ * position among the selection as the group's insert point.
+ */
+export function groupLayers(
+  layers: Layer[],
+  frameId: string,
+  layerIds: string[]
+): { layers: Layer[]; groupId: string } | null {
+  const uniqueIds = [...new Set(layerIds)]
+  const selected = layers.filter(
+    (layer): layer is TextLayer | ShapeLayer =>
+      layer.frameId === frameId &&
+      uniqueIds.includes(layer.id) &&
+      isDrawableLayer(layer) &&
+      !layer.parentId
+  )
+  if (selected.length < 2) {
+    return null
+  }
+
+  const selectedIds = new Set(selected.map((layer) => layer.id))
+  const groupId = crypto.randomUUID()
+  const group: GroupLayer = {
+    id: groupId,
+    frameId,
+    kind: "group",
+    name: "Group",
+  }
+
+  const next: Layer[] = []
+  let inserted = false
+  for (const layer of layers) {
+    if (layer.frameId !== frameId) {
+      next.push(layer)
+      continue
+    }
+    if (selectedIds.has(layer.id)) {
+      if (!inserted) {
+        next.push(group)
+        for (const child of selected) {
+          next.push({ ...child, parentId: groupId })
+        }
+        inserted = true
+      }
+      continue
+    }
+    next.push(layer)
+  }
+
+  return { layers: next, groupId }
+}
+
+/** Remove a group and promote its children to the root of the frame. */
+export function ungroupLayer(layers: Layer[], groupId: string): Layer[] {
+  const group = layers.find(
+    (layer) => layer.id === groupId && layer.kind === "group"
+  )
+  if (!group) {
+    return layers
+  }
+
+  return layers
+    .filter((layer) => layer.id !== groupId)
+    .map((layer) => {
+      if (isDrawableLayer(layer) && layer.parentId === groupId) {
+        return { ...layer, parentId: undefined }
+      }
+      return layer
+    })
+}
+
+export function renameLayer(
+  layers: Layer[],
+  layerId: string,
+  name: string
+): Layer[] {
+  const trimmed = name.trim()
+  if (!trimmed) {
+    return layers
+  }
+  return layers.map((layer) =>
+    layer.id === layerId ? { ...layer, name: trimmed } : layer
+  )
 }

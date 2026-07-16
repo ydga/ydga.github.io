@@ -102,16 +102,25 @@ export function DesignerShell() {
     }
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        ui.selectPointerTool()
+      if (event.key !== "Escape") {
+        return
       }
+      // Pen finishes the path on Escape (handled in canvas-stage capture).
+      // Idle Escape still exits the tool.
+      if (ui.canvasTool === "shape" && ui.shapeVariant === "pen") {
+        queueMicrotask(() => {
+          ui.selectPointerTool()
+        })
+        return
+      }
+      ui.selectPointerTool()
     }
 
     window.addEventListener("keydown", onKeyDown)
     return () => {
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [ui.canvasTool, ui.selectPointerTool])
+  }, [ui.canvasTool, ui.selectPointerTool, ui.shapeVariant])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -160,16 +169,29 @@ export function DesignerShell() {
   )
 
   const handlePlaceShape = useCallback(
-    (trimX: number, trimY: number, trimWidth: number, trimHeight: number) => {
+    (
+      trimX: number,
+      trimY: number,
+      trimWidth: number,
+      trimHeight: number,
+      absolutePoints?: Array<{ x: number; y: number }>,
+      shapeTypeOverride?: import("@/features/designer/model/layers").ShapeType
+    ) => {
       const id = layers.addShapeLayer({
         frameId: frames.activeFrameId,
-        shapeType: ui.shapeVariant,
+        shapeType: shapeTypeOverride ?? ui.shapeVariant,
         x: trimX,
         y: trimY,
         width: trimWidth,
         height: trimHeight,
+        absolutePoints,
       })
       ui.selectElement(frames.activeFrameId, id)
+      // Pen stays active so the next open path can start immediately.
+      // Closing into a polygon selects the shape and returns to pointer.
+      if (ui.shapeVariant === "pen" && shapeTypeOverride !== "polygon") {
+        return
+      }
       queueMicrotask(() => {
         ui.selectPointerTool()
       })
@@ -225,6 +247,7 @@ export function DesignerShell() {
           onPlaceShape={handlePlaceShape}
           onUpdateTextLayer={layers.updateTextLayer}
           onUpdateShapeLayer={layers.updateShapeLayer}
+          onDuplicateLayer={layers.duplicateLayerInPlace}
           onSelectTextLayer={handleSelectTextLayer}
           onSelectShapeLayer={handleSelectShapeLayer}
         />
@@ -236,9 +259,13 @@ export function DesignerShell() {
           onImageUpload={frames.setBackgroundImage}
           layers={layers.layers}
           activeFrameId={frames.activeFrameId}
-          onReorderLayers={layers.reorderLayers}
+          onReorderLayers={layers.reorderLayersById}
           onUpdateTextLayer={layers.updateTextLayer}
           onUpdateShapeLayer={layers.updateShapeLayer}
+          onUpdateGroupLayer={layers.updateGroupLayer}
+          onRenameLayer={layers.renameLayer}
+          onGroupLayers={layers.groupLayers}
+          onUngroupLayer={layers.ungroupLayer}
           onRemoveLayer={layers.removeLayer}
           onShapeFillImageUpload={layers.setShapeFillImage}
         />
