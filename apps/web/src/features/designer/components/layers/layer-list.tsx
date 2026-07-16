@@ -140,7 +140,7 @@ export function LayerList({
             aria-selected={isSelected}
             className={cn(
               "group/layer rounded-md border border-transparent transition-colors",
-              isSelected ? "bg-active" : "bg-muted/40",
+              isSelected ? "bg-active" : "bg-transparent hover:bg-muted/40",
               isDropTarget && "border-dashed border-ring",
               isDragging && "opacity-50",
               !isVisible && "opacity-70",
