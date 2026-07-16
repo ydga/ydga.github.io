@@ -63,26 +63,58 @@ export function LayersPanel({
     () => getLayerListRows(layers, frameId),
     [frameId, layers]
   )
-  const canvasSelectedId =
-    ui.selection.kind === "element" ? ui.selection.elementId : null
+  const canvasSelectedIds = useMemo(() => {
+    if (ui.selection.kind !== "element") {
+      return [] as string[]
+    }
+    const ids = [
+      ui.selection.elementId,
+      ...(ui.selection.additionalElementIds ?? []),
+    ]
+    return ids.filter((id) => frameLayers.some((layer) => layer.id === id))
+  }, [frameLayers, ui.selection])
+
+  const canvasSelectedId = canvasSelectedIds[0] ?? null
   const [listSelectedIds, setListSelectedIds] = useState<string[]>([])
 
   const selectedLayerIds = useMemo(() => {
     const validList = listSelectedIds.filter((id) =>
       frameLayers.some((layer) => layer.id === id)
     )
-    // Multi-select only sticks while it still includes the canvas selection.
+    // Keep list multi-select (e.g. group + children) while it still covers
+    // the canvas selection.
     if (
       validList.length > 1 &&
-      (!canvasSelectedId || validList.includes(canvasSelectedId))
+      (canvasSelectedIds.length === 0 ||
+        canvasSelectedIds.every((id) => validList.includes(id)))
     ) {
       return validList
     }
-    if (canvasSelectedId) {
-      return [canvasSelectedId]
+    if (canvasSelectedIds.length > 0) {
+      return canvasSelectedIds
     }
     return validList
-  }, [canvasSelectedId, frameLayers, listSelectedIds])
+  }, [canvasSelectedIds, frameLayers, listSelectedIds])
+
+  function getGroupChildIds(groupId: string) {
+    return frameLayers
+      .filter((layer) => isDrawableLayer(layer) && layer.parentId === groupId)
+      .map((layer) => layer.id)
+  }
+
+  /** Select a group in the list and all of its drawable children on the canvas. */
+  function selectGroupWithChildren(groupId: string) {
+    const childIds = getGroupChildIds(groupId)
+    setListSelectedIds([groupId, ...childIds])
+    if (childIds.length === 0) {
+      return
+    }
+    const [primary, ...rest] = childIds
+    ui.selectElement(frameId, primary, {
+      preservePanelMode: true,
+      additionalElementIds: rest,
+    })
+  }
 
   const groupableIds = useMemo(
     () =>
@@ -117,9 +149,17 @@ export function LayersPanel({
     if (!canGroup) {
       return
     }
+    const childIds = [...groupableIds]
     const groupId = onGroupLayers(frameId, groupableIds)
     if (groupId) {
-      setListSelectedIds([groupId])
+      setListSelectedIds([groupId, ...childIds])
+      const [primary, ...rest] = childIds
+      if (primary) {
+        ui.selectElement(frameId, primary, {
+          preservePanelMode: true,
+          additionalElementIds: rest,
+        })
+      }
     }
   }
 
@@ -156,9 +196,17 @@ export function LayersPanel({
           return
         }
         event.preventDefault()
+        const childIds = [...groupableIds]
         const groupId = onGroupLayers(frameId, groupableIds)
         if (groupId) {
-          setListSelectedIds([groupId])
+          setListSelectedIds([groupId, ...childIds])
+          const [primary, ...rest] = childIds
+          if (primary) {
+            ui.selectElement(frameId, primary, {
+              preservePanelMode: true,
+              additionalElementIds: rest,
+            })
+          }
         }
         return
       }
@@ -182,7 +230,7 @@ export function LayersPanel({
     return () => {
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [frameId, groupableIds, onGroupLayers, onUngroupLayer, ungroupableIds])
+  }, [frameId, groupableIds, onGroupLayers, onUngroupLayer, ui, ungroupableIds])
 
   if (frameLayers.length === 0) {
     return (
@@ -253,7 +301,7 @@ export function LayersPanel({
           }
 
           if (layer.kind === "group") {
-            setListSelectedIds([layerId])
+            selectGroupWithChildren(layerId)
             return
           }
 

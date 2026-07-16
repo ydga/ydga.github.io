@@ -364,6 +364,22 @@ export function CanvasStage({
       ? selection.elementId
       : null
 
+  const selectedElementIds = useMemo(() => {
+    if (
+      selection.kind !== "element" ||
+      selection.pageId !== frameId
+    ) {
+      return new Set<string>()
+    }
+    const ids = new Set<string>([selection.elementId])
+    for (const id of selection.additionalElementIds ?? []) {
+      if (frameLayers.some((layer) => layer.id === id)) {
+        ids.add(id)
+      }
+    }
+    return ids
+  }, [frameId, frameLayers, selection])
+
   const selectedShapeLayer = useMemo(() => {
     if (!selectedElementId) {
       return null
@@ -1143,7 +1159,7 @@ export function CanvasStage({
                 displayScale={displayScale}
                 trimWidthPx={trimWidthPx}
                 trimHeightPx={trimHeightPx}
-                isSelected={selectedElementId === layer.id}
+                isSelected={selectedElementIds.has(layer.id)}
                 zIndex={z}
                 getFrameElement={getFrameElement}
                 onUpdate={(patch) => onUpdateShapeLayer(layer.id, patch)}
@@ -1166,7 +1182,7 @@ export function CanvasStage({
               trimHeightPx={trimHeightPx}
               snapGuideXs={snapGuides?.xs ?? null}
               snapGuideYs={snapGuides?.ys ?? null}
-              isSelected={selectedElementId === layer.id}
+              isSelected={selectedElementIds.has(layer.id)}
               zIndex={z}
               getFrameElement={getFrameElement}
               textLayerIdToBeginTyping={textLayerIdToBeginTyping}

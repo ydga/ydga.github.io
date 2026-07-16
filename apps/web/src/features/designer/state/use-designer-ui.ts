@@ -48,13 +48,26 @@ export function useDesignerUi() {
     (
       pageId: string,
       elementId: string,
-      options?: { preservePanelMode?: boolean }
+      options?: {
+        preservePanelMode?: boolean
+        additionalElementIds?: string[]
+      }
     ) => {
       setFrameEngagedId(null)
       if (options?.preservePanelMode) {
         preservePanelModeRef.current = true
       }
-      setSelection({ kind: "element", pageId, elementId })
+      const additional = options?.additionalElementIds?.filter(
+        (id) => id !== elementId
+      )
+      setSelection({
+        kind: "element",
+        pageId,
+        elementId,
+        ...(additional && additional.length > 0
+          ? { additionalElementIds: additional }
+          : {}),
+      })
     },
     []
   )
@@ -69,7 +82,8 @@ export function useDesignerUi() {
         if (
           prev.kind === "element" &&
           prev.pageId === pageId &&
-          prev.elementId === elementId
+          prev.elementId === elementId &&
+          !prev.additionalElementIds?.length
         ) {
           if (options?.preservePanelMode) {
             preservePanelModeRef.current = true

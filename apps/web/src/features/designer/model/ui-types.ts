@@ -7,6 +7,8 @@ export type ElementSelection = {
   kind: "element"
   pageId: string
   elementId: string
+  /** Extra selected element ids (e.g. other children when a group is selected). */
+  additionalElementIds?: string[]
 }
 
 export type Selection = PageSelection | ElementSelection
