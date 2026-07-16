@@ -1,5 +1,9 @@
 import type { TextLayer } from "@/features/designer/model/layers"
 import {
+  degToRad,
+  resolveLayerRotation,
+} from "@/features/designer/lib/layer-rotation"
+import {
   buildDisplayLines,
   lineAdvanceTrimPx,
   textLayerTextBlockHeightTrimPx,
@@ -149,13 +153,22 @@ export function drawTextLayersOnContext(
     )
 
     const clipPad = softWrap ? 0 : 3
+    const rotation = resolveLayerRotation(layer)
 
     context.save()
+    if (rotation) {
+      context.translate(x + maxWidth / 2, y + clipH / 2)
+      context.rotate(degToRad(rotation))
+      context.translate(-maxWidth / 2, -clipH / 2)
+    } else {
+      context.translate(x, y)
+    }
+
     if (shouldClip) {
       context.beginPath()
       context.rect(
-        x - clipPad,
-        y - clipPad,
+        -clipPad,
+        -clipPad,
         maxWidth + 2 * clipPad,
         clipH + 2 * clipPad
       )
@@ -165,17 +178,17 @@ export function drawTextLayersOnContext(
     context.textAlign = textAlign
     const alignX =
       textAlign === "center"
-        ? x + maxWidth / 2
+        ? maxWidth / 2
         : textAlign === "right"
-          ? x + maxWidth
-          : x
+          ? maxWidth
+          : 0
 
     const verticalOffset = verticalTextOffsetTrimPx(
       clipH,
       textLayerTextBlockHeightTrimPx(context, layer, maxWidth, softWrap),
       verticalAlign
     )
-    const yStart = y + verticalOffset
+    const yStart = verticalOffset
 
     let lineY = yStart
     for (const line of lines) {

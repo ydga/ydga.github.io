@@ -7,6 +7,12 @@ import type {
 import { resolveLinePoints } from "@/features/designer/model/line-geometry"
 import { backgroundSettingsToStyle } from "@/features/designer/lib/background-style"
 import {
+  angleFromCenterDegrees,
+  maybeSnapRotationDegrees,
+  resolveLayerRotation,
+  worldPointerToUnrotatedTrim,
+} from "@/features/designer/lib/layer-rotation"
+import {
   isShapeFillTransparent,
   resolveShapeLayerFillBackground,
   resolveShapeLayerOpacity,
@@ -20,8 +26,11 @@ import { cn } from "@workspace/ui/lib/utils"
 const MIN_W_TRIM = 8
 const MIN_H_TRIM = 8
 const HANDLE_STICK_OUT = "0.5rem / 6"
+/** How far outside each corner the rotate hit target sits (CSS). */
+const ROTATE_HANDLE_OUT = "0.75rem"
 
 type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w"
+type RotateCorner = "nw" | "ne" | "se" | "sw"
 
 type DragSession =
   | {
@@ -44,6 +53,15 @@ type DragSession =
       startY: number
       startW: number
       startH: number
+      startRotation: number
+    }
+  | {
+      kind: "rotate"
+      pointerId: number
+      centerX: number
+      centerY: number
+      startRotation: number
+      startAngle: number
     }
 
 type ShapeLayerBoxProps = {
@@ -440,6 +458,33 @@ const HANDLES: Array<{
   },
 ]
 
+const ROTATE_HANDLES: Array<{
+  id: RotateCorner
+  className: string
+  transform: string
+}> = [
+  {
+    id: "nw",
+    className: "left-0 top-0",
+    transform: `translate(calc(-50% - ${ROTATE_HANDLE_OUT}), calc(-50% - ${ROTATE_HANDLE_OUT}))`,
+  },
+  {
+    id: "ne",
+    className: "left-full top-0",
+    transform: `translate(calc(-50% + ${ROTATE_HANDLE_OUT}), calc(-50% - ${ROTATE_HANDLE_OUT}))`,
+  },
+  {
+    id: "se",
+    className: "left-full top-full",
+    transform: `translate(calc(-50% + ${ROTATE_HANDLE_OUT}), calc(-50% + ${ROTATE_HANDLE_OUT}))`,
+  },
+  {
+    id: "sw",
+    className: "left-0 top-full",
+    transform: `translate(calc(-50% - ${ROTATE_HANDLE_OUT}), calc(-50% + ${ROTATE_HANDLE_OUT}))`,
+  },
+]
+
 export function ShapeLayerBox(props: ShapeLayerBoxProps) {
   if (
     props.layer.shapeType === "line" ||
@@ -470,6 +515,7 @@ function ClosedShapeLayerBox({
   const top = layer.y * displayScale
   const width = layer.width * displayScale
   const height = layer.height * displayScale
+  const rotation = resolveLayerRotation(layer)
 
   function endDrag() {
     dragSessionRef.current = null
@@ -514,10 +560,36 @@ function ClosedShapeLayerBox({
       return
     }
 
-    const next = applyResize(
-      session.handle,
+    if (session.kind === "rotate") {
+      const angle = angleFromCenterDegrees(
+        pt.x,
+        pt.y,
+        session.centerX,
+        session.centerY
+      )
+      const next = maybeSnapRotationDegrees(
+        session.startRotation + (angle - session.startAngle),
+        ev.shiftKey
+      )
+      onUpdate({ rotation: next })
+      return
+    }
+
+    const local = worldPointerToUnrotatedTrim(
       pt.x,
       pt.y,
+      {
+        x: session.startX,
+        y: session.startY,
+        w: session.startW,
+        h: session.startH,
+      },
+      session.startRotation
+    )
+    const next = applyResize(
+      session.handle,
+      local.x,
+      local.y,
       {
         x: session.startX,
         y: session.startY,
@@ -592,6 +664,43 @@ function ClosedShapeLayerBox({
       startY: layer.y,
       startW: layer.width,
       startH: layer.height,
+      startRotation: resolveLayerRotation(layer),
+    }
+    setIsDragging(true)
+
+    const el = event.currentTarget as HTMLElement
+    el.setPointerCapture(event.pointerId)
+
+    window.addEventListener("pointermove", onPointerMove)
+    window.addEventListener("pointerup", onPointerUp)
+    window.addEventListener("pointercancel", onPointerUp)
+  }
+
+  function startRotate(event: React.PointerEvent) {
+    if (event.button !== 0) {
+      return
+    }
+    event.stopPropagation()
+    event.preventDefault()
+    onSelect()
+
+    const pt = clientToTrim(
+      getFrameElement(),
+      event.clientX,
+      event.clientY,
+      displayScale
+    )
+    const centerX = layer.x + layer.width / 2
+    const centerY = layer.y + layer.height / 2
+    const startRotation = resolveLayerRotation(layer)
+
+    dragSessionRef.current = {
+      kind: "rotate",
+      pointerId: event.pointerId,
+      centerX,
+      centerY,
+      startRotation,
+      startAngle: angleFromCenterDegrees(pt.x, pt.y, centerX, centerY),
     }
     setIsDragging(true)
 
@@ -610,11 +719,22 @@ function ClosedShapeLayerBox({
         "pointer-events-auto absolute touch-none overflow-visible",
         !isDragging && "cursor-move"
       )}
-      style={{ left, top, width, height, zIndex }}
+      style={{
+        left,
+        top,
+        width,
+        height,
+        zIndex,
+        transform: rotation ? `rotate(${rotation}deg)` : undefined,
+        transformOrigin: "center center",
+      }}
       onPointerDown={(event) => {
         const target = event.target as HTMLElement
-        // Resize handles manage their own gesture — do not start a move.
-        if (target.closest("[data-designer-shape-handle]")) {
+        // Resize / rotate handles manage their own gesture — do not start a move.
+        if (
+          target.closest("[data-designer-shape-handle]") ||
+          target.closest("[data-designer-shape-rotate]")
+        ) {
           event.stopPropagation()
           return
         }
@@ -638,6 +758,20 @@ function ClosedShapeLayerBox({
             aria-hidden
             className="pointer-events-none absolute inset-0 border border-[#7c3aed]"
           />
+          {ROTATE_HANDLES.map(({ id, className, transform }) => (
+            <button
+              key={`rotate-${id}`}
+              type="button"
+              data-designer-shape-rotate
+              aria-label={`Rotate ${layer.name}`}
+              className={cn(
+                "absolute z-10 size-4 rounded-full touch-none cursor-grab active:cursor-grabbing hover:bg-[#7c3aed]/15",
+                className
+              )}
+              style={{ transform }}
+              onPointerDown={startRotate}
+            />
+          ))}
           {HANDLES.map(({ id, className, cursor }) => (
             <button
               key={id}

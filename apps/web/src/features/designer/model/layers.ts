@@ -67,6 +67,8 @@ export type TextLayer = {
    * the previous width:height ratio. Default false.
    */
   maintainBoundsAspect?: boolean
+  /** Rotation in degrees around the box center. Default 0. */
+  rotation?: number
   /** When set, this layer is nested under a {@link GroupLayer}. */
   parentId?: string
 }
@@ -98,6 +100,7 @@ export type TextLayerUpdatePatch = Partial<
     | "textTransform"
     | "clip"
     | "maintainBoundsAspect"
+    | "rotation"
     | "parentId"
   >
 >
@@ -133,6 +136,8 @@ export type ShapeLayer = {
   opacity?: number
   /** When false, layer is hidden on canvas and export. Default true. */
   visible?: boolean
+  /** Rotation in degrees around the box center. Default 0. */
+  rotation?: number
   /** When set, this layer is nested under a {@link GroupLayer}. */
   parentId?: string
 }
@@ -154,6 +159,7 @@ export type ShapeLayerUpdatePatch = Partial<
     | "strokeGap"
     | "opacity"
     | "visible"
+    | "rotation"
     | "parentId"
   >
 >

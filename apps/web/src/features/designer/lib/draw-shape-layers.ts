@@ -1,6 +1,10 @@
 import type { ShapeLayer } from "@/features/designer/model/layers"
 import { renderBackgroundInClip } from "@/features/designer/lib/render-background"
 import {
+  degToRad,
+  resolveLayerRotation,
+} from "@/features/designer/lib/layer-rotation"
+import {
   isShapeFillTransparent,
   resolveShapeLayerFillBackground,
   resolveShapeLayerOpacity,
@@ -156,6 +160,12 @@ export async function drawShapeLayersOnContext(
 
     context.save()
     context.translate(trimOffsetPx + layer.x, trimOffsetPx + layer.y)
+    const rotation = resolveLayerRotation(layer)
+    if (rotation) {
+      context.translate(layer.width / 2, layer.height / 2)
+      context.rotate(degToRad(rotation))
+      context.translate(-layer.width / 2, -layer.height / 2)
+    }
     await drawShapeOnContext(context, layer, layer.width, layer.height)
     context.restore()
   }

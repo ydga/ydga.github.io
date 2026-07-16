@@ -17,6 +17,12 @@ import {
   snapTextLayerBoxTrimPx,
 } from "@/features/designer/lib/guide-snap"
 import {
+  angleFromCenterDegrees,
+  maybeSnapRotationDegrees,
+  resolveLayerRotation,
+  worldPointerToUnrotatedTrim,
+} from "@/features/designer/lib/layer-rotation"
+import {
   measureTextLayerContentBox,
   textLayerTextBlockHeightTrimPx,
   textLineHeightTrimPx,
@@ -50,8 +56,11 @@ const MIN_H_TRIM = 36
  * Keep in sync with {@link handleBase}.
  */
 const HANDLE_STICK_OUT = "0.5rem / 6"
+/** How far outside each corner the rotate hit target sits (CSS). */
+const ROTATE_HANDLE_OUT = "0.75rem"
 
 type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w"
+type RotateCorner = "nw" | "ne" | "se" | "sw"
 
 type DragSession =
   | {
@@ -74,6 +83,15 @@ type DragSession =
       startY: number
       startW: number
       startH: number
+      startRotation: number
+    }
+  | {
+      kind: "rotate"
+      pointerId: number
+      centerX: number
+      centerY: number
+      startRotation: number
+      startAngle: number
     }
 
 type TextLayerBoxProps = {
@@ -562,10 +580,37 @@ export function TextLayerBox({
         return
       }
 
-      const next = applyResizeWithAspectLock(
-        session.handle,
+      if (session.kind === "rotate") {
+        const angle = angleFromCenterDegrees(
+          px,
+          py,
+          session.centerX,
+          session.centerY
+        )
+        onUpdate({
+          rotation: maybeSnapRotationDegrees(
+            session.startRotation + (angle - session.startAngle),
+            event.shiftKey
+          ),
+        })
+        return
+      }
+
+      const local = worldPointerToUnrotatedTrim(
         px,
         py,
+        {
+          x: session.startX,
+          y: session.startY,
+          w: session.startW,
+          h: session.startH,
+        },
+        session.startRotation
+      )
+      const next = applyResizeWithAspectLock(
+        session.handle,
+        local.x,
+        local.y,
         {
           x: session.startX,
           y: session.startY,
@@ -685,6 +730,37 @@ export function TextLayerBox({
       startY: layer.y,
       startW: layer.width,
       startH: boxHeightTrim,
+      startRotation: resolveLayerRotation(layer),
+    }
+    const el = event.currentTarget as HTMLElement
+    pointerCaptureRef.current = el
+    el.setPointerCapture(event.pointerId)
+  }
+
+  function startRotate(event: React.PointerEvent) {
+    if (event.button !== 0) {
+      return
+    }
+    event.stopPropagation()
+    event.preventDefault()
+    setTextEditing(false)
+    onSelect()
+    const trim = clientToTrim(
+      getFrameElement(),
+      event.clientX,
+      event.clientY,
+      displayScale
+    )
+    const centerX = layer.x + layer.width / 2
+    const centerY = layer.y + boxHeightTrim / 2
+    const startRotation = resolveLayerRotation(layer)
+    dragRef.current = {
+      kind: "rotate",
+      pointerId: event.pointerId,
+      centerX,
+      centerY,
+      startRotation,
+      startAngle: angleFromCenterDegrees(trim.x, trim.y, centerX, centerY),
     }
     const el = event.currentTarget as HTMLElement
     pointerCaptureRef.current = el
@@ -693,6 +769,9 @@ export function TextLayerBox({
 
   const handleBase =
     "absolute z-30 box-border size-2 rounded-[1px] border border-[#7c3aed] bg-white touch-none"
+
+  const rotateHandleBase =
+    "absolute z-20 size-4 rounded-full touch-none cursor-grab active:cursor-grabbing hover:bg-[#7c3aed]/15"
 
   const cursorFor: Record<ResizeHandle, string> = {
     nw: "cursor-nwse-resize",
@@ -705,10 +784,38 @@ export function TextLayerBox({
     w: "cursor-ew-resize",
   }
 
+  const rotateHandles: Array<{
+    id: RotateCorner
+    className: string
+    transform: string
+  }> = [
+    {
+      id: "nw",
+      className: "top-0 left-0",
+      transform: `translate(calc(-50% - ${ROTATE_HANDLE_OUT}), calc(-50% - ${ROTATE_HANDLE_OUT}))`,
+    },
+    {
+      id: "ne",
+      className: "top-0 left-full",
+      transform: `translate(calc(-50% + ${ROTATE_HANDLE_OUT}), calc(-50% - ${ROTATE_HANDLE_OUT}))`,
+    },
+    {
+      id: "se",
+      className: "top-full left-full",
+      transform: `translate(calc(-50% + ${ROTATE_HANDLE_OUT}), calc(-50% + ${ROTATE_HANDLE_OUT}))`,
+    },
+    {
+      id: "sw",
+      className: "top-full left-0",
+      transform: `translate(calc(-50% - ${ROTATE_HANDLE_OUT}), calc(-50% + ${ROTATE_HANDLE_OUT}))`,
+    },
+  ]
+
   const left = layer.x * displayScale
   const top = layer.y * displayScale
   const width = layer.width * displayScale
   const height = boxHeightTrim * displayScale
+  const rotation = resolveLayerRotation(layer)
   const fontPx = resolveTextLayerFontSizePx(layer) * displayScale
   const fontFamily = resolveTextLayerFontFamily(layer)
   const fontWeight = resolveTextLayerFontWeight(layer)
@@ -735,6 +842,8 @@ export function TextLayerBox({
         height,
         zIndex,
         opacity: resolveTextLayerOpacity(layer),
+        transform: rotation ? `rotate(${rotation}deg)` : undefined,
+        transformOrigin: "center center",
       }}
       aria-label={
         isSelected
@@ -749,7 +858,10 @@ export function TextLayerBox({
           return
         }
         const t = event.target as HTMLElement
-        if (t.closest("[data-designer-text-handle]")) {
+        if (
+          t.closest("[data-designer-text-handle]") ||
+          t.closest("[data-designer-text-rotate]")
+        ) {
           return
         }
         flushSync(() => {
@@ -761,7 +873,10 @@ export function TextLayerBox({
       }}
       onPointerDown={(event) => {
         const target = event.target as HTMLElement
-        if (target.closest("[data-designer-text-handle]")) {
+        if (
+          target.closest("[data-designer-text-handle]") ||
+          target.closest("[data-designer-text-rotate]")
+        ) {
           return
         }
         if (target.closest("[data-designer-text-drag]")) {
@@ -778,7 +893,10 @@ export function TextLayerBox({
       }}
       onClick={(event) => {
         const target = event.target as HTMLElement
-        if (target.closest("[data-designer-text-handle]")) {
+        if (
+          target.closest("[data-designer-text-handle]") ||
+          target.closest("[data-designer-text-rotate]")
+        ) {
           event.stopPropagation()
           return
         }
@@ -932,6 +1050,17 @@ export function TextLayerBox({
             onPointerDown={startMove}
             onClick={(event) => event.stopPropagation()}
           />
+          {rotateHandles.map(({ id, className, transform }) => (
+            <button
+              key={`rotate-${id}`}
+              type="button"
+              data-designer-text-rotate
+              aria-label={`Rotate ${id}`}
+              className={cn(rotateHandleBase, className)}
+              style={{ transform }}
+              onPointerDown={startRotate}
+            />
+          ))}
           <button
             type="button"
             data-designer-text-handle
