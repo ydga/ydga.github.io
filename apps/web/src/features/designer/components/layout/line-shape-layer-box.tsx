@@ -156,26 +156,18 @@ export function LineShapeLayerBox({
         : DEFAULT_NODE_FALLBACK
   const clipId = `polygon-fill-clip-${layer.id}`
   const svgPoints = pointsToSvg(relativePoints, displayScale)
+  const activePointIndex =
+    isSelected &&
+    selectedPointIndex != null &&
+    selectedPointIndex < relativePoints.length
+      ? selectedPointIndex
+      : null
 
   useEffect(() => {
-    if (!isSelected) {
-      setSelectedPointIndex(null)
-    }
-  }, [isSelected])
-
-  useEffect(() => {
-    if (
-      selectedPointIndex != null &&
-      selectedPointIndex >= relativePoints.length
-    ) {
-      setSelectedPointIndex(null)
-    }
-  }, [relativePoints.length, selectedPointIndex])
-
-  useEffect(() => {
-    if (!isSelected || selectedPointIndex == null) {
+    if (!isSelected || activePointIndex == null) {
       return
     }
+    const pointIndex = activePointIndex
 
     function onKeyDown(event: KeyboardEvent) {
       if (isEditableKeyboardTarget(event.target)) {
@@ -206,11 +198,11 @@ export function LineShapeLayerBox({
       if (event.key === "ArrowDown") dy = step
 
       const abs = toAbsoluteLinePoints(layer)
-      const current = abs[selectedPointIndex!]
+      const current = abs[pointIndex]
       if (!current) {
         return
       }
-      abs[selectedPointIndex!] = clampPointToTrim(
+      abs[pointIndex] = clampPointToTrim(
         { x: current.x + dx, y: current.y + dy },
         trimWidthPx,
         trimHeightPx
@@ -223,10 +215,10 @@ export function LineShapeLayerBox({
       window.removeEventListener("keydown", onKeyDown, true)
     }
   }, [
+    activePointIndex,
     isSelected,
     layer,
     onUpdate,
-    selectedPointIndex,
     trimHeightPx,
     trimWidthPx,
   ])
@@ -501,7 +493,7 @@ export function LineShapeLayerBox({
 
       {isSelected
         ? relativePoints.map((point, index) => {
-            const isNodeSelected = selectedPointIndex === index
+            const isNodeSelected = activePointIndex === index
             return (
               <button
                 key={`${index}-${point.x}-${point.y}`}

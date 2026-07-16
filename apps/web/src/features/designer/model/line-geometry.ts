@@ -157,7 +157,7 @@ export function insertPointOnPolyline(
 }
 
 export function syncLineLayerFromAbsolutePoints(
-  layer: ShapeLayer,
+  _layer: ShapeLayer,
   absolutePoints: LinePoint[]
 ): Pick<ShapeLayer, "x" | "y" | "width" | "height" | "points"> {
   return boundsFromAbsolutePoints(absolutePoints)
