@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import type {
   ShapeLayer,
@@ -27,6 +27,9 @@ const DUPLICATE_MOVE_THRESHOLD_TRIM_PX = 2
 const CLICK_MOVE_THRESHOLD_TRIM_PX = 3
 const STROKE_HIT_MIN_SCREEN_PX = 14
 const DEFAULT_NODE_FALLBACK = "#c4b5fd"
+const NODE_NUDGE_PX = 1
+const NODE_NUDGE_SHIFT_PX = 10
+const SELECTED_NODE_BORDER = "#7c3aed"
 
 type LineDragSession =
   | {
@@ -99,6 +102,17 @@ function pointsToSvg(points: LinePoint[], displayScale: number) {
     .join(" ")
 }
 
+function isEditableKeyboardTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+  if (target.isContentEditable) {
+    return true
+  }
+  const tag = target.tagName
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
+}
+
 export function LineShapeLayerBox({
   layer,
   displayScale,
@@ -113,6 +127,9 @@ export function LineShapeLayerBox({
 }: LineShapeLayerBoxProps) {
   const dragSessionRef = useRef<LineDragSession | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(
+    null
+  )
 
   const relativePoints = resolveLinePoints(layer)
   const isPolygon = layer.shapeType === "polygon"
@@ -139,6 +156,80 @@ export function LineShapeLayerBox({
         : DEFAULT_NODE_FALLBACK
   const clipId = `polygon-fill-clip-${layer.id}`
   const svgPoints = pointsToSvg(relativePoints, displayScale)
+
+  useEffect(() => {
+    if (!isSelected) {
+      setSelectedPointIndex(null)
+    }
+  }, [isSelected])
+
+  useEffect(() => {
+    if (
+      selectedPointIndex != null &&
+      selectedPointIndex >= relativePoints.length
+    ) {
+      setSelectedPointIndex(null)
+    }
+  }, [relativePoints.length, selectedPointIndex])
+
+  useEffect(() => {
+    if (!isSelected || selectedPointIndex == null) {
+      return
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (isEditableKeyboardTarget(event.target)) {
+        return
+      }
+      if (
+        event.key !== "ArrowLeft" &&
+        event.key !== "ArrowRight" &&
+        event.key !== "ArrowUp" &&
+        event.key !== "ArrowDown"
+      ) {
+        if (event.key === "Escape") {
+          event.preventDefault()
+          setSelectedPointIndex(null)
+        }
+        return
+      }
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      const step = event.shiftKey ? NODE_NUDGE_SHIFT_PX : NODE_NUDGE_PX
+      let dx = 0
+      let dy = 0
+      if (event.key === "ArrowLeft") dx = -step
+      if (event.key === "ArrowRight") dx = step
+      if (event.key === "ArrowUp") dy = -step
+      if (event.key === "ArrowDown") dy = step
+
+      const abs = toAbsoluteLinePoints(layer)
+      const current = abs[selectedPointIndex!]
+      if (!current) {
+        return
+      }
+      abs[selectedPointIndex!] = clampPointToTrim(
+        { x: current.x + dx, y: current.y + dy },
+        trimWidthPx,
+        trimHeightPx
+      )
+      onUpdate(syncLineLayerFromAbsolutePoints(layer, abs))
+    }
+
+    window.addEventListener("keydown", onKeyDown, true)
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true)
+    }
+  }, [
+    isSelected,
+    layer,
+    onUpdate,
+    selectedPointIndex,
+    trimHeightPx,
+    trimWidthPx,
+  ])
 
   function endDrag() {
     dragSessionRef.current = null
@@ -252,6 +343,7 @@ export function LineShapeLayerBox({
     event.stopPropagation()
     event.preventDefault()
     onSelect()
+    setSelectedPointIndex(pointIndex)
 
     dragSessionRef.current = {
       kind: "point",
@@ -272,6 +364,7 @@ export function LineShapeLayerBox({
     event.stopPropagation()
     event.preventDefault()
     onSelect()
+    setSelectedPointIndex(null)
 
     const pt = clientToTrim(
       getFrameElement(),
@@ -407,37 +500,44 @@ export function LineShapeLayerBox({
       </svg>
 
       {isSelected
-        ? relativePoints.map((point, index) => (
-            <button
-              key={`${index}-${point.x}-${point.y}`}
-              type="button"
-              data-designer-line-node
-              aria-label={
-                index === 0
-                  ? isPolygon
-                    ? "Polygon vertex 1"
-                    : "Line start"
-                  : index === relativePoints.length - 1
+        ? relativePoints.map((point, index) => {
+            const isNodeSelected = selectedPointIndex === index
+            return (
+              <button
+                key={`${index}-${point.x}-${point.y}`}
+                type="button"
+                data-designer-line-node
+                data-selected={isNodeSelected ? "true" : undefined}
+                aria-label={
+                  index === 0
                     ? isPolygon
-                      ? `Polygon vertex ${index + 1}`
-                      : "Line end"
-                    : isPolygon
-                      ? `Polygon vertex ${index + 1}`
-                      : `Line point ${index + 1}`
-              }
-              className="pointer-events-auto absolute z-10 box-border size-2 rounded-[1px] border touch-none"
-              style={{
-                left: point.x * displayScale,
-                top: point.y * displayScale,
-                transform: "translate(-50%, -50%)",
-                cursor: "move",
-                backgroundColor: nodeColor,
-                borderColor: nodeColor,
-                opacity,
-              }}
-              onPointerDown={(event) => startPointDrag(index, event)}
-            />
-          ))
+                      ? "Polygon vertex 1"
+                      : "Line start"
+                    : index === relativePoints.length - 1
+                      ? isPolygon
+                        ? `Polygon vertex ${index + 1}`
+                        : "Line end"
+                      : isPolygon
+                        ? `Polygon vertex ${index + 1}`
+                        : `Line point ${index + 1}`
+                }
+                aria-pressed={isNodeSelected}
+                className="pointer-events-auto absolute z-10 box-border size-2 rounded-[1px] border touch-none"
+                style={{
+                  left: point.x * displayScale,
+                  top: point.y * displayScale,
+                  transform: "translate(-50%, -50%)",
+                  cursor: "move",
+                  backgroundColor: isNodeSelected ? "#ffffff" : nodeColor,
+                  borderColor: isNodeSelected
+                    ? SELECTED_NODE_BORDER
+                    : nodeColor,
+                  opacity,
+                }}
+                onPointerDown={(event) => startPointDrag(index, event)}
+              />
+            )
+          })
         : null}
     </div>
   )
