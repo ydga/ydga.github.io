@@ -1078,7 +1078,8 @@ export function CanvasStage({
                   Math.max(10 / displayScale, 8)
               return pts.map((p, i) => {
                 const isCloseTarget = closeable && i === 0
-                const size = hoveringClose && isCloseTarget ? 10 : isCloseTarget ? 8 : 6
+                // Match shape/text handle size (`size-2` = 8px); close target stays same size.
+                const size = 8
                 return (
                   <rect
                     key={`${i}-${p.x}-${p.y}`}
@@ -1086,9 +1087,10 @@ export function CanvasStage({
                     y={p.y * displayScale - size / 2}
                     width={size}
                     height={size}
+                    rx={1}
                     fill={hoveringClose && isCloseTarget ? "#fff" : "#7c3aed"}
                     stroke="#7c3aed"
-                    strokeWidth={isCloseTarget ? 2 : 0}
+                    strokeWidth={isCloseTarget ? 1.5 : 0}
                   />
                 )
               })

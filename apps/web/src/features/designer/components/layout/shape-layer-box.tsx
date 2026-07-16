@@ -645,7 +645,7 @@ function ClosedShapeLayerBox({
               data-designer-shape-handle
               aria-label={`Resize ${layer.name}`}
               className={cn(
-                "absolute z-20 size-2.5 rounded-sm border border-[#7c3aed] bg-white touch-none",
+                "absolute z-20 size-2 rounded-[1px] border border-[#7c3aed] bg-white touch-none",
                 className
               )}
               style={{ cursor, margin: `calc(-1 * (${HANDLE_STICK_OUT}))` }}

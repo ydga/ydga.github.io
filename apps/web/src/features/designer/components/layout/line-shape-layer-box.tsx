@@ -25,7 +25,6 @@ import { cn } from "@workspace/ui/lib/utils"
 
 const DUPLICATE_MOVE_THRESHOLD_TRIM_PX = 2
 const CLICK_MOVE_THRESHOLD_TRIM_PX = 3
-const NODE_HIT_SCREEN_PX = 10
 const STROKE_HIT_MIN_SCREEN_PX = 14
 const DEFAULT_NODE_FALLBACK = "#c4b5fd"
 
@@ -131,7 +130,6 @@ export function LineShapeLayerBox({
     strokeWidth * displayScale,
     STROKE_HIT_MIN_SCREEN_PX
   )
-  const nodeSize = NODE_HIT_SCREEN_PX
   const strokeDasharray = dasharray ? dasharray.join(" ") : undefined
   const nodeColor =
     stroke !== "transparent"
@@ -427,10 +425,8 @@ export function LineShapeLayerBox({
                       ? `Polygon vertex ${index + 1}`
                       : `Line point ${index + 1}`
               }
-              className="pointer-events-auto absolute z-10 rounded-sm border"
+              className="pointer-events-auto absolute z-10 box-border size-2 rounded-[1px] border touch-none"
               style={{
-                width: nodeSize,
-                height: nodeSize,
                 left: point.x * displayScale,
                 top: point.y * displayScale,
                 transform: "translate(-50%, -50%)",
