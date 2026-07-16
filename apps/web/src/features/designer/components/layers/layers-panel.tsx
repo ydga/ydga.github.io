@@ -141,17 +141,16 @@ export function LayersPanel({
         return
       }
       if (
-        !event.shiftKey ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey
+        !(event.metaKey || event.ctrlKey) ||
+        event.altKey ||
+        event.shiftKey
       ) {
         return
       }
 
       const key = event.key.toLowerCase()
 
-      // Shift+G groups the current multi-selection.
+      // ⌘/Ctrl+G groups the current multi-selection.
       if (key === "g") {
         if (groupableIds.length < 2) {
           return
@@ -164,7 +163,7 @@ export function LayersPanel({
         return
       }
 
-      // Shift+U ungroups the selected group (or a child's parent group).
+      // ⌘/Ctrl+U ungroups the selected group (or a child's parent group).
       if (key === "u") {
         if (ungroupableIds.length === 0) {
           return
@@ -218,7 +217,7 @@ export function LayersPanel({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left">
-            Group selected layers (⇧G)
+            Group selected layers (⌘G)
           </TooltipContent>
         </Tooltip>
         <Tooltip>
@@ -236,7 +235,7 @@ export function LayersPanel({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left">
-            Ungroup selected (⇧U)
+            Ungroup selected (⌘U)
           </TooltipContent>
         </Tooltip>
       </div>
