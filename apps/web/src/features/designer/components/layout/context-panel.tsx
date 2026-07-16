@@ -170,7 +170,7 @@ export function ContextPanel({
             <div
               className={cn(
                 "min-h-0 flex-1 overflow-y-auto overscroll-contain",
-                panelPaddingClassName
+                contextPanelMode === "layers" ? "p-2" : panelPaddingClassName
               )}
             >
               {contextPanelMode === "layers" ? (

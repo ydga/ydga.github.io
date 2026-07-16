@@ -44,7 +44,7 @@ type LayerListProps = {
 }
 
 const layerActionClassName = cn(
-  "flex size-6 shrink-0 items-center justify-center rounded-md transition-colors",
+  "flex size-5 shrink-0 items-center justify-center rounded-sm transition-colors",
   "text-muted-foreground hover:bg-muted hover:text-foreground",
   "focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
 )
@@ -124,7 +124,7 @@ export function LayerList({
   }
 
   return (
-    <ul className="flex flex-col gap-1" role="listbox" aria-label="Layers">
+    <ul className="flex flex-col gap-0.5" role="listbox" aria-label="Layers">
       {rows.map(({ layer, depth }) => {
         const isDragging = dragLayerId === layer.id
         const isDropTarget = dropLayerId === layer.id && dragLayerId !== layer.id
@@ -139,14 +139,14 @@ export function LayerList({
             role="option"
             aria-selected={isSelected}
             className={cn(
-              "group/layer rounded-xl border border-transparent transition-colors",
+              "group/layer rounded-md border border-transparent transition-colors",
               isSelected ? "bg-active" : "bg-muted/40",
               isDropTarget && "border-dashed border-ring",
               isDragging && "opacity-50",
               !isVisible && "opacity-70",
               !isEditing && "cursor-pointer"
             )}
-            style={{ marginLeft: depth > 0 ? depth * 12 : undefined }}
+            style={{ marginLeft: depth > 0 ? depth * 10 : undefined }}
             onDragOver={(event) => {
               event.preventDefault()
               setDropLayerId(layer.id)
@@ -178,7 +178,7 @@ export function LayerList({
               })
             }}
           >
-            <div className="flex items-center gap-1 px-1.5 py-1">
+            <div className="flex items-center gap-0.5 px-1 py-0.5">
               <button
                 type="button"
                 draggable={!isEditing}
@@ -189,7 +189,9 @@ export function LayerList({
                 }
                 className={cn(
                   layerActionClassName,
-                  layer.kind === "group" ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
+                  layer.kind === "group"
+                    ? "cursor-pointer"
+                    : "cursor-grab active:cursor-grabbing",
                   isSelected &&
                     "text-active-foreground hover:bg-active-foreground/10"
                 )}
@@ -210,7 +212,7 @@ export function LayerList({
                 }}
                 onDragEnd={resetDragState}
               >
-                <LayerIcon className="size-3.5" aria-hidden />
+                <LayerIcon className="size-3" aria-hidden />
               </button>
 
               {isEditing ? (
@@ -219,7 +221,7 @@ export function LayerList({
                   value={editingName}
                   aria-label={`Rename ${layer.name}`}
                   className={cn(
-                    "min-w-0 flex-1 rounded-md border border-ring/40 bg-background px-1 py-0.5 text-xs font-medium outline-none",
+                    "min-w-0 flex-1 rounded-sm border border-ring/40 bg-background px-1 py-0 text-[11px] font-medium outline-none",
                     isSelected && "text-foreground"
                   )}
                   onChange={(event) => setEditingName(event.target.value)}
@@ -242,7 +244,7 @@ export function LayerList({
                 <button
                   type="button"
                   className={cn(
-                    "min-w-0 flex-1 truncate px-1 py-0.5 text-left text-xs font-medium",
+                    "min-w-0 flex-1 truncate px-0.5 py-0 text-left text-[11px] font-medium leading-5",
                     isSelected ? "text-active-foreground" : "",
                     !isVisible && "text-muted-foreground"
                   )}
@@ -284,9 +286,9 @@ export function LayerList({
                       }}
                     >
                       {isVisible ? (
-                        <Eye className="size-3.5" aria-hidden />
+                        <Eye className="size-3" aria-hidden />
                       ) : (
-                        <EyeOff className="size-3.5" aria-hidden />
+                        <EyeOff className="size-3" aria-hidden />
                       )}
                     </button>
                   </TooltipTrigger>
@@ -316,7 +318,7 @@ export function LayerList({
                         onRemoveLayer?.(layer.id)
                       }}
                     >
-                      <Trash2 className="size-3.5" aria-hidden />
+                      <Trash2 className="size-3" aria-hidden />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="left">

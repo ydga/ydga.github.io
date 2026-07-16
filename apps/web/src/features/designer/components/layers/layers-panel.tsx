@@ -95,15 +95,15 @@ export function LayersPanel({
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-end gap-1">
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-end">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+              className="h-6 gap-1 px-1.5 text-[11px] text-muted-foreground"
               disabled={!canGroup}
               onClick={() => {
                 const groupId = onGroupLayers(frameId, selectedLayerIds)
@@ -112,7 +112,7 @@ export function LayersPanel({
                 }
               }}
             >
-              <FolderPlus className="size-3.5" aria-hidden />
+              <FolderPlus className="size-3" aria-hidden />
               Group
             </Button>
           </TooltipTrigger>
