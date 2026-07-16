@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { FolderPlus, Layers } from "lucide-react"
+import { FolderMinus, FolderPlus, Layers } from "lucide-react"
 
 import { LayerList } from "@/features/designer/components/layers/layer-list"
 import {
@@ -94,6 +94,25 @@ export function LayersPanel({
   )
   const canGroup = groupableIds.length >= 2
 
+  const ungroupableIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const id of selectedLayerIds) {
+      const layer = frameLayers.find((item) => item.id === id)
+      if (!layer) {
+        continue
+      }
+      if (layer.kind === "group") {
+        ids.add(layer.id)
+        continue
+      }
+      if (isDrawableLayer(layer) && layer.parentId) {
+        ids.add(layer.parentId)
+      }
+    }
+    return [...ids]
+  }, [frameLayers, selectedLayerIds])
+  const canUngroup = ungroupableIds.length > 0
+
   function groupSelection() {
     if (!canGroup) {
       return
@@ -104,14 +123,24 @@ export function LayersPanel({
     }
   }
 
+  function ungroupSelection() {
+    if (!canUngroup) {
+      return
+    }
+    for (const groupId of ungroupableIds) {
+      onUngroupLayer(groupId)
+    }
+    setListSelectedIds((current) =>
+      current.filter((id) => !ungroupableIds.includes(id))
+    )
+  }
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (isEditableKeyboardTarget(event.target)) {
         return
       }
-      // Shift+G groups the current multi-selection.
       if (
-        event.key.toLowerCase() !== "g" ||
         !event.shiftKey ||
         event.metaKey ||
         event.ctrlKey ||
@@ -119,13 +148,34 @@ export function LayersPanel({
       ) {
         return
       }
-      if (groupableIds.length < 2) {
+
+      const key = event.key.toLowerCase()
+
+      // Shift+G groups the current multi-selection.
+      if (key === "g") {
+        if (groupableIds.length < 2) {
+          return
+        }
+        event.preventDefault()
+        const groupId = onGroupLayers(frameId, groupableIds)
+        if (groupId) {
+          setListSelectedIds([groupId])
+        }
         return
       }
-      event.preventDefault()
-      const groupId = onGroupLayers(frameId, groupableIds)
-      if (groupId) {
-        setListSelectedIds([groupId])
+
+      // Shift+U ungroups the selected group (or a child's parent group).
+      if (key === "u") {
+        if (ungroupableIds.length === 0) {
+          return
+        }
+        event.preventDefault()
+        for (const groupId of ungroupableIds) {
+          onUngroupLayer(groupId)
+        }
+        setListSelectedIds((current) =>
+          current.filter((id) => !ungroupableIds.includes(id))
+        )
       }
     }
 
@@ -133,7 +183,7 @@ export function LayersPanel({
     return () => {
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [frameId, groupableIds, onGroupLayers])
+  }, [frameId, groupableIds, onGroupLayers, onUngroupLayer, ungroupableIds])
 
   if (frameLayers.length === 0) {
     return (
@@ -152,7 +202,7 @@ export function LayersPanel({
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -169,6 +219,24 @@ export function LayersPanel({
           </TooltipTrigger>
           <TooltipContent side="left">
             Group selected layers (⇧G)
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 gap-1 px-1.5 text-[11px] text-muted-foreground"
+              disabled={!canUngroup}
+              onClick={ungroupSelection}
+            >
+              <FolderMinus className="size-3" aria-hidden />
+              Ungroup
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            Ungroup selected (⇧U)
           </TooltipContent>
         </Tooltip>
       </div>
