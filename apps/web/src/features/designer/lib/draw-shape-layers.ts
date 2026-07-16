@@ -103,6 +103,36 @@ async function drawShapeOnContext(
       context.stroke()
       break
     }
+    case "polygon": {
+      const points =
+        layer.points && layer.points.length >= 3
+          ? layer.points
+          : [
+              { x: 0, y: 0 },
+              { x: w, y: 0 },
+              { x: w / 2, y: h },
+            ]
+      if (hasFill) {
+        await renderBackgroundInClip(context, w, h, fill, () => {
+          context.moveTo(points[0]!.x, points[0]!.y)
+          for (let i = 1; i < points.length; i++) {
+            context.lineTo(points[i]!.x, points[i]!.y)
+          }
+          context.closePath()
+        })
+      }
+      if (stroke !== "transparent") {
+        context.beginPath()
+        context.moveTo(points[0]!.x, points[0]!.y)
+        for (let i = 1; i < points.length; i++) {
+          context.lineTo(points[i]!.x, points[i]!.y)
+        }
+        context.closePath()
+        context.strokeStyle = stroke
+        context.stroke()
+      }
+      break
+    }
   }
 
   context.restore()

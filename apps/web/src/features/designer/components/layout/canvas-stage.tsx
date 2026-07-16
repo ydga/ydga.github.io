@@ -195,7 +195,8 @@ type CanvasStageProps = {
     trimY: number,
     trimWidth: number,
     trimHeight: number,
-    absolutePoints?: Array<{ x: number; y: number }>
+    absolutePoints?: Array<{ x: number; y: number }>,
+    shapeTypeOverride?: import("@/features/designer/model/layers").ShapeType
   ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void
@@ -459,7 +460,10 @@ export function CanvasStage({
   }, [])
 
   const commitPenSession = useCallback(
-    (lastNode?: { x: number; y: number } | null) => {
+    (
+      lastNode?: { x: number; y: number } | null,
+      options?: { asPolygon?: boolean }
+    ) => {
       const session = penSessionRef.current
       if (!session) {
         clearPenSession()
@@ -467,23 +471,28 @@ export function CanvasStage({
       }
 
       const points = session.points.map((p) => ({ ...p }))
-      const candidate =
-        lastNode ?? penCursorRef.current ?? points[points.length - 1] ?? null
+      const asPolygon = options?.asPolygon === true
 
-      if (candidate) {
-        const prev = points[points.length - 1]
-        if (
-          !prev ||
-          Math.hypot(prev.x - candidate.x, prev.y - candidate.y) >
-            TEXT_PLACE_TAP_TRIM_PX
-        ) {
-          points.push({ ...candidate })
-        } else {
-          points[points.length - 1] = { ...candidate }
+      if (!asPolygon) {
+        const candidate =
+          lastNode ?? penCursorRef.current ?? points[points.length - 1] ?? null
+
+        if (candidate) {
+          const prev = points[points.length - 1]
+          if (
+            !prev ||
+            Math.hypot(prev.x - candidate.x, prev.y - candidate.y) >
+              TEXT_PLACE_TAP_TRIM_PX
+          ) {
+            points.push({ ...candidate })
+          } else {
+            points[points.length - 1] = { ...candidate }
+          }
         }
       }
 
-      if (points.length < 2) {
+      const minPoints = asPolygon ? 3 : 2
+      if (points.length < minPoints) {
         clearPenSession()
         return
       }
@@ -500,7 +509,8 @@ export function CanvasStage({
         minY,
         Math.max(1, maxX - minX),
         Math.max(1, maxY - minY),
-        points
+        points,
+        asPolygon ? "polygon" : undefined
       )
       armSuppressFrameClickAfterPlace()
     },
@@ -596,14 +606,30 @@ export function CanvasStage({
         trimHeightPx
       )
 
-      // Pen tool: each click adds a node; double-click sets the last node and finishes.
+      // Pen tool: each click adds a node; click first node (≥3) closes into a polygon;
+      // double-click / Escape sets the last node and finishes an open path.
       if (isPenTool) {
+        const existing = penSessionRef.current
+        const first = existing?.points[0]
+        const closeHitTrimPx = Math.max(10 / displayScale, 8)
+
+        if (
+          existing &&
+          first &&
+          existing.points.length >= 3 &&
+          event.detail < 2 &&
+          Math.hypot(start.x - first.x, start.y - first.y) <= closeHitTrimPx
+        ) {
+          commitPenSession(null, { asPolygon: true })
+          return
+        }
+
         if (event.detail >= 2) {
           commitPenSession(start)
           return
         }
 
-        const session = penSessionRef.current ?? { points: [] }
+        const session = existing ?? { points: [] }
         session.points.push(start)
         penSessionRef.current = session
         penCursorRef.current = start
@@ -968,16 +994,33 @@ export function CanvasStage({
                 strokeDasharray="4 3"
               />
             ) : null}
-            {activePlacementPreview.points.map((p, i) => (
-              <rect
-                key={`${i}-${p.x}-${p.y}`}
-                x={p.x * displayScale - 3}
-                y={p.y * displayScale - 3}
-                width={6}
-                height={6}
-                fill="#7c3aed"
-              />
-            ))}
+            {(() => {
+              const pts = activePlacementPreview.points
+              const first = pts[0]
+              const cursor = activePlacementPreview.cursor
+              const closeable = pts.length >= 3 && first != null
+              const hoveringClose =
+                closeable &&
+                cursor != null &&
+                Math.hypot(cursor.x - first.x, cursor.y - first.y) <=
+                  Math.max(10 / displayScale, 8)
+              return pts.map((p, i) => {
+                const isCloseTarget = closeable && i === 0
+                const size = hoveringClose && isCloseTarget ? 10 : isCloseTarget ? 8 : 6
+                return (
+                  <rect
+                    key={`${i}-${p.x}-${p.y}`}
+                    x={p.x * displayScale - size / 2}
+                    y={p.y * displayScale - size / 2}
+                    width={size}
+                    height={size}
+                    fill={hoveringClose && isCloseTarget ? "#fff" : "#7c3aed"}
+                    stroke="#7c3aed"
+                    strokeWidth={isCloseTarget ? 2 : 0}
+                  />
+                )
+              })
+            })()}
           </svg>
         ) : activePlacementPreview.kind === "line" ? (
           <svg

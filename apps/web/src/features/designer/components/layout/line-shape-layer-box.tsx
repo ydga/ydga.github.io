@@ -13,17 +13,21 @@ import {
   type LinePoint,
 } from "@/features/designer/model/line-geometry"
 import {
+  isShapeFillTransparent,
+  resolveShapeLayerFillBackground,
   resolveShapeLayerOpacity,
   resolveShapeLayerStroke,
   resolveShapeLayerStrokeDasharray,
   resolveShapeLayerStrokeWidth,
 } from "@/features/designer/model/shape-layer-style"
+import { backgroundSettingsToStyle } from "@/features/designer/lib/background-style"
 import { cn } from "@workspace/ui/lib/utils"
 
 const DUPLICATE_MOVE_THRESHOLD_TRIM_PX = 2
 const CLICK_MOVE_THRESHOLD_TRIM_PX = 3
 const NODE_HIT_SCREEN_PX = 10
 const STROKE_HIT_MIN_SCREEN_PX = 14
+const DEFAULT_NODE_FALLBACK = "#c4b5fd"
 
 type LineDragSession =
   | {
@@ -112,6 +116,7 @@ export function LineShapeLayerBox({
   const [isDragging, setIsDragging] = useState(false)
 
   const relativePoints = resolveLinePoints(layer)
+  const isPolygon = layer.shapeType === "polygon"
   const left = layer.x * displayScale
   const top = layer.y * displayScale
   const width = Math.max(1, layer.width * displayScale)
@@ -119,6 +124,8 @@ export function LineShapeLayerBox({
   const stroke = resolveShapeLayerStroke(layer)
   const strokeWidth = resolveShapeLayerStrokeWidth(layer)
   const opacity = resolveShapeLayerOpacity(layer)
+  const fill = resolveShapeLayerFillBackground(layer)
+  const hasFill = isPolygon && !isShapeFillTransparent(layer)
   const dasharray = resolveShapeLayerStrokeDasharray(layer, displayScale)
   const hitStroke = Math.max(
     strokeWidth * displayScale,
@@ -126,6 +133,14 @@ export function LineShapeLayerBox({
   )
   const nodeSize = NODE_HIT_SCREEN_PX
   const strokeDasharray = dasharray ? dasharray.join(" ") : undefined
+  const nodeColor =
+    stroke !== "transparent"
+      ? stroke
+      : fill.type === "color"
+        ? fill.color
+        : DEFAULT_NODE_FALLBACK
+  const clipId = `polygon-fill-clip-${layer.id}`
+  const svgPoints = pointsToSvg(relativePoints, displayScale)
 
   function endDrag() {
     dragSessionRef.current = null
@@ -218,7 +233,12 @@ export function LineShapeLayerBox({
     if (session.kind === "stroke-pending") {
       // Click without drag: insert a midpoint on the nearest segment.
       const abs = toAbsoluteLinePoints(layer)
-      const inserted = insertPointOnPolyline(abs, session.clickAbsolute)
+      const inserted = insertPointOnPolyline(
+        abs,
+        session.clickAbsolute,
+        0.08,
+        isPolygon
+      )
       if (inserted) {
         onUpdate(syncLineLayerFromAbsolutePoints(layer, inserted))
       }
@@ -296,8 +316,6 @@ export function LineShapeLayerBox({
     window.addEventListener("pointercancel", onPointerUp)
   }
 
-  const svgPoints = pointsToSvg(relativePoints, displayScale)
-
   return (
     <div
       data-designer-shape-box
@@ -311,31 +329,83 @@ export function LineShapeLayerBox({
         height={height}
         aria-hidden
       >
-        {/* Wide invisible stroke for hit testing */}
-        <polyline
-          points={svgPoints}
-          fill="none"
-          stroke="transparent"
-          strokeWidth={hitStroke}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={cn(
-            "pointer-events-auto",
-            !isDragging && "cursor-move"
-          )}
-          onPointerDown={startStrokePointer}
-        />
-        <polyline
-          points={svgPoints}
-          fill="none"
-          stroke={stroke}
-          strokeWidth={strokeWidth * displayScale}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeDasharray={strokeDasharray}
-          opacity={opacity}
-          className="pointer-events-none"
-        />
+        {isPolygon ? (
+          <>
+            {hasFill ? (
+              <>
+                <defs>
+                  <clipPath id={clipId}>
+                    <polygon points={svgPoints} />
+                  </clipPath>
+                </defs>
+                <g clipPath={`url(#${clipId})`} opacity={opacity}>
+                  <foreignObject x={0} y={0} width={width} height={height}>
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        ...backgroundSettingsToStyle(fill),
+                      }}
+                    />
+                  </foreignObject>
+                </g>
+              </>
+            ) : null}
+            {/* Hit target covers the filled region */}
+            <polygon
+              points={svgPoints}
+              fill="transparent"
+              stroke="transparent"
+              strokeWidth={hitStroke}
+              strokeLinejoin="round"
+              className={cn(
+                "pointer-events-auto",
+                !isDragging && "cursor-move"
+              )}
+              onPointerDown={startStrokePointer}
+            />
+            {stroke !== "transparent" ? (
+              <polygon
+                points={svgPoints}
+                fill="none"
+                stroke={stroke}
+                strokeWidth={strokeWidth * displayScale}
+                strokeLinejoin="round"
+                strokeDasharray={strokeDasharray}
+                opacity={opacity}
+                className="pointer-events-none"
+              />
+            ) : null}
+          </>
+        ) : (
+          <>
+            {/* Wide invisible stroke for hit testing */}
+            <polyline
+              points={svgPoints}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={hitStroke}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={cn(
+                "pointer-events-auto",
+                !isDragging && "cursor-move"
+              )}
+              onPointerDown={startStrokePointer}
+            />
+            <polyline
+              points={svgPoints}
+              fill="none"
+              stroke={stroke}
+              strokeWidth={strokeWidth * displayScale}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeDasharray={strokeDasharray}
+              opacity={opacity}
+              className="pointer-events-none"
+            />
+          </>
+        )}
       </svg>
 
       {isSelected
@@ -346,10 +416,16 @@ export function LineShapeLayerBox({
               data-designer-line-node
               aria-label={
                 index === 0
-                  ? "Line start"
+                  ? isPolygon
+                    ? "Polygon vertex 1"
+                    : "Line start"
                   : index === relativePoints.length - 1
-                    ? "Line end"
-                    : `Line point ${index + 1}`
+                    ? isPolygon
+                      ? `Polygon vertex ${index + 1}`
+                      : "Line end"
+                    : isPolygon
+                      ? `Polygon vertex ${index + 1}`
+                      : `Line point ${index + 1}`
               }
               className="pointer-events-auto absolute z-10 rounded-sm border"
               style={{
@@ -359,8 +435,8 @@ export function LineShapeLayerBox({
                 top: point.y * displayScale,
                 transform: "translate(-50%, -50%)",
                 cursor: "move",
-                backgroundColor: stroke,
-                borderColor: stroke,
+                backgroundColor: nodeColor,
+                borderColor: nodeColor,
                 opacity,
               }}
               onPointerDown={(event) => startPointDrag(index, event)}

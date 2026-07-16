@@ -240,6 +240,16 @@ function ShapeFillBackground({
           {layer.shapeType === "triangle" ? (
             <polygon points={`${width / 2},0 ${width},${height} 0,${height}`} />
           ) : null}
+          {layer.shapeType === "polygon" ? (
+            <polygon
+              points={resolveLinePoints(layer)
+                .map(
+                  (p) =>
+                    `${(p.x / Math.max(1, layer.width)) * width},${(p.y / Math.max(1, layer.height)) * height}`
+                )
+                .join(" ")}
+            />
+          ) : null}
         </clipPath>
       </defs>
       <g clipPath={`url(#${clipId})`} opacity={opacity}>
@@ -353,6 +363,33 @@ function ShapePreview({
         />
       )
     }
+    case "polygon": {
+      const pts = resolveLinePoints(layer)
+      const scaleX = width / Math.max(1, layer.width)
+      const scaleY = height / Math.max(1, layer.height)
+      const svgPoints = pts
+        .map((p) => `${p.x * scaleX},${p.y * scaleY}`)
+        .join(" ")
+      return (
+        <>
+          <ShapeFillBackground
+            layer={layer}
+            width={width}
+            height={height}
+            opacity={opacity}
+          />
+          <polygon
+            points={svgPoints}
+            fill="none"
+            stroke={stroke !== "transparent" ? stroke : undefined}
+            strokeWidth={stroke !== "transparent" ? sw : 0}
+            strokeLinejoin="round"
+            strokeDasharray={strokeDasharray}
+            opacity={opacity}
+          />
+        </>
+      )
+    }
   }
 }
 
@@ -404,7 +441,11 @@ const HANDLES: Array<{
 ]
 
 export function ShapeLayerBox(props: ShapeLayerBoxProps) {
-  if (props.layer.shapeType === "line" || props.layer.shapeType === "pen") {
+  if (
+    props.layer.shapeType === "line" ||
+    props.layer.shapeType === "pen" ||
+    props.layer.shapeType === "polygon"
+  ) {
     return <LineShapeLayerBox {...props} />
   }
   return <ClosedShapeLayerBox {...props} />

@@ -54,7 +54,8 @@ type CanvasViewportProps = {
     trimY: number,
     trimWidth: number,
     trimHeight: number,
-    absolutePoints?: Array<{ x: number; y: number }>
+    absolutePoints?: Array<{ x: number; y: number }>,
+    shapeTypeOverride?: import("@/features/designer/model/layers").ShapeType
   ) => void
   onUpdateTextLayer: (layerId: string, patch: TextLayerUpdatePatch) => void
   onUpdateShapeLayer: (layerId: string, patch: ShapeLayerUpdatePatch) => void

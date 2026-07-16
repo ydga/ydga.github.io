@@ -33,17 +33,39 @@ const SHAPE_LABELS: Record<ShapeType, string> = {
   triangle: "Triangle",
   line: "Line",
   pen: "Pen",
+  polygon: "Polygon",
 }
 
 export function shapeLayerDisplayName(shapeType: ShapeType) {
   return SHAPE_LABELS[shapeType]
 }
 
-/** Lines and pen paths share polyline geometry / stroke editing. */
-export function isPolylineShapeType(shapeType: ShapeType) {
+/** Open paths that are stroke-only (no fill). */
+export function isOpenPathShapeType(shapeType: ShapeType) {
   return shapeType === "line" || shapeType === "pen"
 }
 
+export function isOpenPathShape(layer: ShapeLayer) {
+  return isOpenPathShapeType(layer.shapeType)
+}
+
+/** Shapes edited via polyline vertices (open paths + closed polygons). */
+export function isVertexEditableShapeType(shapeType: ShapeType) {
+  return (
+    shapeType === "line" || shapeType === "pen" || shapeType === "polygon"
+  )
+}
+
+export function isVertexEditableShape(layer: ShapeLayer) {
+  return isVertexEditableShapeType(layer.shapeType)
+}
+
+/** @deprecated Use {@link isOpenPathShapeType} */
+export function isPolylineShapeType(shapeType: ShapeType) {
+  return isOpenPathShapeType(shapeType) || shapeType === "polygon"
+}
+
+/** @deprecated Use {@link isOpenPathShape} / {@link isVertexEditableShape} */
 export function isPolylineShape(layer: ShapeLayer) {
   return isPolylineShapeType(layer.shapeType)
 }
@@ -53,7 +75,7 @@ function isLegacyFillString(fill: ShapeLayer["fill"]): fill is string {
 }
 
 export function resolveShapeLayerFillBackground(layer: ShapeLayer) {
-  if (isPolylineShape(layer)) {
+  if (isOpenPathShape(layer)) {
     return TRANSPARENT_SHAPE_FILL_BACKGROUND
   }
 
@@ -78,7 +100,7 @@ export function isShapeFillTransparent(layer: ShapeLayer) {
 }
 
 export function resolveShapeLayerStroke(layer: ShapeLayer) {
-  if (isPolylineShape(layer)) {
+  if (isOpenPathShape(layer)) {
     return layer.stroke ?? DEFAULT_SHAPE_STROKE
   }
   return layer.stroke ?? "transparent"

@@ -19,9 +19,9 @@ import {
   lineGeometryFromEndpoints,
 } from "@/features/designer/model/line-geometry"
 import {
+  isVertexEditableShapeType,
   resolveShapeLayerFillBackground,
   shapeLayerDisplayName,
-  isPolylineShapeType,
 } from "@/features/designer/model/shape-layer-style"
 import {
   DEFAULT_TEXT_COLOR,
@@ -119,7 +119,7 @@ export function useDesignerLayers() {
     let height = input.height
     let points: Array<{ x: number; y: number }> | undefined
 
-    if (isPolylineShapeType(input.shapeType)) {
+    if (isVertexEditableShapeType(input.shapeType)) {
       if (input.absolutePoints && input.absolutePoints.length >= 2) {
         const geometry = boundsFromAbsolutePoints(input.absolutePoints)
         x = geometry.x

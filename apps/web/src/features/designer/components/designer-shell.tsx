@@ -174,11 +174,12 @@ export function DesignerShell() {
       trimY: number,
       trimWidth: number,
       trimHeight: number,
-      absolutePoints?: Array<{ x: number; y: number }>
+      absolutePoints?: Array<{ x: number; y: number }>,
+      shapeTypeOverride?: import("@/features/designer/model/layers").ShapeType
     ) => {
       const id = layers.addShapeLayer({
         frameId: frames.activeFrameId,
-        shapeType: ui.shapeVariant,
+        shapeType: shapeTypeOverride ?? ui.shapeVariant,
         x: trimX,
         y: trimY,
         width: trimWidth,
@@ -186,12 +187,14 @@ export function DesignerShell() {
         absolutePoints,
       })
       ui.selectElement(frames.activeFrameId, id)
-      // Pen stays active so the next path can start immediately.
-      if (ui.shapeVariant !== "pen") {
-        queueMicrotask(() => {
-          ui.selectPointerTool()
-        })
+      // Pen stays active so the next open path can start immediately.
+      // Closing into a polygon selects the shape and returns to pointer.
+      if (ui.shapeVariant === "pen" && shapeTypeOverride !== "polygon") {
+        return
       }
+      queueMicrotask(() => {
+        ui.selectPointerTool()
+      })
     },
     [frames.activeFrameId, layers, ui]
   )

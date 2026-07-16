@@ -121,7 +121,8 @@ export function closestPointOnSegment(
 export function insertPointOnPolyline(
   absolutePoints: LinePoint[],
   click: LinePoint,
-  endpointSkipT = 0.08
+  endpointSkipT = 0.08,
+  closed = false
 ): LinePoint[] | null {
   if (absolutePoints.length < 2) {
     return null
@@ -129,10 +130,13 @@ export function insertPointOnPolyline(
 
   let bestIndex = -1
   let best: { point: LinePoint; t: number; dist: number } | null = null
+  const segmentCount = closed
+    ? absolutePoints.length
+    : absolutePoints.length - 1
 
-  for (let i = 0; i < absolutePoints.length - 1; i++) {
+  for (let i = 0; i < segmentCount; i++) {
     const a = absolutePoints[i]!
-    const b = absolutePoints[i + 1]!
+    const b = absolutePoints[(i + 1) % absolutePoints.length]!
     const hit = closestPointOnSegment(a, b, click)
     if (hit.t <= endpointSkipT || hit.t >= 1 - endpointSkipT) {
       continue
