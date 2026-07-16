@@ -607,25 +607,60 @@ export function CanvasStage({
       )
 
       // Pen tool: each click adds a node; click first node (≥3) closes into a polygon;
-      // double-click / Escape sets the last node and finishes an open path.
+      // double-click sets the last node and finishes an open path.
       if (isPenTool) {
         const existing = penSessionRef.current
         const first = existing?.points[0]
+        const last = existing?.points[existing.points.length - 1]
         const closeHitTrimPx = Math.max(10 / displayScale, 8)
+        const distFirst =
+          first != null
+            ? Math.hypot(start.x - first.x, start.y - first.y)
+            : Number.POSITIVE_INFINITY
+        const distLast =
+          last != null
+            ? Math.hypot(start.x - last.x, start.y - last.y)
+            : Number.POSITIVE_INFINITY
 
+        // Double-click: finalize with this point as the last node.
+        // (Also handled in onDoubleClick for browsers where pointerdown detail stays 1.)
+        if (event.detail >= 2) {
+          if (
+            existing &&
+            existing.points.length > 0 &&
+            distLast <= closeHitTrimPx
+          ) {
+            // First click of this double-click may have stacked a duplicate on the
+            // current last node — drop it so commit can set the true end point.
+            existing.points.pop()
+          }
+          commitPenSession(start)
+          return
+        }
+
+        // Click first node (≥3) closes into a polygon. Ignore when the click is on
+        // the current last node so double-click-to-finish still works.
         if (
           existing &&
           first &&
+          last &&
           existing.points.length >= 3 &&
-          event.detail < 2 &&
-          Math.hypot(start.x - first.x, start.y - first.y) <= closeHitTrimPx
+          distFirst <= closeHitTrimPx &&
+          distLast > closeHitTrimPx
         ) {
           commitPenSession(null, { asPolygon: true })
           return
         }
 
-        if (event.detail >= 2) {
-          commitPenSession(start)
+        // Clicking the current last node does not add another vertex — it keeps
+        // the path ready for a finishing double-click / Escape.
+        if (existing && last && distLast <= TEXT_PLACE_TAP_TRIM_PX) {
+          penCursorRef.current = last
+          setPlacementPreview({
+            kind: "pen",
+            points: existing.points,
+            cursor: last,
+          })
           return
         }
 
@@ -913,6 +948,43 @@ export function CanvasStage({
           }
           event.preventDefault()
           event.stopPropagation()
+          return
+        }
+
+        // Pen: finish open path with the double-click point as the last node.
+        // pointerdown detail is not reliable in all browsers, so this is the
+        // primary finish gesture when double-clicking the last node / canvas.
+        if (isPenTool) {
+          event.preventDefault()
+          event.stopPropagation()
+          if (!penSessionRef.current) {
+            return
+          }
+          const host = frameRef.current
+          if (!host) {
+            return
+          }
+          const pt = clampPointToTrim(
+            trimPointFromClient(
+              host,
+              event.clientX,
+              event.clientY,
+              displayScale
+            ),
+            trimWidthPx,
+            trimHeightPx
+          )
+          const session = penSessionRef.current
+          const last = session.points[session.points.length - 1]
+          if (
+            last &&
+            Math.hypot(pt.x - last.x, pt.y - last.y) <=
+              Math.max(10 / displayScale, 8)
+          ) {
+            // Second click of the double-click may have added a duplicate vertex.
+            session.points.pop()
+          }
+          commitPenSession(pt)
           return
         }
 
