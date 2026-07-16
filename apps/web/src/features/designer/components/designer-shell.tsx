@@ -6,7 +6,6 @@ import { useDesignerFrames } from "@/features/designer/state/use-designer-frames
 import { useDesignerLayers } from "@/features/designer/state/use-designer-layers"
 import { useDesignerUi } from "@/features/designer/state/use-designer-ui"
 import { useFrameNameSync } from "@/features/designer/state/use-page-name-sync"
-import { cn } from "@workspace/ui/lib/utils"
 
 function shouldLetFieldHandleDeleteKey(event: KeyboardEvent): boolean {
   const candidates = [event.target, document.activeElement]
@@ -216,30 +215,9 @@ export function DesignerShell() {
     [frames.activeFrameId, ui]
   )
 
-  const contextPanelProps = {
-    ui,
-    frames,
-    getCanvasForFrame,
-    onImageUpload: frames.setBackgroundImage,
-    layers: layers.layers,
-    activeFrameId: frames.activeFrameId,
-    onReorderLayers: layers.reorderLayers,
-    onUpdateTextLayer: layers.updateTextLayer,
-    onUpdateShapeLayer: layers.updateShapeLayer,
-    onRemoveLayer: layers.removeLayer,
-    onShapeFillImageUpload: layers.setShapeFillImage,
-  }
-
-  const dockedPanelOccupiesSpace = ui.panelPinned && ui.isPanelVisible
-
   return (
     <div className="relative h-svh overflow-hidden bg-background">
-      <div
-        className={cn(
-          "flex h-full min-h-0 pt-2 pb-2 pl-2",
-          !dockedPanelOccupiesSpace && "pr-2"
-        )}
-      >
+      <div className="flex h-full min-h-0 pt-2 pb-2 pl-2">
         <MainStage
           ui={ui}
           frames={frames}
@@ -274,18 +252,20 @@ export function DesignerShell() {
           onSelectShapeLayer={handleSelectShapeLayer}
         />
 
-        {ui.panelPinned ? (
-          <ContextPanel layout="docked" {...contextPanelProps} />
-        ) : null}
+        <ContextPanel
+          ui={ui}
+          frames={frames}
+          getCanvasForFrame={getCanvasForFrame}
+          onImageUpload={frames.setBackgroundImage}
+          layers={layers.layers}
+          activeFrameId={frames.activeFrameId}
+          onReorderLayers={layers.reorderLayers}
+          onUpdateTextLayer={layers.updateTextLayer}
+          onUpdateShapeLayer={layers.updateShapeLayer}
+          onRemoveLayer={layers.removeLayer}
+          onShapeFillImageUpload={layers.setShapeFillImage}
+        />
       </div>
-
-      {!ui.panelPinned && ui.isPanelVisible ? (
-        <div className="pointer-events-none absolute inset-y-2 right-2 z-40 flex w-[var(--panel-width)]">
-          <div className="pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden rounded-[18px] border border-border/30 bg-background shadow-xl">
-            <ContextPanel layout="floating" {...contextPanelProps} />
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }
