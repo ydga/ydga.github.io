@@ -21,10 +21,9 @@ export function useDesignerUi() {
     kind: "page",
     pageId: DEFAULT_FRAME_ID,
   })
-  const [frameEngagedId, setFrameEngagedId] = useState<string | null>(
-    DEFAULT_FRAME_ID
-  )
+  const [frameEngagedId, setFrameEngagedId] = useState<string | null>(null)
   const [panelOpen, setPanelOpen] = useState(true)
+  const [panelPinned, setPanelPinned] = useState(false)
   const [panelMode, setPanelMode] = useState<PanelMode>("layers")
   const [toolbarTool, setToolbarTool] = useState<ToolbarTool>("pointer")
   const [canvasTool, setCanvasToolState] = useState<CanvasTool>("select")
@@ -120,14 +119,14 @@ export function useDesignerUi() {
     setPanelOpen(true)
   }, [])
 
-  /** Switches panel mode and opens the panel. Collapsing is only via `togglePanel` (sidebar control). */
+  /** Switches panel mode and opens the panel. Pinning is only via `togglePanelPin`. */
   const togglePanelView = useCallback((view: PanelMode) => {
     setPanelMode(view)
     setPanelOpen(true)
   }, [])
 
-  const togglePanel = useCallback(() => {
-    setPanelOpen((open) => !open)
+  const togglePanelPin = useCallback(() => {
+    setPanelPinned((pinned) => !pinned)
   }, [])
 
   const effectiveScale = zoomMode === "fit" ? fitScale : manualZoom
@@ -140,20 +139,48 @@ export function useDesignerUi() {
   /** Keep the context panel in sync with toolbar tool and canvas selection. */
   useEffect(() => {
     queueMicrotask(() => {
+      if (toolbarTool === "export") {
+        setPanelMode("export")
+        if (panelPinned) {
+          setPanelOpen(true)
+        }
+        return
+      }
+
       if (toolbarTool === "pointer") {
-        setPanelMode(selection.kind === "page" ? "layers" : "document")
+        if (selection.kind === "element") {
+          setPanelMode("document")
+          setPanelOpen(true)
+          return
+        }
+
+        if (frameEngagedId === selection.pageId) {
+          setPanelMode("document")
+          if (panelPinned) {
+            setPanelOpen(true)
+          }
+          return
+        }
+
+        setPanelMode("layers")
+        return
+      }
+
+      if (selection.kind === "element") {
+        setPanelMode("document")
         setPanelOpen(true)
-        return
       }
-
-      if (selection.kind !== "element") {
-        return
-      }
-
-      setPanelMode("document")
-      setPanelOpen(true)
     })
-  }, [toolbarTool, selection])
+  }, [toolbarTool, selection, panelPinned, frameEngagedId])
+
+  const isFramePanelEngaged =
+    selection.kind === "page" && frameEngagedId === selection.pageId
+
+  const isPanelVisible = panelPinned
+    ? panelOpen
+    : selection.kind === "element" ||
+      isFramePanelEngaged ||
+      toolbarTool === "export"
 
   const zoomFit = useCallback(() => {
     setZoomMode("fit")
@@ -176,10 +203,12 @@ export function useDesignerUi() {
     selectPointerTool,
     panelOpen,
     setPanelOpen,
+    panelPinned,
+    isPanelVisible,
     panelMode,
     setPanelMode,
     togglePanelView,
-    togglePanel,
+    togglePanelPin,
     zoomMode,
     manualZoom,
     fitScale,
