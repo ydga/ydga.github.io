@@ -17,3 +17,10 @@
 
 - This monorepo is developed from `/Users/yadira/Documents/GitHub/ydga.github.io` on the primary machine.
 - Portfolio and case-study surfaces live in `apps/web` alongside the designer feature work.
+
+## Cursor Cloud specific instructions
+
+- Turborepo monorepo using npm workspaces (`apps/web` = Vite demo "Image Studio" designer; `packages/ui` = shadcn/ui components + Storybook). Node 22 is present. Dependencies are refreshed automatically by the startup update script (`npm install`).
+- Standard commands are documented in `README.md` and the root `package.json` scripts. Run them from the repo root: `npm run typecheck`, `npm run lint` (warnings only, no errors expected), `npm run build`, `npm run dev` (web app on port 5173), `npm run storybook` (port 6006), `npm run test-storybook`.
+- `npm run test-storybook` requires Playwright's Chromium browser. It is not part of the update script; install it once per fresh VM with `npx playwright install chromium --with-deps` before running the storybook tests.
+- GUI gotcha: the canvas-heavy web app crashes the default sandbox Chrome ("Aw, Snap!" / `ERR_INSUFFICIENT_RESOURCES`) due to a GPU-compositor incompatibility. The Vite server is fine. Launch Chrome with `--disable-gpu --disable-gpu-compositing --disable-software-rasterizer --disable-features=CanvasOopRasterization` to render it for manual testing.
